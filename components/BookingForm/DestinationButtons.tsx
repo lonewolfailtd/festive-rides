@@ -33,7 +33,7 @@ export function DestinationButtons({
         Where are you going? <span className="text-[var(--color-burgundy)]">*</span>
       </label>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         {DESTINATIONS.map((dest) => (
           <button
             key={dest.value}
@@ -41,20 +41,20 @@ export function DestinationButtons({
             onClick={() => onChange(dest.value)}
             className={clsx(
               'destination-button',
-              'flex flex-col items-center gap-2 min-h-[105px] justify-center',
+              'flex flex-col items-center gap-1 sm:gap-2 min-h-[95px] sm:min-h-[105px] justify-center px-2',
               selected === dest.value && 'selected'
             )}
             aria-label={`${dest.label}${selected === dest.value ? ' (Selected)' : ''}`}
             aria-pressed={selected === dest.value}
           >
-            <span className="text-3xl" aria-hidden="true">
+            <span className="text-2xl sm:text-3xl" aria-hidden="true">
               {dest.icon}
             </span>
-            <span className="text-sm font-semibold text-center leading-tight">
+            <span className="text-xs sm:text-sm font-semibold text-center leading-tight">
               {dest.label}
             </span>
             {selected === dest.value && (
-              <span className="text-xs font-semibold">
+              <span className="text-[10px] sm:text-xs font-semibold">
                 Selected
               </span>
             )}

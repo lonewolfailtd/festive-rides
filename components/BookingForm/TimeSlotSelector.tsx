@@ -31,7 +31,7 @@ export function TimeSlotSelector({
       )}
 
       {slots && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
           {TIME_SLOTS.map((slot) => {
             const slotInfo = slots[slot.time];
             const isBooked = slotInfo?.booked;
@@ -44,7 +44,7 @@ export function TimeSlotSelector({
                 disabled={isBooked}
                 onClick={() => !isBooked && onChange(slot.time)}
                 className={clsx(
-                  'slot-button relative min-h-[85px] flex flex-col items-center justify-center gap-1',
+                  'slot-button relative min-h-[75px] sm:min-h-[85px] flex flex-col items-center justify-center gap-1 text-sm sm:text-base',
                   isBooked && 'opacity-40 cursor-not-allowed bg-gray-100',
                   isSelected && 'selected'
                 )}
