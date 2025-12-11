@@ -102,7 +102,31 @@ export default function HomePage() {
             <h2 className="section-title text-center mb-8">
               Book Your Ride
             </h2>
-            <BookingForm />
+
+            {/* Check if event has passed */}
+            {new Date() > new Date('2025-12-14T00:00:00') ? (
+              <div className="bg-blue-50 border-l-4 border-blue-600 p-6 rounded-lg">
+                <h3 className="font-bold text-blue-800 text-lg mb-3">
+                  📅 Event Has Ended
+                </h3>
+                <p className="text-gray-700 leading-relaxed">
+                  Thank you for your interest in Festive Rides! Our December 13, 2025 community transport event has concluded.
+                </p>
+                <p className="text-gray-700 leading-relaxed mt-3">
+                  We hope to run similar community service initiatives in the future.
+                  Please check back or contact us at{' '}
+                  <a
+                    href="mailto:sammipetersen1720@yahoo.co.nz"
+                    className="text-blue-700 font-semibold underline hover:text-blue-800"
+                  >
+                    sammipetersen1720@yahoo.co.nz
+                  </a>
+                  {' '}to stay informed about upcoming events.
+                </p>
+              </div>
+            ) : (
+              <BookingForm />
+            )}
           </div>
 
           {/* Cancellation Link */}

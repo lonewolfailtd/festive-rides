@@ -64,21 +64,25 @@ export default function CancelPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden festive-background">
+    <>
+      {/* Festive gradient background */}
+      <div className="festive-gradient-bg" aria-hidden="true" />
+
+      {/* Snowfall effect */}
       <SnowfallEffect />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+      <main className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
           <FestiveHeader />
 
           {/* Cancellation Form Card */}
-          <div className="glass-card max-w-xl mx-auto fade-in-delay-1">
+          <div className="festive-card max-w-xl mx-auto fade-in-delay-1">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-festive-red/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">⚠️</span>
               </div>
               <h2 className="section-title mb-2">Cancel Your Booking</h2>
-              <p className="text-[var(--color-taupe)]">
+              <p className="text-[var(--color-charcoal)]">
                 We're sorry you can't make it. Please enter your booking details below.
               </p>
             </div>
@@ -154,8 +158,8 @@ export default function CancelPage() {
               </div>
 
               {/* Warning Notice */}
-              <div className="bg-festive-cream border-l-4 border-festive-red p-4 rounded">
-                <p className="text-sm text-festive-charcoal">
+              <div className="bg-orange-50 border-l-4 border-orange-600 p-4 rounded">
+                <p className="text-sm text-gray-800">
                   <strong>⚠️ Please note:</strong> Once cancelled, this time slot will be released
                   for other community members. You will need to make a new booking if you change your mind.
                 </p>
@@ -191,26 +195,30 @@ export default function CancelPage() {
               </div>
             </form>
           </div>
+
+          {/* Footer */}
+          <footer className="mt-12 mb-8 text-center text-[var(--color-soft-white)] fade-in-delay-4">
+            <div className="space-y-3 text-sm">
+              <p className="opacity-90">
+                Questions? Contact us at{' '}
+                <a
+                  href="mailto:sammipetersen1720@yahoo.co.nz"
+                  className="underline hover:text-[var(--color-mustard)] transition-colors font-medium"
+                >
+                  sammipetersen1720@yahoo.co.nz
+                </a>
+              </p>
+              <div className="flex items-center justify-center gap-3 opacity-75">
+                <div className="h-px w-8 bg-gradient-to-r from-transparent to-[var(--color-soft-white)]"></div>
+                <p className="text-xs tracking-wider">
+                  A COMMUNITY SERVICE INITIATIVE
+                </p>
+                <div className="h-px w-8 bg-gradient-to-l from-transparent to-[var(--color-soft-white)]"></div>
+              </div>
+            </div>
+          </footer>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-[var(--color-forest)]/5 backdrop-blur-sm py-6 text-center relative z-10 mt-12">
-        <div className="container mx-auto px-4">
-          <p className="text-[var(--color-taupe)] text-sm">
-            Questions? Contact us at{' '}
-            <a
-              href="mailto:sammipetersen1720@yahoo.co.nz"
-              className="text-[var(--color-forest)] hover:text-[var(--color-sage)] transition-colors font-medium"
-            >
-              sammipetersen1720@yahoo.co.nz
-            </a>
-          </p>
-          <p className="text-[var(--color-taupe)] text-xs mt-2 tracking-wider">
-            A COMMUNITY SERVICE INITIATIVE
-          </p>
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }

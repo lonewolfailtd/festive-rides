@@ -96,6 +96,29 @@ export function BookingForm() {
         </div>
       )}
 
+      {/* All Slots Booked Message */}
+      {totalAvailable === 0 && (
+        <div className="bg-red-50 border-l-4 border-red-600 p-6 rounded-lg fade-in-delay-1">
+          <h3 className="font-bold text-red-800 text-lg mb-3 flex items-center gap-2">
+            🚫 Fully Booked
+          </h3>
+          <p className="text-gray-700 leading-relaxed">
+            We're sorry, but all available time slots for December 13, 2025 are now fully booked.
+          </p>
+          <p className="text-gray-700 leading-relaxed mt-3">
+            If someone cancels their booking, their time slot will become available again.
+            Please check back later or contact us at{' '}
+            <a
+              href="mailto:sammipetersen1720@yahoo.co.nz"
+              className="text-red-700 font-semibold underline hover:text-red-800"
+            >
+              sammipetersen1720@yahoo.co.nz
+            </a>
+            {' '}if you need assistance.
+          </p>
+        </div>
+      )}
+
       {/* Passenger Name */}
       <div className="form-field">
         <label htmlFor="passenger_name" className="festive-label">
