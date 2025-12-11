@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('bookings')
       .update({
-        status: 'cancelled',
-      })
+        status: 'cancelled' as const,
+      } as any)
       .eq('id', booking.id);
 
     if (updateError) {
