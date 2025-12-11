@@ -14,6 +14,9 @@ export interface Booking {
   special_requirements?: string;
   booking_reference: string;
   status: BookingStatus;
+  verification_token?: string;
+  verification_token_expires_at?: string;
+  verified_at?: string;
 }
 
 export type DestinationCategory =
@@ -24,7 +27,7 @@ export type DestinationCategory =
   | 'whanau-visits'
   | 'other';
 
-export type BookingStatus = 'confirmed' | 'cancelled';
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
 
 export interface TimeSlot {
   time: string;

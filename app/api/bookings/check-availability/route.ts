@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { TIME_SLOTS } from '@/lib/utils/time-slots';
 import { SlotAvailability } from '@/types';
+import { withRateLimit } from '@/lib/rate-limit';
 
-export async function GET() {
-  try {
-    const supabase = createServerClient();
+export async function GET(request: NextRequest) {
+  // Apply rate limiting: 60 requests per minute per IP
+  return withRateLimit(request, 'availability', async () => {
+    try {
+      const supabase = createServerClient();
 
     // Fetch all confirmed bookings
     const { data: bookings, error } = await (supabase as any)
@@ -45,20 +48,21 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json({
-      slots,
-      totalAvailable,
-      lastUpdated: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Availability check error:', error);
-    return NextResponse.json(
-      {
-        error: 'An unexpected error occurred',
-      },
-      { status: 500 }
-    );
-  }
+      return NextResponse.json({
+        slots,
+        totalAvailable,
+        lastUpdated: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Availability check error:', error);
+      return NextResponse.json(
+        {
+          error: 'An unexpected error occurred',
+        },
+        { status: 500 }
+      );
+    }
+  });
 }
 
 // Enable runtime edge for faster responses

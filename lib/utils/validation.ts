@@ -67,6 +67,17 @@ export const bookingSchema = z.object({
     .trim()
     .optional()
     .or(z.literal('')),
+
+  // Security fields
+  honeypot: z
+    .string()
+    .optional()
+    .or(z.literal('')), // Should be empty for legitimate users
+
+  formLoadTime: z
+    .number()
+    .positive('Invalid form load time')
+    .optional(), // Timestamp when form was loaded
 });
 
 export type BookingFormData = z.infer<typeof bookingSchema>;

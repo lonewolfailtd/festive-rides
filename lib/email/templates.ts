@@ -2,7 +2,184 @@ import { Booking } from '@/types';
 import { formatTimeSlot } from '../utils/time-slots';
 
 /**
- * Email template for passenger confirmation
+ * Email template for verification request
+ */
+export function verificationEmailTemplate(booking: Booking): string {
+  const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify/${booking.verification_token}`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f9ff;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(to right, #C41E3A, #0F4C3A);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .verify-button {
+      display: block;
+      width: 100%;
+      max-width: 400px;
+      margin: 30px auto;
+      padding: 18px 30px;
+      background: linear-gradient(135deg, #C41E3A, #D4AF37);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+      transition: all 0.3s;
+    }
+    .verify-button:hover {
+      box-shadow: 0 6px 16px rgba(196, 30, 58, 0.4);
+      transform: translateY(-2px);
+    }
+    .details {
+      background: #fef3c7;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      border-left: 4px solid #D4AF37;
+    }
+    .details h2 {
+      margin-top: 0;
+      color: #2C2C2C;
+      font-size: 20px;
+    }
+    .detail-row {
+      margin: 12px 0;
+      line-height: 1.6;
+    }
+    .detail-label {
+      font-weight: bold;
+      color: #2C2C2C;
+    }
+    .important {
+      background: #fee2e2;
+      border-left: 4px solid #ef4444;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .important h3 {
+      margin-top: 0;
+      color: #991b1b;
+      font-size: 16px;
+    }
+    .footer {
+      text-align: center;
+      color: #6b7280;
+      margin-top: 30px;
+      font-size: 14px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 20px;
+    }
+    strong { color: #C41E3A; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/festive-rides-logo.png" alt="Festive Rides Logo" style="max-width: 350px; width: 100%; height: auto; margin: 0 auto 20px; display: block; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+      <h1>🎄 Verify Your Festive Ride Booking</h1>
+    </div>
+
+    <p style="font-size: 16px; line-height: 1.6;">Kia ora <strong>${booking.passenger_name}</strong>,</p>
+
+    <p style="font-size: 16px; line-height: 1.6;">
+      Thank you for booking a ride with Festive Rides! To confirm your booking, please verify your email address by clicking the button below:
+    </p>
+
+    <a href="${verificationUrl}" class="verify-button">
+      ✓ Verify My Booking
+    </a>
+
+    <div class="details">
+      <h2>📋 Booking Details</h2>
+      <div class="detail-row">
+        <span class="detail-label">Booking Reference:</span> <strong>${booking.booking_reference}</strong>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Date:</span> Saturday, December 13, 2025
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Pickup Time:</span> <strong>${formatTimeSlot(booking.time_slot)}</strong>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Pickup Address:</span> ${booking.pickup_address}
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Destination:</span> ${booking.destination_address}
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Number of Passengers:</span> ${booking.num_passengers}
+      </div>
+      ${
+        booking.special_requirements
+          ? `<div class="detail-row">
+               <span class="detail-label">Special Requirements:</span> ${booking.special_requirements}
+             </div>`
+          : ''
+      }
+    </div>
+
+    <div class="important">
+      <h3>⚠️ Important:</h3>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li style="margin: 8px 0; color: #7f1d1d;">This verification link will expire in <strong>24 hours</strong></li>
+        <li style="margin: 8px 0; color: #7f1d1d;">Your booking will be automatically cancelled if not verified within 24 hours</li>
+        <li style="margin: 8px 0; color: #7f1d1d;">Once verified, you'll receive a confirmation email with full details</li>
+      </ul>
+    </div>
+
+    <p style="font-size: 14px; line-height: 1.6; color: #6b7280; text-align: center;">
+      If the button doesn't work, copy and paste this link into your browser:<br>
+      <a href="${verificationUrl}" style="color: #C41E3A; word-break: break-all;">${verificationUrl}</a>
+    </p>
+
+    <p style="font-size: 14px; line-height: 1.6; color: #6b7280; text-align: center; margin-top: 20px;">
+      If you didn't request this booking, please ignore this email or contact us at
+      <a href="mailto:sammipetersen1720@yahoo.co.nz">sammipetersen1720@yahoo.co.nz</a>
+    </p>
+
+    <div class="footer">
+      <p><strong>Festive Rides</strong></p>
+      <p>Free Community Transport Service</p>
+      <p>the North Shore, Auckland • December 13, 2025</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Email template for passenger confirmation (after verification)
  */
 export function passengerConfirmationTemplate(booking: Booking): string {
   return `

@@ -75,9 +75,9 @@ export function BookingForm() {
         return;
       }
 
-      // Success - redirect to confirmation page
-      toast.success('Booking confirmed!');
-      router.push(`/confirmation?ref=${result.booking.booking_reference}`);
+      // Success - show verification message
+      toast.success('Please check your email to verify your booking');
+      router.push(`/booking-pending?ref=${result.booking.booking_reference}`);
     } catch (error) {
       console.error('Booking submission error:', error);
       toast.error('An unexpected error occurred. Please try again.');
