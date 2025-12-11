@@ -23,7 +23,7 @@ export function FestiveHeader() {
 
       {/* Subtitle */}
       <p className="festive-subtitle mb-4 sm:mb-6 text-sm sm:text-base">
-        Free Community Transport · North Auckland
+        Free Community Transport · the North Shore, Auckland
       </p>
 
       {/* Date and time with decorative elements */}

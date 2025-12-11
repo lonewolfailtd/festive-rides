@@ -20,12 +20,12 @@ const poppins = Poppins({
 
 // Metadata configuration
 export const metadata: Metadata = {
-  title: 'Festive Rides - Free Community Transport | North Auckland',
-  description: 'Book your free festive ride on December 13, 2025. Community transport service for North Auckland.',
+  title: 'Festive Rides - Free Community Transport | the North Shore, Auckland',
+  description: 'Book your free festive ride on December 13, 2025. Community transport service for the North Shore, Auckland.',
   metadataBase: new URL('http://localhost:3000'),
   openGraph: {
     title: 'Festive Rides - Free Community Transport',
-    description: 'Book your free festive ride on December 13, 2025. Community transport service for North Auckland.',
+    description: 'Book your free festive ride on December 13, 2025. Community transport service for the North Shore, Auckland.',
     type: 'website',
     locale: 'en_NZ',
     siteName: 'Festive Rides',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Festive Rides - Free Community Transport',
-    description: 'Book your free festive ride on December 13, 2025. Community transport service for North Auckland.',
+    description: 'Book your free festive ride on December 13, 2025. Community transport service for the North Shore, Auckland.',
     images: ['/og-image.png'],
   },
 }

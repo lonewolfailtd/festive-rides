@@ -27,7 +27,7 @@ export default function HomePage() {
               </h2>
               <div className="space-y-3 sm:space-y-4 text-[var(--color-charcoal)]">
                 <p className="text-base sm:text-lg leading-relaxed">
-                  We're offering <strong className="text-[var(--color-forest)] font-semibold">free community transport</strong> on Saturday, December 13th, 2025 for residents of North Auckland.
+                  We're offering <strong className="text-[var(--color-forest)] font-semibold">free community transport</strong> on Saturday, December 13th, 2025 for residents of the North Shore, Auckland.
                 </p>
                 <p className="text-sm sm:text-base leading-relaxed">
                   Whether you need to visit the doctor, attend church, do your Christmas shopping, or visit whānau, we're here to help you get there safely and comfortably.

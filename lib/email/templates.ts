@@ -148,7 +148,7 @@ export function passengerConfirmationTemplate(booking: Booking): string {
     <div class="footer">
       <p><strong>Festive Rides</strong></p>
       <p>Free Community Transport Service</p>
-      <p>North Auckland • December 13, 2025</p>
+      <p>the North Shore, Auckland • December 13, 2025</p>
       <p style="font-size: 12px; color: #9ca3af; margin-top: 10px;">
         This service is provided free of charge as our way of giving back to the community.
       </p>
