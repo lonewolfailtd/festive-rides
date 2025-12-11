@@ -8,12 +8,14 @@ import { toast } from 'sonner';
 import { bookingSchema, BookingFormData } from '@/lib/utils/validation';
 import { TimeSlotSelector } from './TimeSlotSelector';
 import { DestinationButtons } from './DestinationButtons';
+import { AddressInput } from './AddressInput';
 import { useSlotAvailability } from '@/hooks/useSlotAvailability';
 import { DestinationCategory } from '@/types';
 
 export function BookingForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const { slots, totalAvailable } = useSlotAvailability(10000);
 
   const {
@@ -79,17 +81,15 @@ export function BookingForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       {/* Availability Banner */}
       {slots && (
-        <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 text-center">
-          <p className="text-lg font-semibold text-amber-900">
+        <div className="availability-banner fade-in-delay-1">
+          <p className="availability-banner-text">
             {totalAvailable > 0 ? (
               <>
-                <span className="text-2xl">🎉</span> {totalAvailable} time{' '}
-                {totalAvailable === 1 ? 'slot' : 'slots'} still available!
+                {totalAvailable} time {totalAvailable === 1 ? 'slot' : 'slots'} remaining
               </>
             ) : (
               <>
-                <span className="text-2xl">😔</span> All time slots are fully
-                booked
+                All time slots are fully booked
               </>
             )}
           </p>
@@ -114,7 +114,7 @@ export function BookingForm() {
         />
         {errors.passenger_name && (
           <p id="passenger_name-error" className="error-message" role="alert">
-            ⚠ {errors.passenger_name.message}
+            {errors.passenger_name.message}
           </p>
         )}
       </div>
@@ -137,7 +137,7 @@ export function BookingForm() {
         />
         {errors.passenger_phone && (
           <p id="passenger_phone-error" className="error-message" role="alert">
-            ⚠ {errors.passenger_phone.message}
+            {errors.passenger_phone.message}
           </p>
         )}
       </div>
@@ -160,7 +160,7 @@ export function BookingForm() {
         />
         {errors.passenger_email && (
           <p id="passenger_email-error" className="error-message" role="alert">
-            ⚠ {errors.passenger_email.message}
+            {errors.passenger_email.message}
           </p>
         )}
       </div>
@@ -183,54 +183,26 @@ export function BookingForm() {
       />
 
       {/* Pickup Address */}
-      <div className="form-field">
-        <label htmlFor="pickup_address" className="festive-label">
-          Pickup Address <span className="text-festive-red">*</span>
-        </label>
-        <textarea
-          id="pickup_address"
-          className="festive-textarea"
-          placeholder="Enter your full street address, suburb, and postcode"
-          rows={3}
-          {...register('pickup_address')}
-          aria-invalid={errors.pickup_address ? 'true' : 'false'}
-          aria-describedby={
-            errors.pickup_address ? 'pickup_address-error' : undefined
-          }
-        />
-        {errors.pickup_address && (
-          <p id="pickup_address-error" className="error-message" role="alert">
-            ⚠ {errors.pickup_address.message}
-          </p>
-        )}
-      </div>
+      <AddressInput
+        id="pickup_address"
+        label="Pickup Address"
+        value={watch('pickup_address') || ''}
+        onChange={(value) => setValue('pickup_address', value, { shouldValidate: true })}
+        error={errors.pickup_address?.message}
+        placeholder="e.g., 123 Kauri Street, Albany, Auckland 0632"
+        required
+      />
 
       {/* Destination Address */}
-      <div className="form-field">
-        <label htmlFor="destination_address" className="festive-label">
-          Destination Address <span className="text-festive-red">*</span>
-        </label>
-        <textarea
-          id="destination_address"
-          className="festive-textarea"
-          placeholder="Enter the full destination address, suburb, and postcode"
-          rows={3}
-          {...register('destination_address')}
-          aria-invalid={errors.destination_address ? 'true' : 'false'}
-          aria-describedby={
-            errors.destination_address ? 'destination_address-error' : undefined
-          }
-        />
-        {errors.destination_address && (
-          <p
-            id="destination_address-error"
-            className="error-message"
-            role="alert"
-          >
-            ⚠ {errors.destination_address.message}
-          </p>
-        )}
-      </div>
+      <AddressInput
+        id="destination_address"
+        label="Destination Address"
+        value={watch('destination_address') || ''}
+        onChange={(value) => setValue('destination_address', value, { shouldValidate: true })}
+        error={errors.destination_address?.message}
+        placeholder="e.g., 456 Pohutukawa Avenue, Orewa, Auckland 0931"
+        required
+      />
 
       {/* Number of Passengers */}
       <div className="form-field">
@@ -241,7 +213,7 @@ export function BookingForm() {
           id="num_passengers"
           type="number"
           min="1"
-          max="8"
+          max="3"
           className="festive-input"
           {...register('num_passengers', { valueAsNumber: true })}
           aria-invalid={errors.num_passengers ? 'true' : 'false'}
@@ -250,11 +222,11 @@ export function BookingForm() {
           }
         />
         <p className="text-sm text-gray-600 mt-1">
-          Maximum 8 passengers per ride
+          Maximum 3 passengers per ride
         </p>
         {errors.num_passengers && (
           <p id="num_passengers-error" className="error-message" role="alert">
-            ⚠ {errors.num_passengers.message}
+            {errors.num_passengers.message}
           </p>
         )}
       </div>
@@ -283,16 +255,34 @@ export function BookingForm() {
             className="error-message"
             role="alert"
           >
-            ⚠ {errors.special_requirements.message}
+            {errors.special_requirements.message}
           </p>
         )}
+      </div>
+
+      {/* Terms Agreement Checkbox */}
+      <div className="pt-2">
+        <label className="flex items-start gap-3 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-festive-green focus:ring-festive-green focus:ring-offset-0 cursor-pointer"
+          />
+          <span className="text-xs text-gray-700 leading-tight">
+            I confirm that I will follow all road safety rules, remain seated with my seatbelt fastened,
+            and understand that this is a free community service. I agree to the service guidelines above
+            and will treat the vehicle and driver with respect. I understand that I am liable for any
+            damage caused to the vehicle during transport.
+          </span>
+        </label>
       </div>
 
       {/* Submit Button */}
       <div className="pt-4">
         <button
           type="submit"
-          disabled={isSubmitting || totalAvailable === 0}
+          disabled={isSubmitting || totalAvailable === 0 || !termsAccepted}
           className="festive-button-primary"
           aria-busy={isSubmitting}
         >
@@ -302,15 +292,14 @@ export function BookingForm() {
               <span>Booking Your Ride...</span>
             </span>
           ) : (
-            <>Book Your Festive Ride</>
+            <>Confirm Booking</>
           )}
         </button>
       </div>
 
       {/* Terms Notice */}
-      <p className="text-sm text-gray-600 text-center">
-        By booking, you agree to our service terms. You will receive a
-        confirmation email with your booking reference.
+      <p className="text-sm text-[var(--color-taupe)] text-center leading-relaxed">
+        You will receive a confirmation email with your booking reference.
       </p>
     </form>
   );

@@ -116,7 +116,7 @@ export default async function ConfirmationPage({
                   Return to Home
                 </Link>
                 <a
-                  href="mailto:festiverides@example.com"
+                  href="mailto:sammipetersen1720@yahoo.co.nz"
                   className="px-6 py-3 border-2 border-festive-green text-festive-green font-semibold rounded-full hover:bg-festive-green hover:text-white transition-colors"
                 >
                   Contact Support

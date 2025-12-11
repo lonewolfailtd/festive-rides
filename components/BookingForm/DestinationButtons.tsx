@@ -30,7 +30,7 @@ export function DestinationButtons({
   return (
     <div className="form-field">
       <label className="festive-label">
-        Where are you going? <span className="text-festive-red">*</span>
+        Where are you going? <span className="text-[var(--color-burgundy)]">*</span>
       </label>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -40,25 +40,23 @@ export function DestinationButtons({
             type="button"
             onClick={() => onChange(dest.value)}
             className={clsx(
-              'p-4 rounded-lg border-2 transition-all',
-              'flex flex-col items-center gap-2',
-              'focus:outline-none focus:ring-2 focus:ring-offset-2',
-              'hover:shadow-md min-h-[100px]',
-              selected === dest.value
-                ? 'bg-green-100 border-green-500 ring-2 ring-green-300'
-                : 'bg-white border-gray-300 hover:border-green-400'
+              'destination-button',
+              'flex flex-col items-center gap-2 min-h-[105px] justify-center',
+              selected === dest.value && 'selected'
             )}
             aria-label={`${dest.label}${selected === dest.value ? ' (Selected)' : ''}`}
             aria-pressed={selected === dest.value}
           >
-            <span className="text-4xl" aria-hidden="true">
+            <span className="text-3xl" aria-hidden="true">
               {dest.icon}
             </span>
-            <span className="text-sm font-medium text-center">
+            <span className="text-sm font-semibold text-center leading-tight">
               {dest.label}
             </span>
             {selected === dest.value && (
-              <span className="text-xs text-green-700">✓ Selected</span>
+              <span className="text-xs font-semibold">
+                Selected
+              </span>
             )}
           </button>
         ))}
@@ -66,7 +64,7 @@ export function DestinationButtons({
 
       {error && (
         <p className="error-message" role="alert">
-          ⚠ {error}
+          {error}
         </p>
       )}
     </div>

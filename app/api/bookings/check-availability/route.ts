@@ -24,7 +24,10 @@ export async function GET() {
     }
 
     // Create a set of booked time slots for fast lookup
-    const bookedSlots = new Set((bookings || []).map((b) => b.time_slot));
+    // Normalize time format by removing seconds if present (10:30:00 -> 10:30)
+    const bookedSlots = new Set(
+      (bookings || []).map((b) => b.time_slot.substring(0, 5))
+    );
 
     // Build availability object
     const slots: SlotAvailability = {};

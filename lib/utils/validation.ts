@@ -59,7 +59,7 @@ export const bookingSchema = z.object({
     .number()
     .int('Number of passengers must be a whole number')
     .min(1, 'At least 1 passenger is required')
-    .max(8, 'Maximum 8 passengers per ride'),
+    .max(3, 'Maximum 3 passengers per ride'),
 
   special_requirements: z
     .string()

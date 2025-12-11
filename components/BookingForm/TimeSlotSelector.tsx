@@ -20,13 +20,13 @@ export function TimeSlotSelector({
   return (
     <div className="form-field">
       <label className="festive-label">
-        Select Your Ride Time <span className="text-festive-red">*</span>
+        Select Your Ride Time <span className="text-[var(--color-burgundy)]">*</span>
       </label>
 
       {!slots && (
         <div className="text-center py-8">
-          <div className="spinner mx-auto mb-2" />
-          <p className="text-gray-600">Loading available time slots...</p>
+          <div className="spinner mx-auto mb-2" style={{ borderTopColor: 'var(--color-terracotta)' }} />
+          <p className="text-[var(--color-taupe)]">Loading available time slots...</p>
         </div>
       )}
 
@@ -44,49 +44,37 @@ export function TimeSlotSelector({
                 disabled={isBooked}
                 onClick={() => !isBooked && onChange(slot.time)}
                 className={clsx(
-                  'relative p-4 rounded-lg border-2 transition-all',
-                  'text-lg font-semibold min-h-[80px]',
-                  'focus:outline-none focus:ring-2 focus:ring-offset-2',
-                  isBooked &&
-                    'bg-red-100 border-red-300 cursor-not-allowed opacity-60',
-                  !isBooked &&
-                    !isSelected &&
-                    'bg-green-50 border-green-400 hover:border-green-600 hover:shadow-md',
-                  isSelected &&
-                    'bg-amber-100 border-amber-500 ring-4 ring-amber-300 glow'
+                  'slot-button relative min-h-[85px] flex flex-col items-center justify-center gap-1',
+                  isBooked && 'opacity-40 cursor-not-allowed bg-gray-100',
+                  isSelected && 'selected'
                 )}
                 aria-label={`${slot.label} ${isBooked ? '(Fully Booked)' : isSelected ? '(Selected)' : '(Available)'}`}
                 aria-pressed={isSelected}
               >
-                {/* Strike-through effect for booked slots */}
-                {isBooked && (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center"
-                    aria-hidden="true"
-                  >
-                    <div className="w-full h-1 bg-red-500 transform rotate-12" />
-                  </div>
-                )}
-
-                <div className={isBooked ? 'line-through' : ''}>
+                {/* Time display */}
+                <div className={clsx(
+                  'text-lg font-bold',
+                  isBooked && 'line-through'
+                )}>
                   {slot.label}
                 </div>
 
+                {/* Status indicator */}
                 {isBooked && (
-                  <span className="text-xs text-red-700 block mt-1 font-normal">
+                  <span className="text-xs text-[var(--color-burgundy)] font-semibold">
                     Fully Booked
                   </span>
                 )}
 
                 {isSelected && !isBooked && (
-                  <span className="text-xs text-amber-700 block mt-1 font-normal">
-                    ✓ Selected
+                  <span className="text-xs font-semibold">
+                    Selected
                   </span>
                 )}
 
                 {!isBooked && !isSelected && (
-                  <span className="text-xs text-green-700 block mt-1 font-normal available-pulse">
-                    ● Available
+                  <span className="text-xs text-[var(--color-sage)] font-semibold available-pulse">
+                    Available
                   </span>
                 )}
               </button>
@@ -97,7 +85,7 @@ export function TimeSlotSelector({
 
       {error && (
         <p className="error-message" role="alert">
-          ⚠ {error}
+          {error}
         </p>
       )}
     </div>

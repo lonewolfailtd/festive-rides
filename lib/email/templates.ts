@@ -91,6 +91,7 @@ export function passengerConfirmationTemplate(booking: Booking): string {
 <body>
   <div class="container">
     <div class="header">
+      <img src="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/festive-rides-logo.png" alt="Festive Rides Logo" style="max-width: 350px; width: 100%; height: auto; margin: 0 auto 20px; display: block; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
       <h1>🎄 Your Festive Ride is Confirmed! 🎅</h1>
     </div>
 
@@ -106,7 +107,7 @@ export function passengerConfirmationTemplate(booking: Booking): string {
         <span class="detail-label">Booking Reference:</span> <strong>${booking.booking_reference}</strong>
       </div>
       <div class="detail-row">
-        <span class="detail-label">Date:</span> Friday, December 13, 2025
+        <span class="detail-label">Date:</span> Saturday, December 13, 2025
       </div>
       <div class="detail-row">
         <span class="detail-label">Pickup Time:</span> <strong>${formatTimeSlot(booking.time_slot)}</strong>
@@ -134,7 +135,7 @@ export function passengerConfirmationTemplate(booking: Booking): string {
       <ul>
         <li><strong>Please be ready 5 minutes before your scheduled pickup time</strong></li>
         <li>Save your booking reference: <strong>${booking.booking_reference}</strong></li>
-        <li>If you need to make changes or cancel, please contact us as soon as possible</li>
+        <li>If you need to cancel, visit: <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/cancel" style="color: #C41E3A; font-weight: bold;">Cancel Your Booking</a></li>
         <li>Contact email: <a href="mailto:sammipetersen1720@yahoo.co.nz">sammipetersen1720@yahoo.co.nz</a></li>
       </ul>
     </div>
@@ -223,6 +224,7 @@ export function adminNotificationTemplate(booking: Booking): string {
 </head>
 <body>
   <div class="container">
+    <img src="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/festive-rides-logo.png" alt="Festive Rides Logo" style="max-width: 300px; width: 100%; height: auto; margin: 0 auto 20px; display: block; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
     <h2>🚗 New Festive Ride Booking</h2>
 
     <div class="booking-ref">

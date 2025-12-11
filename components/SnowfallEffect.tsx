@@ -7,14 +7,14 @@ export function SnowfallEffect() {
 
   useEffect(() => {
     const flakes: JSX.Element[] = [];
-    const numFlakes = 50;
+    const numFlakes = 40; // Reduced for more elegant effect
 
     for (let i = 0; i < numFlakes; i++) {
       const left = Math.random() * 100;
-      const animationDuration = 10 + Math.random() * 20; // 10-30 seconds
-      const animationDelay = Math.random() * 10; // 0-10 seconds
-      const fontSize = 0.8 + Math.random() * 1.5; // 0.8-2.3rem
-      const opacity = 0.3 + Math.random() * 0.7; // 0.3-1.0
+      const animationDuration = 15 + Math.random() * 25; // Slower, more graceful fall
+      const animationDelay = Math.random() * 15;
+      const fontSize = 0.7 + Math.random() * 1.2; // Slightly smaller
+      const opacity = 0.25 + Math.random() * 0.45; // More subtle
 
       flakes.push(
         <div

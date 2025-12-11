@@ -165,7 +165,7 @@ export function ConfirmationCard({ booking }: ConfirmationCardProps) {
           <div className="bg-festive-cream p-4 rounded-lg border-l-4 border-festive-green">
             <p className="text-sm text-gray-600 mb-1">📅 Pickup Time</p>
             <p className="font-bold text-festive-charcoal text-lg">
-              Friday, December 13, 2025 • {formatTimeSlot(booking.time_slot)}
+              Saturday, December 13, 2025 • {formatTimeSlot(booking.time_slot)}
             </p>
           </div>
 
@@ -243,10 +243,10 @@ export function ConfirmationCard({ booking }: ConfirmationCardProps) {
               <p className="text-festive-charcoal">
                 <strong>Need help?</strong> Contact us at{' '}
                 <a
-                  href="mailto:festiverides@example.com"
+                  href="mailto:sammipetersen1720@yahoo.co.nz"
                   className="text-festive-red hover:underline font-semibold"
                 >
-                  festiverides@example.com
+                  sammipetersen1720@yahoo.co.nz
                 </a>
               </p>
             </li>
@@ -283,6 +283,24 @@ export function ConfirmationCard({ booking }: ConfirmationCardProps) {
           <p className="text-sm text-gray-600 mt-3">
             Perfect for keeping a physical copy of your booking
           </p>
+        </motion.div>
+
+        {/* Cancel Booking Link */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="text-center print:hidden border-t border-gray-200 pt-6 mt-6"
+        >
+          <p className="text-sm text-gray-600 mb-3">
+            Need to cancel your booking?
+          </p>
+          <a
+            href="/cancel"
+            className="text-festive-red hover:text-festive-burgundy transition-colors text-sm font-semibold underline"
+          >
+            Cancel This Booking
+          </a>
         </motion.div>
       </div>
     </motion.div>
