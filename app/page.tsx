@@ -151,6 +151,21 @@ export default function HomePage() {
                   sammipetersen1720@yahoo.co.nz
                 </a>
               </p>
+              <div className="flex items-center justify-center gap-3 opacity-75 text-xs">
+                <a
+                  href="/privacy"
+                  className="hover:text-[var(--color-mustard)] transition-colors underline"
+                >
+                  Privacy Policy
+                </a>
+                <span>•</span>
+                <a
+                  href="/terms"
+                  className="hover:text-[var(--color-mustard)] transition-colors underline"
+                >
+                  Terms of Service
+                </a>
+              </div>
               <div className="flex items-center justify-center gap-3 opacity-75">
                 <div className="h-px w-8 bg-gradient-to-r from-transparent to-[var(--color-soft-white)]"></div>
                 <p className="text-xs tracking-wider">

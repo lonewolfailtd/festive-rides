@@ -34,11 +34,20 @@ export function BookingForm() {
     },
   });
 
+  // Honeypot state to catch bots
+  const [honeypot, setHoneypot] = useState('');
+
   // Watch form values for controlled components
   const timeSlot = watch('time_slot');
   const destinationCategory = watch('destination_category');
 
   const onSubmit = async (data: BookingFormData) => {
+    // Honeypot check - reject if filled (bots fill all fields)
+    if (honeypot) {
+      toast.error('Invalid submission detected');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -188,6 +197,20 @@ export function BookingForm() {
         )}
       </div>
 
+      {/* Honeypot field - hidden from users, catches bots */}
+      <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+        <label htmlFor="website">Website</label>
+        <input
+          type="text"
+          id="website"
+          name="website"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
       {/* Time Slot Selector */}
       <TimeSlotSelector
         slots={slots}
@@ -294,9 +317,12 @@ export function BookingForm() {
           />
           <span className="text-xs text-gray-700 leading-tight">
             I confirm that I will follow all road safety rules, remain seated with my seatbelt fastened,
-            and understand that this is a free community service. I agree to the service guidelines above
-            and will treat the vehicle and driver with respect. I understand that I am liable for any
-            damage caused to the vehicle during transport.
+            and understand that this is a free community service. I agree to the{' '}
+            <a href="/terms" target="_blank" className="text-[var(--color-forest)] underline hover:text-[var(--color-sage)]">
+              Terms of Service
+            </a>{' '}
+            and service guidelines above, and will treat the vehicle and driver with respect. I understand
+            that I am liable for any damage caused to the vehicle during transport.
           </span>
         </label>
       </div>
