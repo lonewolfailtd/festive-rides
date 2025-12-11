@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ReactElement } from 'react';
 
 export function SnowfallEffect() {
-  const [snowflakes, setSnowflakes] = useState<JSX.Element[]>([]);
+  const [snowflakes, setSnowflakes] = useState<ReactElement[]>([]);
 
   useEffect(() => {
-    const flakes: JSX.Element[] = [];
+    const flakes: ReactElement[] = [];
     const numFlakes = 40; // Reduced for more elegant effect
 
     for (let i = 0; i < numFlakes; i++) {

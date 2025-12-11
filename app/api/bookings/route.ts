@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Check if time slot is still available (race condition check)
-    const { data: existingBooking } = await supabase
+    const { data: existingBooking } = await (supabase as any)
       .from('bookings')
       .select('id')
       .eq('time_slot', data.time_slot)
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const bookingReference = generateBookingReference();
 
     // Insert booking into database
-    const { data: booking, error: insertError } = await supabase
+    const { data: booking, error: insertError } = await (supabase as any)
       .from('bookings')
       .insert({
         passenger_name: data.passenger_name,

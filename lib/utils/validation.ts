@@ -42,7 +42,7 @@ export const bookingSchema = z.object({
     .trim(),
 
   destination_category: z.enum(DESTINATION_CATEGORIES, {
-    errorMap: () => ({ message: 'Please select a destination type' }),
+    message: 'Please select a destination type',
   }),
 
   destination_address: z
@@ -52,7 +52,7 @@ export const bookingSchema = z.object({
     .trim(),
 
   time_slot: z.enum(TIME_SLOT_VALUES as readonly [string, ...string[]], {
-    errorMap: () => ({ message: 'Please select a valid time slot' }),
+    message: 'Please select a valid time slot',
   }),
 
   num_passengers: z

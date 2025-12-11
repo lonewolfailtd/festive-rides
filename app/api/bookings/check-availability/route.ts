@@ -8,7 +8,7 @@ export async function GET() {
     const supabase = createServerClient();
 
     // Fetch all confirmed bookings
-    const { data: bookings, error } = await supabase
+    const { data: bookings, error } = await (supabase as any)
       .from('bookings')
       .select('time_slot')
       .eq('status', 'confirmed');
@@ -26,7 +26,7 @@ export async function GET() {
     // Create a set of booked time slots for fast lookup
     // Normalize time format by removing seconds if present (10:30:00 -> 10:30)
     const bookedSlots = new Set(
-      (bookings || []).map((b) => b.time_slot.substring(0, 5))
+      (bookings || []).map((b: any) => b.time_slot.substring(0, 5))
     );
 
     // Build availability object

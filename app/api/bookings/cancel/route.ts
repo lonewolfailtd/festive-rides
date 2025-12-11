@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Find the booking
-    const { data: booking, error: fetchError } = await supabase
+    const { data: booking, error: fetchError } = await (supabase as any)
       .from('bookings')
       .select('*')
       .eq('booking_reference', booking_reference)
@@ -49,11 +49,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Update booking status to cancelled
-    const { error: updateError } = await (supabase
+    const { error: updateError } = await (supabase as any)
       .from('bookings')
       .update({
         status: 'cancelled',
-      }) as any)
+      })
       .eq('id', booking.id);
 
     if (updateError) {
