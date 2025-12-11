@@ -49,12 +49,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Update booking status to cancelled
-    // @ts-expect-error - Supabase type inference issue with update
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase
       .from('bookings')
       .update({
         status: 'cancelled',
-      })
+      }) as any)
       .eq('id', booking.id);
 
     if (updateError) {
