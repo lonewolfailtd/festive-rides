@@ -1,6 +1,6 @@
 import Link from "next/link";
 import SignOutButton from "./SignOutButton";
-import { ThemeToggle } from "./ThemeProvider";
+import { ThemeToggle, PalettePicker } from "./ThemeProvider";
 import WorkspaceBar from "./WorkspaceBar";
 import DashboardCards from "./DashboardCards";
 import GradesChart from "./GradesChart";
@@ -85,6 +85,7 @@ export default function UniHomePage() {
           >
             <span aria-hidden>⚙</span> Settings
           </Link>
+          <PalettePicker />
           <ThemeToggle />
           <SignOutButton />
         </div>

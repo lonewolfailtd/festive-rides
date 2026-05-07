@@ -8,58 +8,131 @@ import {
   type ReactNode,
 } from "react";
 
-type Theme = "light" | "dark";
+type Mode = "light" | "dark";
+export type Palette = "rose" | "sage" | "lavender" | "coral" | "classic";
+
+export const PALETTES: {
+  key: Palette;
+  label: string;
+  blurb: string;
+  swatch: string; // hex for the picker preview swatch
+}[] = [
+  {
+    key: "rose",
+    label: "Rose Quartz",
+    blurb: "Dusty pink + plum, warm and sophisticated.",
+    swatch: "#db5074",
+  },
+  {
+    key: "sage",
+    label: "Sage Study",
+    blurb: "Calm botanical green for long sessions.",
+    swatch: "#607a55",
+  },
+  {
+    key: "lavender",
+    label: "Lavender Twilight",
+    blurb: "Soft and dreamy, lands well at night.",
+    swatch: "#7960af",
+  },
+  {
+    key: "coral",
+    label: "Sunrise Coral",
+    blurb: "Warm and energetic, morning-person fuel.",
+    swatch: "#e8552e",
+  },
+  {
+    key: "classic",
+    label: "Classic Sky",
+    blurb: "The original sky-blue. Reliable and clean.",
+    swatch: "#0ea5e9",
+  },
+];
 
 interface ThemeContextValue {
-  theme: Theme;
+  mode: Mode;
+  palette: Palette;
   toggle: () => void;
-  setTheme: (t: Theme) => void;
+  setMode: (m: Mode) => void;
+  setPalette: (p: Palette) => void;
+  // Backwards compat with earlier name used in components
+  theme: Mode;
+  setTheme: (m: Mode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "uni-tool-theme";
+const MODE_KEY = "uni-tool-theme"; // light/dark
+const PALETTE_KEY = "uni-tool-palette"; // accent palette
 
-function applyTheme(theme: Theme) {
+const DEFAULT_PALETTE: Palette = "rose";
+
+function applyMode(mode: Mode) {
   if (typeof document === "undefined") return;
-  const root = document.documentElement;
-  if (theme === "dark") {
-    root.classList.add("dark");
-  } else {
-    root.classList.remove("dark");
-  }
+  document.documentElement.classList.toggle("dark", mode === "dark");
+}
+
+function applyPalette(palette: Palette) {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-theme", palette);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Default to light. We honour stored preference if any, otherwise fall
-  // back to OS preference, otherwise light.
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [mode, setModeState] = useState<Mode>("light");
+  const [palette, setPaletteState] = useState<Palette>(DEFAULT_PALETTE);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (stored === "light" || stored === "dark") {
-      setThemeState(stored);
-      applyTheme(stored);
-      return;
+    // Restore mode (light/dark) from localStorage or OS preference.
+    const storedMode = window.localStorage.getItem(MODE_KEY) as Mode | null;
+    if (storedMode === "light" || storedMode === "dark") {
+      setModeState(storedMode);
+      applyMode(storedMode);
+    } else {
+      const prefersDark =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const initial: Mode = prefersDark ? "dark" : "light";
+      setModeState(initial);
+      applyMode(initial);
     }
-    const prefersDark =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial: Theme = prefersDark ? "dark" : "light";
-    setThemeState(initial);
-    applyTheme(initial);
+
+    // Restore palette
+    const storedPalette = window.localStorage.getItem(PALETTE_KEY) as Palette | null;
+    const validPalettes: Palette[] = ["rose", "sage", "lavender", "coral", "classic"];
+    if (storedPalette && validPalettes.includes(storedPalette)) {
+      setPaletteState(storedPalette);
+      applyPalette(storedPalette);
+    } else {
+      applyPalette(DEFAULT_PALETTE);
+    }
   }, []);
 
-  const setTheme = (t: Theme) => {
-    setThemeState(t);
-    applyTheme(t);
-    window.localStorage.setItem(STORAGE_KEY, t);
+  const setMode = (m: Mode) => {
+    setModeState(m);
+    applyMode(m);
+    window.localStorage.setItem(MODE_KEY, m);
   };
 
-  const toggle = () => setTheme(theme === "dark" ? "light" : "dark");
+  const setPalette = (p: Palette) => {
+    setPaletteState(p);
+    applyPalette(p);
+    window.localStorage.setItem(PALETTE_KEY, p);
+  };
+
+  const toggle = () => setMode(mode === "dark" ? "light" : "dark");
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        mode,
+        palette,
+        toggle,
+        setMode,
+        setPalette,
+        theme: mode,
+        setTheme: setMode,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
@@ -92,5 +165,41 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
         </svg>
       )}
     </button>
+  );
+}
+
+/**
+ * Compact palette swatch picker. 5 dots, click one to apply.
+ * Drops anywhere — used in the dashboard top toolbar and Settings.
+ */
+export function PalettePicker({ className = "" }: { className?: string }) {
+  const { palette, setPalette } = useTheme();
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Colour theme"
+      className={`inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900 ${className}`}
+    >
+      {PALETTES.map((p) => {
+        const selected = p.key === palette;
+        return (
+          <button
+            key={p.key}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => setPalette(p.key)}
+            title={`${p.label} — ${p.blurb}`}
+            aria-label={p.label}
+            className={`relative h-5 w-5 rounded-full transition-transform ${
+              selected ? "ring-2 ring-offset-2 ring-slate-700 dark:ring-slate-200 dark:ring-offset-slate-900 scale-110" : "hover:scale-110"
+            }`}
+            style={{ backgroundColor: p.swatch }}
+          >
+            <span className="sr-only">{p.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

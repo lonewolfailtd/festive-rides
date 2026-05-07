@@ -6,8 +6,92 @@
 @tailwind utilities;
 
 @layer base {
+  /* ============================================================
+     Uni Citation Tool — themable accent palettes.
+     Each palette overrides what `sky-X` Tailwind classes resolve to,
+     by setting --accent-X custom properties. Switch by setting
+     [data-theme="rose|sage|lavender|coral|classic"] on <html>.
+     Default (no attribute, or data-theme="rose") = Rose Quartz.
+     ============================================================ */
+
+  :root,
+  [data-theme="rose"] {
+    /* Rose Quartz — dusty pink + plum, warm + sophisticated. Default. */
+    --accent-50: 253 242 245;
+    --accent-100: 252 231 236;
+    --accent-200: 249 208 217;
+    --accent-300: 243 168 184;
+    --accent-400: 234 122 147;
+    --accent-500: 219 80 116;
+    --accent-600: 196 53 96;
+    --accent-700: 163 36 80;
+    --accent-800: 135 33 74;
+    --accent-900: 114 32 68;
+    --accent-950: 64 14 33;
+  }
+
+  [data-theme="sage"] {
+    /* Sage Study — calm botanical green. */
+    --accent-50: 244 247 243;
+    --accent-100: 230 237 228;
+    --accent-200: 205 217 200;
+    --accent-300: 168 187 160;
+    --accent-400: 129 153 119;
+    --accent-500: 96 122 85;
+    --accent-600: 74 96 65;
+    --accent-700: 60 77 53;
+    --accent-800: 49 63 44;
+    --accent-900: 42 53 39;
+    --accent-950: 21 28 19;
+  }
+
+  [data-theme="lavender"] {
+    /* Lavender Twilight — soft + dreamy. */
+    --accent-50: 245 243 251;
+    --accent-100: 235 232 246;
+    --accent-200: 216 210 237;
+    --accent-300: 182 171 219;
+    --accent-400: 148 130 200;
+    --accent-500: 121 96 175;
+    --accent-600: 100 75 148;
+    --accent-700: 83 62 122;
+    --accent-800: 70 53 102;
+    --accent-900: 60 46 87;
+    --accent-950: 37 28 55;
+  }
+
+  [data-theme="coral"] {
+    /* Sunrise Coral — warm + energetic. */
+    --accent-50: 254 244 241;
+    --accent-100: 253 230 223;
+    --accent-200: 251 204 191;
+    --accent-300: 247 164 143;
+    --accent-400: 241 117 89;
+    --accent-500: 232 85 46;
+    --accent-600: 212 61 31;
+    --accent-700: 176 45 28;
+    --accent-800: 145 38 29;
+    --accent-900: 120 35 30;
+    --accent-950: 65 14 13;
+  }
+
+  [data-theme="classic"] {
+    /* Classic Sky — the original Tailwind sky values. */
+    --accent-50: 240 249 255;
+    --accent-100: 224 242 254;
+    --accent-200: 186 230 253;
+    --accent-300: 125 211 252;
+    --accent-400: 56 189 248;
+    --accent-500: 14 165 233;
+    --accent-600: 2 132 199;
+    --accent-700: 3 105 161;
+    --accent-800: 7 89 133;
+    --accent-900: 12 74 110;
+    --accent-950: 8 47 73;
+  }
+
   :root {
-    /* Bohemian Winter Color Palette */
+    /* Bohemian Winter Color Palette (Festive Rides booking — unrelated) */
     --color-forest: #1A3A2E;
     --color-terracotta: #D4622A;
     --color-cream: #F8F5F0;

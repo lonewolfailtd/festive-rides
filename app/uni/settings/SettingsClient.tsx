@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { PALETTES, useTheme } from "../ThemeProvider";
 
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
@@ -398,6 +399,9 @@ export default function SettingsClient() {
           </section>
         )}
 
+        {/* Appearance / theme picker — show all 5 palettes with names + blurbs */}
+        <ThemeSection />
+
         <section className={sectionCard}>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
             Calendar subscription
@@ -550,5 +554,71 @@ export default function SettingsClient() {
         </section>
       </div>
     </main>
+  );
+}
+
+// Rich theme picker on Settings — shows all five palettes with names,
+// blurbs and a generous swatch row preview. The compact dot picker on
+// the dashboard is for quick switching once a student knows what they
+// like; this one is for the first choice.
+function ThemeSection() {
+  const { palette, setPalette } = useTheme();
+  return (
+    <section
+      className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none"
+    >
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+        Appearance
+      </h2>
+      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+        Pick a colour palette. The whole app — buttons, links, focus rings, progress bars, the active-assignment highlights — switches instantly. Your choice persists across devices in your browser.
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {PALETTES.map((p) => {
+          const selected = p.key === palette;
+          return (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => setPalette(p.key)}
+              aria-pressed={selected}
+              className={`group relative rounded-xl border p-4 text-left transition-all ${
+                selected
+                  ? "border-slate-700 ring-2 ring-slate-700 dark:border-slate-200 dark:ring-slate-200"
+                  : "border-slate-200 hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {p.label}
+                </span>
+                {selected && (
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    ✓ Active
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                {p.blurb}
+              </p>
+              {/* Swatch preview — five tints of the palette */}
+              <div className="mt-3 flex h-6 overflow-hidden rounded-full">
+                {[0.4, 0.6, 1.0, 0.8, 0.55].map((opacity, i) => (
+                  <span
+                    key={i}
+                    className="flex-1"
+                    style={{
+                      backgroundColor: p.swatch,
+                      opacity,
+                    }}
+                  />
+                ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
