@@ -30,7 +30,7 @@ export default function UniLoginPage() {
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-8 shadow-xl dark:border-slate-800 dark:from-slate-950 dark:to-slate-950">
         <h1 className="text-2xl font-semibold tracking-tight">Uni Citation Tool</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Sign in with your email. We&apos;ll send you a one-tap login link.
@@ -51,7 +51,7 @@ export default function UniLoginPage() {
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none"
                 placeholder="you@example.com"
                 disabled={step === "submitting"}
               />

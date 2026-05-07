@@ -49,7 +49,7 @@ export default function UniHomePage() {
           <Link
             key={c.href}
             href={c.href}
-            className="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:shadow-none dark:hover:border-sky-700 dark:hover:bg-slate-900/80"
+            className="block rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-sky-400 hover:shadow-lg hover:shadow-sky-100 dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none dark:hover:border-sky-700 dark:hover:bg-slate-900/80 dark:hover:shadow-none"
           >
             <h2 className="text-lg font-semibold">{c.title}</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{c.blurb}</p>
