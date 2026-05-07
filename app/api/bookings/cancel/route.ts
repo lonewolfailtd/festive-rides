@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { convexServerClient } from '@/lib/convex/server';
+import { api } from '@/convex/_generated/api';
 import { sanitizeCancellationReason } from '@/lib/utils/sanitize';
 import { z } from 'zod';
 import { withRateLimit } from '@/lib/rate-limit';
@@ -36,39 +37,17 @@ export async function POST(request: NextRequest) {
       // Sanitize cancellation reason to prevent XSS and injection attacks
       const sanitizedCancellationReason = cancellation_reason
         ? sanitizeCancellationReason(cancellation_reason)
-        : null;
+        : undefined;
 
-      const supabase = createServerClient();
-
-      // Find the booking
-      const { data: booking, error: fetchError } = await (supabase as any)
-        .from('bookings')
-        .select('*')
-        .eq('booking_reference', booking_reference)
-        .eq('passenger_email', passenger_email)
-        .eq('status', 'confirmed')
-        .single();
-
-      if (fetchError || !booking) {
-        return NextResponse.json(
-          {
-            error: 'Booking not found or already cancelled. Please check your booking reference and email address.',
-          },
-          { status: 404 }
-        );
-      }
-
-      // Update booking status to cancelled with sanitized cancellation reason
-      const { error: updateError } = await (supabase as any)
-        .from('bookings')
-        .update({
-          status: 'cancelled',
-          ...(sanitizedCancellationReason && { cancellation_reason: sanitizedCancellationReason }),
-        })
-        .eq('id', booking.id);
-
-      if (updateError) {
-        console.error('Cancellation update error:', updateError);
+      let result;
+      try {
+        result = await convexServerClient.mutation(api.bookings.cancel, {
+          bookingReference: booking_reference,
+          passengerEmail: passenger_email,
+          reason: sanitizedCancellationReason || undefined,
+        });
+      } catch (err) {
+        console.error('Convex cancel error:', err);
         return NextResponse.json(
           {
             error: 'Failed to cancel booking. Please try again.',
@@ -77,14 +56,27 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Return success response
+      if (!result.ok) {
+        // Either notFound or emailMismatch — return same generic 404 message
+        // (mirrors original behaviour which only confirmed-status bookings could match)
+        return NextResponse.json(
+          {
+            error: 'Booking not found or already cancelled. Please check your booking reference and email address.',
+          },
+          { status: 404 }
+        );
+      }
+
+      const b = result.booking;
       return NextResponse.json({
         success: true,
-        message: 'Booking cancelled successfully',
+        message: result.alreadyCancelled
+          ? 'Booking was already cancelled'
+          : 'Booking cancelled successfully',
         booking: {
-          booking_reference: booking.booking_reference,
-          passenger_name: booking.passenger_name,
-          time_slot: booking.time_slot,
+          booking_reference: b.bookingReference,
+          passenger_name: b.passengerName,
+          time_slot: b.timeSlot,
         },
       });
     } catch (error) {

@@ -1,12 +1,17 @@
 'use client';
 
+import Link from 'next/link';
 import { SnowfallEffect } from '@/components/SnowfallEffect';
 import { FestiveHeader } from '@/components/FestiveHeader';
 import { BookingForm } from '@/components/BookingForm/BookingForm';
+import { BookingClosedModal } from '@/components/BookingClosedModal';
 
 export default function HomePage() {
   return (
     <>
+      {/* Booking closed modal (shows after 5pm on Dec 13) */}
+      <BookingClosedModal />
+
       {/* Festive gradient background */}
       <div className="festive-gradient-bg" aria-hidden="true" />
 
@@ -165,6 +170,13 @@ export default function HomePage() {
                 >
                   Terms of Service
                 </a>
+                <span>•</span>
+                <Link
+                  href="/uni"
+                  className="hover:text-[var(--color-mustard)] transition-colors underline"
+                >
+                  Login
+                </Link>
               </div>
               <div className="flex items-center justify-center gap-3 opacity-75">
                 <div className="h-px w-8 bg-gradient-to-r from-transparent to-[var(--color-soft-white)]"></div>

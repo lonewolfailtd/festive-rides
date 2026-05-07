@@ -1,4 +1,5 @@
-import { createServerClient } from '@/lib/supabase/server';
+import { convexServerClient } from '@/lib/convex/server';
+import { api } from '@/convex/_generated/api';
 import { securityLogger } from './logger';
 import { config } from './env-validation';
 
@@ -24,46 +25,25 @@ export async function checkDuplicateIpBooking(
   ipAddress: string
 ): Promise<IpBookingCheck> {
   try {
-    const supabase = createServerClient();
-
-    // Calculate the time threshold
+    // Calculate the time window
     const windowHours = config.duplicateBookingWindowHours;
-    const thresholdTime = new Date();
-    thresholdTime.setHours(thresholdTime.getHours() - windowHours);
+    const windowMs = windowHours * 60 * 60 * 1000;
 
-    // Query for recent bookings from this IP
-    const { data: recentBookings, error } = await (supabase as any)
-      .from('bookings')
-      .select('id, created_at, booking_reference, ip_address')
-      .eq('ip_address', ipAddress)
-      .eq('status', 'confirmed')
-      .gte('created_at', thresholdTime.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.error('Error checking duplicate IP booking:', error);
-      // If we can't check, allow the booking but log the error
-      return { isDuplicate: false };
-    }
+    // Query Convex for recent confirmed bookings from this IP
+    const count = await convexServerClient.query(
+      api.bookings.countRecentConfirmedByIp,
+      { ipAddress, windowMs }
+    );
 
     // If we found a recent booking from this IP
-    if (recentBookings && recentBookings.length > 0) {
-      const previousBooking = recentBookings[0];
-
+    if (count > 0) {
       // Log the duplicate attempt
-      securityLogger.logDuplicateIpBooking(ipAddress, previousBooking.created_at, {
-        previousBookingRef: previousBooking.booking_reference,
+      securityLogger.logDuplicateIpBooking(ipAddress, new Date().toISOString(), {
         windowHours,
       });
 
       return {
         isDuplicate: true,
-        previousBooking: {
-          id: previousBooking.id,
-          created_at: previousBooking.created_at,
-          booking_reference: previousBooking.booking_reference,
-        },
         message: `You have already made a booking within the last ${windowHours} hours. Please contact us if you need to make additional bookings.`,
       };
     }

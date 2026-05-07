@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { convexServerClient } from '@/lib/convex/server';
+import { api } from '@/convex/_generated/api';
 import { bookingSchema } from '@/lib/utils/validation';
 import { generateBookingReference } from '@/lib/utils/booking-reference';
 import { generateVerificationToken, generateTokenExpiration } from '@/lib/utils/verification-token';
@@ -9,8 +10,6 @@ import { verificationEmailTemplate, passengerConfirmationTemplate, adminNotifica
 import { Booking } from '@/types';
 import { withRateLimit } from '@/lib/rate-limit';
 import {
-  getClientIp,
-  getUserAgent,
   validateRequestSize,
   validateHoneypot,
   extractRequestMetadata,
@@ -20,6 +19,38 @@ import {
 import { checkRateLimit, checkDuplicateIpBooking } from '@/lib/security/ip-tracking';
 import { validateSubmissionTiming, isValidFormLoadToken } from '@/lib/security/submission-timing';
 import { securityLogger } from '@/lib/security/logger';
+
+/**
+ * Convert a Convex bookings document (camelCase) into the legacy snake_case
+ * `Booking` shape consumed by the email templates and existing types.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function convexBookingToLegacy(doc: any): Booking {
+  return {
+    id: doc._id,
+    created_at: new Date(doc._creationTime).toISOString(),
+    passenger_name: doc.passengerName,
+    passenger_phone: doc.passengerPhone,
+    passenger_email: doc.passengerEmail,
+    time_slot: doc.timeSlot,
+    pickup_address: doc.pickupAddress,
+    destination_category: doc.destinationCategory,
+    destination_address: doc.destinationAddress,
+    num_passengers: doc.numPassengers,
+    special_requirements: doc.specialRequirements,
+    booking_reference: doc.bookingReference,
+    status: doc.status,
+    verification_token: doc.verificationToken,
+    verification_token_expires_at:
+      typeof doc.verificationTokenExpiresAt === 'number'
+        ? new Date(doc.verificationTokenExpiresAt).toISOString()
+        : undefined,
+    verified_at:
+      typeof doc.verifiedAt === 'number'
+        ? new Date(doc.verifiedAt).toISOString()
+        : undefined,
+  };
+}
 
 export async function POST(request: NextRequest) {
   // Apply rate limiting: 3 requests per hour per IP
@@ -84,117 +115,109 @@ export async function POST(request: NextRequest) {
         );
       }
 
-    // Validate request data with Zod
-    const validationResult = bookingSchema.safeParse(body);
+      // Validate request data with Zod
+      const validationResult = bookingSchema.safeParse(body);
 
-    if (!validationResult.success) {
-      // Log validation failures for security monitoring
-      securityLogger.logValidationFailure(
-        ip,
-        path,
-        validationResult.error.flatten().fieldErrors,
-        userAgent
-      );
+      if (!validationResult.success) {
+        // Log validation failures for security monitoring
+        securityLogger.logValidationFailure(
+          ip,
+          path,
+          validationResult.error.flatten().fieldErrors,
+          userAgent
+        );
 
-      return addSecurityHeaders(
-        NextResponse.json(
-          {
-            error: 'Validation failed',
-            details: validationResult.error.flatten().fieldErrors,
-          },
-          { status: 400 }
-        )
-      );
-    }
-
-    const data = validationResult.data;
-
-    // Sanitize user inputs to prevent XSS and injection attacks
-    const sanitizedData = {
-      ...data,
-      passenger_name: sanitizePassengerName(data.passenger_name),
-      pickup_address: sanitizeAddress(data.pickup_address),
-      destination_address: sanitizeAddress(data.destination_address),
-      special_requirements: data.special_requirements
-        ? sanitizeSpecialRequirements(data.special_requirements)
-        : null,
-    };
-
-    const supabase = createServerClient();
-
-    // Check if time slot is still available (race condition check)
-    const { data: existingBooking } = await (supabase as any)
-      .from('bookings')
-      .select('id')
-      .eq('time_slot', data.time_slot)
-      .eq('status', 'confirmed')
-      .single();
-
-    if (existingBooking) {
-      return NextResponse.json(
-        {
-          error: 'This time slot has just been booked by someone else. Please select another time.',
-        },
-        { status: 409 } // 409 Conflict
-      );
-    }
-
-    // Generate unique booking reference and verification token
-    const bookingReference = generateBookingReference();
-    const verificationToken = generateVerificationToken();
-    const tokenExpiration = generateTokenExpiration();
-
-    // Insert booking into database with sanitized data, pending status, and IP tracking
-    const { data: booking, error: insertError } = await (supabase as any)
-      .from('bookings')
-      .insert({
-        passenger_name: sanitizedData.passenger_name,
-        passenger_phone: sanitizedData.passenger_phone,
-        passenger_email: sanitizedData.passenger_email,
-        time_slot: sanitizedData.time_slot,
-        pickup_address: sanitizedData.pickup_address,
-        destination_category: sanitizedData.destination_category,
-        destination_address: sanitizedData.destination_address,
-        num_passengers: sanitizedData.num_passengers,
-        special_requirements: sanitizedData.special_requirements || null,
-        booking_reference: bookingReference,
-        status: 'pending',
-        verification_token: verificationToken,
-        verification_token_expires_at: tokenExpiration.toISOString(),
-        ip_address: ip, // Store IP for duplicate detection and security tracking
-        user_agent: userAgent, // Store user agent for security analysis
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('Database insert error:', insertError);
-
-      // Check if it's a unique constraint violation (race condition)
-      if (insertError.code === '23505') {
-        return NextResponse.json(
-          {
-            error: 'This time slot was just booked. Please select another time.',
-          },
-          { status: 409 }
+        return addSecurityHeaders(
+          NextResponse.json(
+            {
+              error: 'Validation failed',
+              details: validationResult.error.flatten().fieldErrors,
+            },
+            { status: 400 }
+          )
         );
       }
 
-      return NextResponse.json(
-        {
-          error: 'Failed to create booking. Please try again.',
-        },
-        { status: 500 }
-      );
-    }
+      const data = validationResult.data;
 
-    // Send verification email (fire and forget - don't block response)
-    sendVerificationEmail(booking as Booking).catch((error) => {
-      console.error('Email sending error:', error);
-      // Log error but don't fail the booking
-    });
+      // Sanitize user inputs to prevent XSS and injection attacks
+      const sanitizedData = {
+        ...data,
+        passenger_name: sanitizePassengerName(data.passenger_name),
+        pickup_address: sanitizeAddress(data.pickup_address),
+        destination_address: sanitizeAddress(data.destination_address),
+        special_requirements: data.special_requirements
+          ? sanitizeSpecialRequirements(data.special_requirements)
+          : null,
+      };
 
-    // Return success response with pending status and security headers
+      // Generate unique booking reference and verification token
+      const bookingReference = generateBookingReference();
+      const verificationToken = generateVerificationToken();
+      const tokenExpiration = generateTokenExpiration();
+
+      // Create pending booking via Convex. The mutation handles slot-availability,
+      // reference uniqueness, and token-collision checks atomically.
+      let createdDoc;
+      try {
+        createdDoc = await convexServerClient.mutation(api.bookings.createPending, {
+          passengerName: sanitizedData.passenger_name,
+          passengerPhone: sanitizedData.passenger_phone,
+          passengerEmail: sanitizedData.passenger_email,
+          timeSlot: sanitizedData.time_slot,
+          pickupAddress: sanitizedData.pickup_address,
+          destinationCategory: sanitizedData.destination_category,
+          destinationAddress: sanitizedData.destination_address,
+          numPassengers: sanitizedData.num_passengers,
+          specialRequirements: sanitizedData.special_requirements || undefined,
+          bookingReference,
+          verificationToken,
+          verificationTokenExpiresAt: tokenExpiration.getTime(),
+          ipAddress: ip || undefined,
+          userAgent: userAgent || undefined,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        console.error('Convex createPending error:', message);
+
+        if (/time slot/i.test(message)) {
+          return addSecurityHeaders(
+            NextResponse.json(
+              { error: 'This time slot has just been booked by someone else. Please select another time.' },
+              { status: 409 }
+            )
+          );
+        }
+        if (/reference already exists|token collision/i.test(message)) {
+          return addSecurityHeaders(
+            NextResponse.json(
+              { error: 'A booking conflict occurred. Please try again.' },
+              { status: 409 }
+            )
+          );
+        }
+        if (/invalid/i.test(message)) {
+          return addSecurityHeaders(
+            NextResponse.json({ error: message }, { status: 400 })
+          );
+        }
+        return addSecurityHeaders(
+          NextResponse.json(
+            { error: 'Failed to create booking. Please try again.' },
+            { status: 500 }
+          )
+        );
+      }
+
+      const booking = convexBookingToLegacy(createdDoc);
+
+      // Send verification email (fire and forget - don't block response)
+      sendVerificationEmail(booking).catch((error) => {
+        console.error('Email sending error:', error);
+        // Log error but don't fail the booking
+      });
+
+      // Return success response with pending status and security headers
       const response = NextResponse.json({
         success: true,
         message: 'Please check your email to verify your booking',
@@ -226,41 +249,31 @@ export async function POST(request: NextRequest) {
  * Send verification email to passenger
  */
 async function sendVerificationEmail(booking: Booking) {
-  try {
-    await resend.emails.send({
-      from: FROM_EMAIL,
-      to: booking.passenger_email,
-      subject: `🎄 Verify Your Festive Ride Booking - ${booking.booking_reference}`,
-      html: verificationEmailTemplate(booking),
-    });
-  } catch (error) {
-    // Re-throw to be caught by the caller
-    throw error;
-  }
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: booking.passenger_email,
+    subject: `🎄 Verify Your Festive Ride Booking - ${booking.booking_reference}`,
+    html: verificationEmailTemplate(booking),
+  });
 }
 
 /**
  * Send confirmation emails to passenger and admin (after verification)
  */
 export async function sendBookingConfirmationEmails(booking: Booking) {
-  try {
-    // Send email to passenger
-    await resend.emails.send({
-      from: FROM_EMAIL,
-      to: booking.passenger_email,
-      subject: `🎄 Ride Confirmed - ${booking.booking_reference}`,
-      html: passengerConfirmationTemplate(booking),
-    });
+  // Send email to passenger
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: booking.passenger_email,
+    subject: `🎄 Ride Confirmed - ${booking.booking_reference}`,
+    html: passengerConfirmationTemplate(booking),
+  });
 
-    // Send email to admin
-    await resend.emails.send({
-      from: FROM_EMAIL,
-      to: ADMIN_EMAIL,
-      subject: `New Booking: ${booking.booking_reference} - ${booking.time_slot}`,
-      html: adminNotificationTemplate(booking),
-    });
-  } catch (error) {
-    // Re-throw to be caught by the caller
-    throw error;
-  }
+  // Send email to admin
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: ADMIN_EMAIL,
+    subject: `New Booking: ${booking.booking_reference} - ${booking.time_slot}`,
+    html: adminNotificationTemplate(booking),
+  });
 }

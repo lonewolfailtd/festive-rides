@@ -38,3 +38,6 @@ next-env.d.ts
 
 # playwright mcp
 .playwright-mcp/
+
+# claude local settings
+.claude/

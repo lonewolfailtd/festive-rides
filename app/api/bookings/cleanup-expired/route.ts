@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { convexServerClient } from '@/lib/convex/server';
+import { api } from '@/convex/_generated/api';
 
 /**
  * Cleanup endpoint to cancel expired pending bookings
@@ -22,45 +23,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
-
-    // Find all pending bookings with expired verification tokens
-    const { data: expiredBookings, error: fetchError } = await (supabase as any)
-      .from('bookings')
-      .select('id, booking_reference, verification_token_expires_at')
-      .eq('status', 'pending')
-      .lt('verification_token_expires_at', new Date().toISOString());
-
-    if (fetchError) {
-      console.error('Error fetching expired bookings:', fetchError);
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch expired bookings',
-        },
-        { status: 500 }
-      );
-    }
-
-    if (!expiredBookings || expiredBookings.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No expired bookings found',
-        cancelled_count: 0,
-      });
-    }
-
-    // Cancel all expired bookings
-    const { error: updateError } = await (supabase as any)
-      .from('bookings')
-      .update({
-        status: 'cancelled',
-        verification_token: null,
-        verification_token_expires_at: null,
-      })
-      .in('id', expiredBookings.map((b: any) => b.id));
-
-    if (updateError) {
-      console.error('Error cancelling expired bookings:', updateError);
+    let result;
+    try {
+      result = await convexServerClient.mutation(api.bookings.cleanupExpiredPublic, {});
+    } catch (err) {
+      console.error('Error cancelling expired bookings:', err);
       return NextResponse.json(
         {
           error: 'Failed to cancel expired bookings',
@@ -69,13 +36,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Cancelled ${expiredBookings.length} expired pending bookings`);
+    if (result.cancelledCount === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No expired bookings found',
+        cancelled_count: 0,
+      });
+    }
+
+    console.log(`Cancelled ${result.cancelledCount} expired pending bookings`);
 
     return NextResponse.json({
       success: true,
-      message: `Successfully cancelled ${expiredBookings.length} expired booking(s)`,
-      cancelled_count: expiredBookings.length,
-      cancelled_references: expiredBookings.map((b: any) => b.booking_reference),
+      message: `Successfully cancelled ${result.cancelledCount} expired booking(s)`,
+      cancelled_count: result.cancelledCount,
+      cancelled_references: result.cancelledReferences,
     });
   } catch (error) {
     console.error('Cleanup error:', error);

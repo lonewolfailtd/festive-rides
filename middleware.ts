@@ -1,62 +1,62 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import {
+  convexAuthNextjsMiddleware,
+  createRouteMatcher,
+  nextjsMiddlewareRedirect,
+} from "@convex-dev/auth/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+const isLogin = createRouteMatcher(["/uni/login"]);
+const isUniRoute = createRouteMatcher(["/uni", "/uni/(.*)"]);
 
-  // Enhanced Security Headers
-
-  // Prevent clickjacking
-  response.headers.set('X-Frame-Options', 'DENY');
-
-  // Prevent MIME type sniffing
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-
-  // XSS Protection (legacy header, but still useful for older browsers)
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-
-  // Referrer Policy - only send origin on cross-origin requests
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-  // Permissions Policy - disable unnecessary browser features
+function applySecurityHeaders(response: NextResponse, request: NextRequest) {
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set(
-    'Permissions-Policy',
-    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
+    "Permissions-Policy",
+    "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
   );
-
-  // Content Security Policy - prevent XSS and injection attacks
-  response.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
-
-  // HSTS - Force HTTPS (only in production)
-  if (process.env.NODE_ENV === 'production') {
-    // max-age=31536000 (1 year), includeSubDomains, preload
+  response.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+  if (process.env.NODE_ENV === "production") {
     response.headers.set(
-      'Strict-Transport-Security',
-      'max-age=31536000; includeSubDomains; preload'
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload"
     );
   }
-
-  // Prevent DNS prefetching for privacy
-  response.headers.set('X-DNS-Prefetch-Control', 'off');
-
-  // Disable client-side caching for API routes
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
+  response.headers.set("X-DNS-Prefetch-Control", "off");
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
   }
-
   return response;
 }
 
+export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+  const isAuthed = await convexAuth.isAuthenticated();
+
+  if (isUniRoute(request) && !isLogin(request) && !isAuthed) {
+    return applySecurityHeaders(
+      nextjsMiddlewareRedirect(request, "/uni/login"),
+      request
+    );
+  }
+
+  if (isLogin(request) && isAuthed) {
+    return applySecurityHeaders(
+      nextjsMiddlewareRedirect(request, "/uni"),
+      request
+    );
+  }
+
+  return applySecurityHeaders(NextResponse.next(), request);
+});
+
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

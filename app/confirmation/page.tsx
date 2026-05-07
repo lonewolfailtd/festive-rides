@@ -1,4 +1,5 @@
-import { createServerClient } from '@/lib/supabase/server';
+import { convexServerClient } from '@/lib/convex/server';
+import { api } from '@/convex/_generated/api';
 import { ConfirmationCard } from '@/components/ConfirmationCard';
 import { SnowfallEffect } from '@/components/SnowfallEffect';
 import { FestiveHeader } from '@/components/FestiveHeader';
@@ -61,16 +62,21 @@ export default async function ConfirmationPage({
     );
   }
 
-  // Fetch booking from Supabase
-  const supabase = createServerClient();
-  const { data: booking, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('booking_reference', bookingReference)
-    .single();
+  // Fetch booking from Convex
+  let bookingDoc: Awaited<
+    ReturnType<typeof convexServerClient.query<typeof api.bookings.getByReference>>
+  > | null = null;
+  let fetchError: unknown = null;
+  try {
+    bookingDoc = await convexServerClient.query(api.bookings.getByReference, {
+      bookingReference,
+    });
+  } catch (err) {
+    fetchError = err;
+  }
 
   // If booking not found or error occurred
-  if (error || !booking) {
+  if (fetchError || !bookingDoc) {
     return (
       <main className="min-h-screen relative">
         <div className="festive-gradient-bg" />
@@ -129,6 +135,32 @@ export default async function ConfirmationPage({
     );
   }
 
+  // Map Convex doc (camelCase) to the Booking shape ConfirmationCard expects (snake_case)
+  const booking: Booking = {
+    id: bookingDoc._id,
+    created_at: new Date(bookingDoc._creationTime).toISOString(),
+    passenger_name: bookingDoc.passengerName,
+    passenger_phone: bookingDoc.passengerPhone,
+    passenger_email: bookingDoc.passengerEmail,
+    time_slot: bookingDoc.timeSlot,
+    pickup_address: bookingDoc.pickupAddress,
+    destination_category: bookingDoc.destinationCategory as Booking['destination_category'],
+    destination_address: bookingDoc.destinationAddress,
+    num_passengers: bookingDoc.numPassengers,
+    special_requirements: bookingDoc.specialRequirements,
+    booking_reference: bookingDoc.bookingReference,
+    status: bookingDoc.status as Booking['status'],
+    verification_token: bookingDoc.verificationToken,
+    verification_token_expires_at:
+      bookingDoc.verificationTokenExpiresAt !== undefined
+        ? new Date(bookingDoc.verificationTokenExpiresAt).toISOString()
+        : undefined,
+    verified_at:
+      bookingDoc.verifiedAt !== undefined
+        ? new Date(bookingDoc.verifiedAt).toISOString()
+        : undefined,
+  };
+
   // Success - show confirmation
   return (
     <main className="min-h-screen relative">
@@ -139,7 +171,7 @@ export default async function ConfirmationPage({
         <FestiveHeader />
 
         <div className="max-w-4xl mx-auto mb-8">
-          <ConfirmationCard booking={booking as Booking} />
+          <ConfirmationCard booking={booking} />
         </div>
 
         {/* Additional Actions */}
