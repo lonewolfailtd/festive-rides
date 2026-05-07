@@ -49,6 +49,30 @@ export default function SettingsClient() {
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
 
+  // Display-name editing state. When `editingName` is null the saved name
+  // is shown. When set to a string, the inline edit form is open.
+  const setMyProfile = useMutation(api.userSettings.setMyProfile);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
+  const handleSaveName = async () => {
+    if (editingName === null) return;
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      toast.error("Display name can't be empty.");
+      return;
+    }
+    setSavingName(true);
+    try {
+      await setMyProfile({ displayName: trimmed });
+      toast.success("Saved");
+      setEditingName(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save.");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (newPassword.length < MIN_PASSWORD_LEN) {
@@ -185,6 +209,61 @@ export default function SettingsClient() {
               {me?.email ?? "…"}
             </span>
           </p>
+
+          {/* Display name — used to greet you on the dashboard. */}
+          <div className="mt-4">
+            <span className={labelStyle}>Display name</span>
+            {editingName === null ? (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-slate-900 dark:text-slate-100">
+                  {me?.displayName ?? (
+                    <em className="text-slate-500 dark:text-slate-400">
+                      Not set — pick something on the dashboard or here.
+                    </em>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditingName(me?.displayName ?? "")}
+                  className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                >
+                  {me?.displayName ? "Edit" : "Set name"}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  maxLength={60}
+                  autoFocus
+                  placeholder="Sammi"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleSaveName();
+                    if (e.key === "Escape") setEditingName(null);
+                  }}
+                  className="flex-1 min-w-[10rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleSaveName()}
+                  disabled={savingName}
+                  className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-60"
+                >
+                  {savingName ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingName(null)}
+                  disabled={savingName}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
         </section>
 
         <section className={sectionCard}>

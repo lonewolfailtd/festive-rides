@@ -130,6 +130,14 @@ export default defineSchema({
     .index("by_user_day", ["userId", "dayKey"])
     .index("by_user_month", ["userId", "monthKey"]),
 
+  // Per-user profile data that doesn't fit in the auth-managed users
+  // table. Lazily created on first set.
+  userProfile: defineTable({
+    userId: v.id("users"),
+    displayName: v.string(),
+    pronouns: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+
   // Append-only audit log of state-changing actions. Useful if anything
   // ever looks weird ("did I delete that, or did it disappear?"). Free-
   // form details are stringified so the schema stays tiny.

@@ -4,6 +4,7 @@ import { ThemeToggle } from "./ThemeProvider";
 import WorkspaceBar from "./WorkspaceBar";
 import DashboardCards from "./DashboardCards";
 import GradesChart from "./GradesChart";
+import Greeting from "./Greeting";
 
 const cards = [
   {
@@ -87,6 +88,8 @@ export default function UniHomePage() {
           <SignOutButton />
         </div>
       </header>
+
+      <Greeting />
 
       {/* Workspace bar + grades chart sit side-by-side on lg+ so they share
           one visual row instead of stacking. On mobile they stack naturally

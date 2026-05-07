@@ -139,6 +139,12 @@ export const deleteMyAccount = mutation({
       .collect();
     for (const r of icalTokens) await ctx.db.delete(r._id);
 
+    const profile = await ctx.db
+      .query("userProfile")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (profile) await ctx.db.delete(profile._id);
+
     // aiUsage has no plain by_user index — by_user_month starts with
     // userId so a partial range over just userId catches every row.
     const aiUsageRows = await ctx.db
@@ -192,6 +198,48 @@ export const me = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const user = await ctx.db.get(userId);
-    return user ? { email: (user as { email?: string }).email ?? null } : null;
+    const profile = await ctx.db
+      .query("userProfile")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    return {
+      email: (user as { email?: string } | null)?.email ?? null,
+      displayName: profile?.displayName ?? null,
+      pronouns: profile?.pronouns ?? null,
+    };
+  },
+});
+
+// Set or update the user's display name + optional pronouns. Empty string
+// for either field clears it. Used by the first-time prompt on the
+// dashboard and the edit form on settings.
+export const setMyProfile = mutation({
+  args: {
+    displayName: v.string(),
+    pronouns: v.optional(v.string()),
+  },
+  handler: async (ctx, { displayName, pronouns }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    const trimmedName = displayName.trim().slice(0, 60);
+    if (!trimmedName) throw new Error("Display name can't be empty.");
+    const trimmedPronouns = pronouns?.trim().slice(0, 30) || undefined;
+
+    const existing = await ctx.db
+      .query("userProfile")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        displayName: trimmedName,
+        pronouns: trimmedPronouns,
+      });
+    } else {
+      await ctx.db.insert("userProfile", {
+        userId,
+        displayName: trimmedName,
+        pronouns: trimmedPronouns,
+      });
+    }
   },
 });

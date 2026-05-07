@@ -15,7 +15,7 @@ export const exportAll = query({
     const user = await ctx.db.get(userId);
     const email = user ? (user as { email?: string }).email ?? null : null;
 
-    const [assignments, courses, references, analyses, icalToken] =
+    const [assignments, courses, references, analyses, icalToken, profile] =
       await Promise.all([
         ctx.db
           .query("assignments")
@@ -37,11 +37,19 @@ export const exportAll = query({
           .query("icalTokens")
           .withIndex("by_user", (q) => q.eq("userId", userId))
           .unique(),
+        ctx.db
+          .query("userProfile")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .unique(),
       ]);
 
     return {
       exportedAt: Date.now(),
-      user: { email },
+      user: {
+        email,
+        displayName: profile?.displayName ?? null,
+        pronouns: profile?.pronouns ?? null,
+      },
       assignments,
       courses,
       references,
