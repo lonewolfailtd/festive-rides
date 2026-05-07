@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import PageHeader from "../PageHeader";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatReference } from "@/lib/apa7/format";
 import {
   SOURCE_LABELS,
@@ -543,10 +543,29 @@ export default function ReferencesManager() {
   // Style checker state
   const [styleFlags, setStyleFlags] = useState<StyleFlag[] | null>(null);
 
-  const refs = useQuery(api.references.listForAssignment, {
-    assignmentId:
-      selectedAssignment === "all" ? undefined : selectedAssignment,
+  // Always fetch all user references in one query — we filter client-side
+  // by selected assignment so per-list counts come for free in the sidebar.
+  const allRefs = useQuery(api.references.listForAssignment, {
+    assignmentId: undefined,
   });
+  const refs = useMemo(() => {
+    if (!allRefs) return undefined;
+    if (selectedAssignment === "all") return allRefs;
+    return allRefs.filter((r) => r.assignmentId === selectedAssignment);
+  }, [allRefs, selectedAssignment]);
+
+  // Counts for the sidebar — { "all": N, [assignmentId]: N }
+  const assignmentCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0 };
+    if (!allRefs) return counts;
+    counts.all = allRefs.length;
+    for (const r of allRefs) {
+      if (r.assignmentId) {
+        counts[r.assignmentId] = (counts[r.assignmentId] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [allRefs]);
 
   const [filterText, setFilterText] = useState("");
   const [annotatedMode, setAnnotatedMode] = useState(false);
@@ -769,6 +788,25 @@ export default function ReferencesManager() {
 
   // Auto-save state per reference (small green indicator after blur).
   const [savedFlash, setSavedFlash] = useState<Record<string, boolean>>({});
+
+  // Onboarding banner — shown once on first visit, dismissed via localStorage.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    try {
+      const seen = window.localStorage.getItem("uni-tool-onboarded-references");
+      if (!seen) setShowOnboarding(true);
+    } catch {
+      // ignore localStorage errors (private mode etc.)
+    }
+  }, []);
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    try {
+      window.localStorage.setItem("uni-tool-onboarded-references", "1");
+    } catch {
+      // ignore
+    }
+  };
 
   const autoSaveNotes = async (
     id: Id<"references">,
@@ -1059,108 +1097,176 @@ i { font-style:italic; font-weight:normal; }
 
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
+    <main className="mx-auto max-w-6xl px-4 py-10">
       <PageHeader
         eyebrow="References"
         title="APA 7 reference list"
         description="Build, edit and export properly formatted references — copy them straight into Word."
       />
 
-      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-          Assignment
-        </h2>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <select
-            value={selectedAssignment}
-            onChange={(e) => {
-              setEditingAssignment(false);
-              setSelectedAssignment(
-                e.target.value === "all"
-                  ? "all"
-                  : (e.target.value as Id<"assignments">)
-              );
-            }}
-            className={`${inputStyle} max-w-md`}
-          >
-            <option value="all">All references (no assignment filter)</option>
-            {assignments?.map((a) => (
-              <option key={a._id} value={a._id}>
-                {a.courseCode ? `${a.courseCode} — ${a.name}` : a.name}
-              </option>
-            ))}
-          </select>
-          {selectedAssignment !== "all" && !editingAssignment && (
+      {showOnboarding && (
+        <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-5 dark:border-sky-900/60 dark:bg-sky-950/30">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">
+                Quick start
+              </p>
+              <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                <li>Make a list for each assignment in the sidebar (e.g. <em>PSYC101 — Essay 2</em>).</li>
+                <li>Paste a URL or DOI into the lookup field — the form auto-fills.</li>
+                <li>Open <em>Notes</em> on any reference to jot quotes / page numbers as you read.</li>
+                <li>When you&apos;re done, hit <em>Copy for Word</em> or <em>Download .docx</em> — italics + hanging indent included.</li>
+              </ol>
+            </div>
             <button
               type="button"
-              onClick={() => {
-                const current = assignments?.find(
-                  (a) => a._id === selectedAssignment
-                );
-                setRenameValue(current?.name ?? "");
-                setEditingAssignment(true);
-              }}
-              className={buttonGhost}
+              onClick={dismissOnboarding}
+              aria-label="Dismiss"
+              className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
-              Edit list
-            </button>
-          )}
-          <div className="flex flex-1 items-center gap-2">
-            <input
-              type="text"
-              placeholder="New assignment name"
-              value={newAssignmentName}
-              onChange={(e) => setNewAssignmentName(e.target.value)}
-              className={inputStyle}
-            />
-            <button
-              type="button"
-              onClick={handleNewAssignment}
-              className={buttonSecondary}
-            >
-              + Add
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>
-        {editingAssignment && selectedAssignment !== "all" && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-3">
-            <input
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              placeholder="New name for this list"
-              className={`${inputStyle} flex-1`}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void handleRenameAssignment();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => void handleRenameAssignment()}
-              className={buttonPrimary}
-            >
-              Save name
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleDeleteAssignment()}
-              className="rounded-md border border-rose-700 bg-rose-950/30 px-3 py-1.5 text-sm text-rose-200 hover:bg-rose-900/40"
-            >
-              Delete list
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditingAssignment(false)}
-              className={buttonSecondary}
-            >
-              Cancel
-            </button>
+      )}
+
+      <div className="flex flex-col gap-6 lg:flex-row">
+        {/* Sidebar with all assignments. */}
+        <aside className="lg:w-64 lg:shrink-0">
+          <div className="lg:sticky lg:top-6 rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Lists
+            </p>
+            <ul className="space-y-0.5">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAssignment(false);
+                    setSelectedAssignment("all");
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                    selectedAssignment === "all"
+                      ? "bg-sky-100 text-sky-900 dark:bg-sky-900/30 dark:text-sky-200"
+                      : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="truncate font-medium">All references</span>
+                  <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-slate-200 px-1.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    {assignmentCounts.all}
+                  </span>
+                </button>
+              </li>
+              {assignments?.map((a) => {
+                const isActive = selectedAssignment === a._id;
+                const label = a.courseCode ? `${a.courseCode} — ${a.name}` : a.name;
+                return (
+                  <li key={a._id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAssignment(false);
+                        setSelectedAssignment(a._id);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        isActive
+                          ? "bg-sky-100 text-sky-900 dark:bg-sky-900/30 dark:text-sky-200"
+                          : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <span className="truncate font-medium">{label}</span>
+                      <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-slate-200 px-1.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {assignmentCounts[a._id] ?? 0}
+                      </span>
+                    </button>
+                    {isActive && !editingAssignment && (
+                      <div className="mt-1 px-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenameValue(a.name);
+                            setEditingAssignment(true);
+                          }}
+                          className="text-xs text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300"
+                        >
+                          Edit list
+                        </button>
+                      </div>
+                    )}
+                    {isActive && editingAssignment && (
+                      <div className="mt-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-950">
+                        <input
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          placeholder="New name"
+                          className={`${inputStyle} text-sm mt-0`}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleRenameAssignment();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void handleRenameAssignment()}
+                            className={`${buttonPrimary} px-3 py-1 text-xs`}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingAssignment(false)}
+                            className={`${buttonSecondary} px-3 py-1 text-xs`}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteAssignment()}
+                            className="ml-auto rounded-md border border-rose-300 bg-rose-50 px-3 py-1 text-xs text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-700/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/40"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <input
+                type="text"
+                placeholder="New list name"
+                value={newAssignmentName}
+                onChange={(e) => setNewAssignmentName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleNewAssignment();
+                  }
+                }}
+                className={`${inputStyle} text-sm mt-0`}
+              />
+              <button
+                type="button"
+                onClick={() => void handleNewAssignment()}
+                disabled={!newAssignmentName.trim()}
+                className={`${buttonSecondary} mt-2 w-full justify-center`}
+              >
+                + New list
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </aside>
+
+        <div className="min-w-0 flex-1 space-y-6">
 
       <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
         <details>
@@ -1912,13 +2018,38 @@ i { font-style:italic; font-weight:normal; }
           </div>
         )}
 
-        {sortedRefs.length === 0 ? (
+        {refs === undefined ? (
+          /* Loading skeletons while the references query is in flight. */
+          <ul className="space-y-3" aria-label="Loading references">
+            {[0, 1, 2].map((i) => (
+              <li
+                key={i}
+                className="animate-pulse rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+              >
+                <div className="h-3 w-11/12 rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="mt-2 h-3 w-9/12 rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="mt-2 h-3 w-7/12 rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="mt-3 flex gap-2">
+                  <div className="h-4 w-24 rounded bg-slate-100 dark:bg-slate-800" />
+                  <div className="h-4 w-20 rounded bg-slate-100 dark:bg-slate-800" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : sortedRefs.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
-            <p className="font-medium text-slate-700 dark:text-slate-200">No references yet</p>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </div>
+            <p className="mt-3 font-medium text-slate-800 dark:text-slate-200">
+              {filterText ? "Nothing matches your search" : "No references yet"}
+            </p>
             <p className="mt-1">
               {filterText
-                ? "Nothing matches your search. Clear the search box to see everything."
-                : "Use the form above to add your first reference, or paste a list of DOIs / URLs into the bulk-import panel."}
+                ? "Try a different search term, or clear it to see everything."
+                : "Paste a URL above to look one up, or open the bulk-import panel to add a list at once."}
             </p>
           </div>
         ) : (
@@ -2064,6 +2195,8 @@ i { font-style:italic; font-weight:normal; }
           </ul>
         )}
       </section>
+        </div>
+      </div>
     </main>
   );
 }
