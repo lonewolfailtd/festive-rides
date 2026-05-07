@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as aiChecker from "../aiChecker.js";
 import type * as analyser from "../analyser.js";
 import type * as analysisStore from "../analysisStore.js";
 import type * as assignments from "../assignments.js";
@@ -30,6 +31,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiChecker: typeof aiChecker;
   analyser: typeof analyser;
   analysisStore: typeof analysisStore;
   assignments: typeof assignments;

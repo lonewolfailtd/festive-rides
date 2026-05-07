@@ -27,6 +27,12 @@ const cards = [
     blurb:
       "Search 250M+ scholarly works on OpenAlex. Filter by peer-reviewed and year. One-click import a result as a properly formatted APA 7 reference.",
   },
+  {
+    href: "/uni/checker",
+    title: "AI Checker",
+    blurb:
+      "Paste your draft (or upload PDF / Word doc) to see what a Turnitin / GPTZero-style detector would flag. Per-paragraph scores, AI tells, and a 'humanise this passage' rewrite tool.",
+  },
 ];
 
 export default function UniHomePage() {
