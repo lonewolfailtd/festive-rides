@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
-import { NZ_HOLIDAYS, type NzHoliday, toIsoDay } from "@/lib/nzHolidays";
+import { NZ_HOLIDAYS, type NzHoliday, toIsoDay, buildIcs } from "@/lib/nzHolidays";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -163,15 +163,69 @@ export default function CalendarClient() {
             Today
           </button>
         </div>
-        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-          <input
-            type="checkbox"
-            checked={showRegional}
-            onChange={(e) => setShowRegional(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-slate-400 text-sky-600 focus:ring-sky-500"
-          />
-          Show regional anniversaries
-        </label>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={showRegional}
+              onChange={(e) => setShowRegional(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-400 text-sky-600 focus:ring-sky-500"
+            />
+            Show regional anniversaries
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              // Build .ics from current data and trigger a download.
+              // Holidays cover the visible window; assignments cover all
+              // assignments with a due date.
+              const events: { uid: string; date: string; summary: string; description?: string; category?: string }[] = [];
+              for (const h of NZ_HOLIDAYS) {
+                if (!showRegional && h.type === "regional") continue;
+                events.push({
+                  uid: `nz-holiday-${h.date}-${h.name.replace(/\W+/g, "")}@uni-citation`,
+                  date: h.date,
+                  summary: h.name,
+                  description: h.region ? `${h.region} regional anniversary.` : h.notes,
+                  category:
+                    h.type === "national"
+                      ? "Public Holiday"
+                      : h.type === "matariki"
+                        ? "Matariki"
+                        : "Regional Anniversary",
+                });
+              }
+              if (assignments) {
+                for (const a of assignments) {
+                  if (!a.dueDate) continue;
+                  events.push({
+                    uid: `assignment-${a._id}@uni-citation`,
+                    date: toIsoDay(new Date(a.dueDate)),
+                    summary: `${a.courseCode ? `${a.courseCode}: ` : ""}${a.name} — DUE`,
+                    description: a.wordCountTarget
+                      ? `Target: ${a.wordCountTarget} words.`
+                      : undefined,
+                    category: "Assignment",
+                  });
+                }
+              }
+              const ics = buildIcs(events);
+              const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = "uni-calendar.ics";
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+              toast.success(`Exported ${events.length} events. Import the .ics into Google or Apple Calendar.`);
+            }}
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
+          >
+            ⤓ Export to Google / Apple Calendar
+          </button>
+        </div>
       </div>
 
       {/* Day-name header row */}

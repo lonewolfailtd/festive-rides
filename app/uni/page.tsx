@@ -1,3 +1,4 @@
+import Link from "next/link";
 import SignOutButton from "./SignOutButton";
 import { ThemeToggle } from "./ThemeProvider";
 import WorkspaceBar from "./WorkspaceBar";
@@ -52,18 +53,18 @@ const cards = [
     blurb:
       "Paste a chunk of references in any format and we'll parse each one to APA 7, then bulk-import them to your references list. Saves an hour of typing if you're moving from Word.",
   },
-  {
-    href: "/uni/calendar",
-    title: "Calendar",
-    blurb:
-      "Month view of every assignment due date overlaid with NZ public holidays and regional anniversaries. Drag an assignment to reschedule it.",
-  },
 ];
 
 export default function UniHomePage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
       <div className="mb-4 flex items-center justify-end gap-2">
+        <Link
+          href="/uni/calendar"
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+        >
+          <span aria-hidden>📅</span> Calendar
+        </Link>
         <ThemeToggle />
         <SignOutButton />
       </div>

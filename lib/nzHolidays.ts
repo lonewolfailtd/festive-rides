@@ -101,3 +101,77 @@ export function toIsoDay(d: Date): string {
   const day = d.getDate().toString().padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+// ---- iCal (.ics) generation ---------------------------------------------
+// Lightweight RFC 5545 emitter. We only need VEVENT for all-day events
+// (holidays + assignment due dates) so the surface area is small.
+//
+// All-day VEVENTs use DATE values (yyyyMMdd) with VALUE=DATE. DTEND is
+// exclusive — for a single all-day event on day X, DTEND is X+1.
+
+interface IcsEvent {
+  uid: string;
+  date: string; // yyyy-mm-dd
+  summary: string;
+  description?: string;
+  category?: string;
+}
+
+const escapeIcs = (s: string): string =>
+  s
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+
+const isoToIcsDate = (iso: string): string => iso.replace(/-/g, "");
+
+const addDay = (iso: string): string => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + 1);
+  return toIsoDay(dt);
+};
+
+// Fold long lines per RFC 5545 (max 75 octets per line).
+const fold = (line: string): string => {
+  if (line.length <= 73) return line;
+  const chunks: string[] = [];
+  let i = 0;
+  while (i < line.length) {
+    chunks.push((i === 0 ? "" : " ") + line.slice(i, i + 73));
+    i += 73;
+  }
+  return chunks.join("\r\n");
+};
+
+export function buildIcs(events: IcsEvent[]): string {
+  const now =
+    new Date()
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}/, "");
+
+  const lines: string[] = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Uni Citation Tool//NZ//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "X-WR-CALNAME:Uni assignments and NZ holidays",
+    "X-WR-TIMEZONE:Pacific/Auckland",
+  ];
+  for (const e of events) {
+    lines.push("BEGIN:VEVENT");
+    lines.push(fold(`UID:${e.uid}`));
+    lines.push(`DTSTAMP:${now}`);
+    lines.push(`DTSTART;VALUE=DATE:${isoToIcsDate(e.date)}`);
+    lines.push(`DTEND;VALUE=DATE:${isoToIcsDate(addDay(e.date))}`);
+    lines.push(fold(`SUMMARY:${escapeIcs(e.summary)}`));
+    if (e.description) lines.push(fold(`DESCRIPTION:${escapeIcs(e.description)}`));
+    if (e.category) lines.push(fold(`CATEGORIES:${escapeIcs(e.category)}`));
+    lines.push("TRANSP:TRANSPARENT"); // doesn't block as "busy"
+    lines.push("END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
