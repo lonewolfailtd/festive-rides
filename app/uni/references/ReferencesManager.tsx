@@ -417,6 +417,11 @@ export default function ReferencesManager() {
     null
   );
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupInfo, setLookupInfo] = useState<{
+    warnings: string[];
+    fieldSources: Record<string, string>;
+    sourcesQueried: string[];
+  } | null>(null);
 
   // Style checker state
   const [styleFlags, setStyleFlags] = useState<StyleFlag[] | null>(null);
@@ -514,6 +519,7 @@ export default function ReferencesManager() {
 
   const handleLookup = async (kind: "doi" | "isbn" | "url") => {
     setLookupError(null);
+    setLookupInfo(null);
     const value = (kind === "doi" ? doiInput : kind === "isbn" ? isbnInput : urlInput).trim();
     if (!value) {
       setLookupError(`Please enter a ${kind.toUpperCase()}.`);
@@ -541,6 +547,16 @@ export default function ReferencesManager() {
       setForm((prev) =>
         applyFieldsToForm(prev, result.fields as Record<string, unknown>),
       );
+      const info = result as {
+        warnings?: string[];
+        fieldSources?: Record<string, string>;
+        sourcesQueried?: string[];
+      };
+      setLookupInfo({
+        warnings: info.warnings ?? [],
+        fieldSources: info.fieldSources ?? {},
+        sourcesQueried: info.sourcesQueried ?? [],
+      });
     } catch (err) {
       setLookupError(
         err instanceof Error ? err.message : "Lookup failed. Please try again.",
@@ -758,6 +774,43 @@ ${items}
         </div>
         {lookupError && (
           <p className="mt-2 text-sm text-rose-400">{lookupError}</p>
+        )}
+
+        {lookupInfo && (lookupInfo.warnings.length > 0 || lookupInfo.sourcesQueried.length > 0) && (
+          <div className="mt-3 space-y-2">
+            {lookupInfo.warnings.length > 0 && (
+              <div className="rounded-md border border-amber-700/50 bg-amber-950/30 p-3 text-xs text-amber-200">
+                <p className="font-medium">Sources disagree on some fields — please double-check before saving:</p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-4">
+                  {lookupInfo.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {lookupInfo.sourcesQueried.length > 0 && (
+              <p className="text-xs text-slate-500">
+                Queried: {lookupInfo.sourcesQueried.join(", ")}
+                {Object.keys(lookupInfo.fieldSources).length > 0 && (
+                  <>
+                    {" · "}
+                    <details className="inline">
+                      <summary className="cursor-pointer text-slate-400 hover:text-slate-200">
+                        per-field sources
+                      </summary>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-slate-400">
+                        {Object.entries(lookupInfo.fieldSources).map(([field, source]) => (
+                          <li key={field}>
+                            <span className="font-mono text-slate-300">{field}</span>: {source}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
