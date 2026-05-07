@@ -289,6 +289,33 @@ function AuthorsEditor({
   );
 }
 
+// Small chip-style copy button used for in-text citations.
+function CopyChip({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore clipboard errors silently
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={copied ? "Copied to clipboard" : `Copy ${label}`}
+      className={`rounded bg-slate-800 px-1.5 py-0.5 text-slate-200 transition-colors hover:bg-slate-700 ${
+        copied ? "ring-1 ring-emerald-500/60 text-emerald-200" : ""
+      }`}
+    >
+      {copied ? "✓ Copied" : text}
+    </button>
+  );
+}
+
 // Map a partial fields object (from lookup actions or stored references) onto
 // the flat FormState shape. Only keys that are present in `fields` are mapped,
 // so unrelated fields are not clobbered.
@@ -1290,17 +1317,19 @@ ${items}
                   dangerouslySetInnerHTML={{ __html: r.formatted ?? "" }}
                 />
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                  <span>
+                  <span className="flex items-center gap-1.5">
                     In-text:{" "}
-                    <code className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-200">
-                      {r.inTextShort}
-                    </code>
+                    <CopyChip
+                      text={r.inTextShort ?? ""}
+                      label="in-text citation"
+                    />
                   </span>
-                  <span>
+                  <span className="flex items-center gap-1.5">
                     Narrative:{" "}
-                    <code className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-200">
-                      {r.inTextNarrative}
-                    </code>
+                    <CopyChip
+                      text={r.inTextNarrative ?? ""}
+                      label="narrative citation"
+                    />
                   </span>
                   <button
                     onClick={() =>
