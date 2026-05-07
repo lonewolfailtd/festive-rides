@@ -5,55 +5,56 @@ import WorkspaceBar from "./WorkspaceBar";
 import DashboardCards from "./DashboardCards";
 import GradesChart from "./GradesChart";
 import Greeting from "./Greeting";
+import QuickImport from "./QuickImport";
 
 const cards = [
   {
     href: "/uni/analyser",
     title: "Assignment Analyser",
     blurb:
-      "Paste your brief and rubric. Get the question decoded, suggested outline, word-count split and source types you should be hunting for.",
+      "Paste your assignment brief and rubric. We work out what's actually being asked, suggest an outline, split your word count across sections and tell you what kinds of sources to find.",
   },
   {
     href: "/uni/references",
     title: "References",
     blurb:
-      "Build APA 7 references for any source type. Auto-fill from DOI, ISBN or URL. Copy to Word with hanging indent.",
+      "Build a properly formatted APA 7 reference list. Paste a journal link, an ISBN or a DOI and we fill in the rest. Copy straight to Word with the right indents.",
   },
   {
     href: "/uni/sources",
     title: "Source Finder",
     blurb:
-      "Search 250M+ scholarly works on OpenAlex. Filter by peer-reviewed and year. One-click import as APA 7.",
+      "Search 250 million peer-reviewed papers and import any one of them as an APA 7 reference in one click. Filter by year and peer-review status.",
   },
   {
     href: "/uni/bibliography",
     title: "Bibliography Importer",
     blurb:
-      "Paste a chunk of references in any format and we'll parse each one to APA 7, then bulk-import them.",
+      "Got a messy reference list from a previous course or a Word doc? Paste it here and we convert every entry to APA 7, then add them all to your list at once.",
   },
   {
     href: "/uni/coach",
     title: "Draft Coach",
     blurb:
-      "Paste your draft. Get scored feedback on structure, argument, evidence, citation density and tone.",
+      "Paste your draft and get a marker-style score across structure, argument, evidence use, citation density and tone — with quotes from your own writing and what to change.",
   },
   {
     href: "/uni/checker",
     title: "AI Checker",
     blurb:
-      "See what a Turnitin / GPTZero-style detector would flag. Per-paragraph scores, AI tells, humanise tool.",
+      "Find out what a Turnitin- or GPTZero-style detector would flag in your draft. Paragraph-by-paragraph scores, plus a tool that rewrites any flagged passage to sound more human.",
   },
   {
     href: "/uni/citations",
     title: "Citation Extractor",
     blurb:
-      "Pulls every in-text citation, cross-checks them against your references list and flags missing or unused.",
+      "Catches the classic marker-deduction trap: pulls every in-text citation from your draft, checks each one against your reference list and flags anything missing or never used.",
   },
   {
     href: "/uni/plagiarism",
     title: "Plagiarism Self-Check",
     blurb:
-      "Scan your draft for phrases that look templated or too distinctive. Google search link for each so you can verify.",
+      "Spots phrases that sound copy-pasted or unusually distinctive — the stuff a real plagiarism scanner would flag. Each one comes with a Google search link so you can check yourself.",
   },
 ];
 
@@ -90,6 +91,11 @@ export default function UniHomePage() {
       </header>
 
       <Greeting />
+
+      {/* Quick Import — drop a brief PDF, the tool sets up everything. */}
+      <section className="mb-6">
+        <QuickImport />
+      </section>
 
       {/* Workspace bar + grades chart sit side-by-side on lg+ so they share
           one visual row instead of stacking. On mobile they stack naturally

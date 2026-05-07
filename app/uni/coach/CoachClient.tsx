@@ -5,6 +5,7 @@ import { useAction } from "convex/react";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "../PageHeader";
+import { useStoredState } from "@/lib/useStoredState";
 
 const MAX_DRAFT = 30000;
 const MIN_DRAFT = 100;
@@ -161,7 +162,7 @@ export default function CoachClient() {
 
   const [draft, setDraft] = useState("");
   const [brief, setBrief] = useState("");
-  const [wordTarget, setWordTarget] = useState("3000");
+  const [wordTarget, setWordTarget] = useStoredState<string>("uni-coach-word-target", "3000");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CoachResult | null>(null);

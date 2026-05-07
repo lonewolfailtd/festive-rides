@@ -15,6 +15,12 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
+import {
+  COURSE_COLOURS,
+  DEFAULT_COURSE_COLOUR,
+  colourFor,
+  type CourseColour,
+} from "@/lib/courseColours";
 
 const STORAGE_KEY = "uni-active-assignment-v1";
 const ACTIVE_EVENT = "uni:active-assignment-changed";
@@ -78,6 +84,7 @@ export default function WorkspaceBar() {
   const unmarkSubmitted = useMutation(api.assignments.unmarkSubmitted);
   const setGrade = useMutation(api.assignments.setGrade);
   const createCourse = useMutation(api.courses.create);
+  const updateCourse = useMutation(api.courses.update);
 
   const [activeId, setActiveIdLocal] = useState<Id<"assignments"> | null>(null);
   const hydrated = useRef(false);
@@ -287,6 +294,9 @@ export default function WorkspaceBar() {
   const [creatingCourse, setCreatingCourse] = useState(false);
   const [newCourseCode, setNewCourseCode] = useState("");
   const [newCourseName, setNewCourseName] = useState("");
+  const [newCourseColour, setNewCourseColour] =
+    useState<CourseColour>(DEFAULT_COURSE_COLOUR);
+  const [editingColour, setEditingColour] = useState(false);
   const handleCreateCourse = async () => {
     if (!newCourseCode.trim() || !newCourseName.trim()) {
       toast.error("Both code and name are required.");
@@ -296,14 +306,33 @@ export default function WorkspaceBar() {
       const id = await createCourse({
         code: newCourseCode.trim().toUpperCase(),
         name: newCourseName.trim(),
+        colour: newCourseColour,
       });
       if (active) await updateAssignment({ id: active._id, courseId: id });
       setNewCourseCode("");
       setNewCourseName("");
+      setNewCourseColour(DEFAULT_COURSE_COLOUR);
       setCreatingCourse(false);
       toast.success(`Course ${newCourseCode.trim().toUpperCase()} created`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't create");
+    }
+  };
+
+  // Active course (looked up from active assignment) and its colour entry.
+  const activeCourse = useMemo(
+    () => courses?.find((c) => c._id === active?.courseId) ?? null,
+    [courses, active]
+  );
+  const activeColour = colourFor(activeCourse?.colour);
+
+  const handleSetCourseColour = async (key: CourseColour) => {
+    if (!activeCourse) return;
+    try {
+      await updateCourse({ id: activeCourse._id, colour: key });
+      setEditingColour(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save");
     }
   };
 
@@ -370,12 +399,19 @@ export default function WorkspaceBar() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[12rem]">
           <span className={labelStyle}>Active assignment</span>
+          <div className="relative">
+            {activeCourse && (
+              <span
+                className={`pointer-events-none absolute left-3 top-1/2 z-10 mt-0.5 h-2.5 w-2.5 -translate-y-1/2 rounded-full ${activeColour.dot}`}
+                aria-hidden
+              />
+            )}
           <select
             value={activeId ?? ""}
             onChange={(e) =>
               setActiveIdLocal(e.target.value ? (e.target.value as Id<"assignments">) : null)
             }
-            className={inputStyle}
+            className={`${inputStyle} ${activeCourse ? "pl-7" : ""}`}
           >
             <option value="">— none selected —</option>
             {assignments.map((a) => {
@@ -392,6 +428,7 @@ export default function WorkspaceBar() {
               );
             })}
           </select>
+          </div>
         </div>
 
         {!creating ? (
@@ -534,6 +571,27 @@ export default function WorkspaceBar() {
                 className="flex-1 min-w-[10rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 onKeyDown={(e) => e.key === "Escape" && setCreatingCourse(false)}
               />
+              <div
+                className="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-1.5 py-1 dark:border-slate-700 dark:bg-slate-900"
+                role="radiogroup"
+                aria-label="Course colour"
+              >
+                {COURSE_COLOURS.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={newCourseColour === c.key}
+                    aria-label={c.label}
+                    onClick={() => setNewCourseColour(c.key)}
+                    className={`h-4 w-4 rounded-full ${c.dot} ${
+                      newCourseColour === c.key
+                        ? "ring-2 ring-offset-1 ring-slate-900 dark:ring-slate-100 dark:ring-offset-slate-900"
+                        : "opacity-70 hover:opacity-100"
+                    }`}
+                  />
+                ))}
+              </div>
               <button
                 type="button"
                 onClick={() => void handleCreateCourse()}
@@ -551,6 +609,13 @@ export default function WorkspaceBar() {
             </>
           ) : (
             <>
+              {activeCourse && (
+                <span
+                  className={`h-3 w-3 shrink-0 rounded-full ${activeColour.dot}`}
+                  aria-hidden
+                  title={`Course colour: ${activeColour.key}`}
+                />
+              )}
               <select
                 value={active.courseId ?? ""}
                 onChange={(e) =>
@@ -569,6 +634,45 @@ export default function WorkspaceBar() {
                   </option>
                 ))}
               </select>
+              {activeCourse && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setEditingColour((v) => !v)}
+                    aria-label="Edit course colour"
+                    title="Edit course colour"
+                    className={`flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white hover:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-sky-500`}
+                  >
+                    <span
+                      className={`h-3 w-3 rounded-full ${activeColour.dot}`}
+                      aria-hidden
+                    />
+                  </button>
+                  {editingColour && (
+                    <div
+                      className="absolute left-0 top-8 z-10 flex items-center gap-1.5 rounded-md border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+                      role="radiogroup"
+                      aria-label="Pick course colour"
+                    >
+                      {COURSE_COLOURS.map((c) => (
+                        <button
+                          key={c.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={activeColour.key === c.key}
+                          aria-label={c.label}
+                          onClick={() => void handleSetCourseColour(c.key)}
+                          className={`h-5 w-5 rounded-full ${c.dot} ${
+                            activeColour.key === c.key
+                              ? "ring-2 ring-offset-1 ring-slate-900 dark:ring-slate-100 dark:ring-offset-slate-900"
+                              : "opacity-70 hover:opacity-100"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setCreatingCourse(true)}
@@ -754,13 +858,22 @@ export default function WorkspaceBar() {
       {active && analyses && refs && (
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+            {activeCourse && (
+              <span className={`h-2 w-2 rounded-full ${activeColour.dot}`} aria-hidden />
+            )}
             <span className="font-semibold">{analyses.length}</span> analys{analyses.length === 1 ? "is" : "es"}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+            {activeCourse && (
+              <span className={`h-2 w-2 rounded-full ${activeColour.dot}`} aria-hidden />
+            )}
             <span className="font-semibold">{refs.length}</span> reference{refs.length === 1 ? "" : "s"}
           </span>
           {active.wordCountTarget && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              {activeCourse && (
+                <span className={`h-2 w-2 rounded-full ${activeColour.dot}`} aria-hidden />
+              )}
               target: <span className="font-semibold">{active.wordCountTarget.toLocaleString("en-NZ")}</span> words
             </span>
           )}

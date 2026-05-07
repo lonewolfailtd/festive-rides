@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { useStoredState } from "@/lib/useStoredState";
 
 type ParagraphScore = {
   preview: string;
@@ -91,7 +92,7 @@ export default function CheckerClient() {
   // Model picker — V4 Pro is default (cheaper than Claude, comparable quality
   // on voice analysis). V4 Flash is the budget option, Claude is the premium
   // pick if the V4 Pro verdict feels off.
-  const [model, setModel] = useState<string>("deepseek/deepseek-v4-pro");
+  const [model, setModel] = useStoredState<string>("uni-checker-model", "deepseek/deepseek-v4-pro");
 
   // Calibration sub-tool — runs three known samples through the checker
   // back-to-back so the student can sanity-check the model's calibration.

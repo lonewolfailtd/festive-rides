@@ -16,6 +16,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { NZ_HOLIDAYS, type NzHoliday, toIsoDay, buildIcs } from "@/lib/nzHolidays";
+import { useStoredState } from "@/lib/useStoredState";
+import { colourFor } from "@/lib/courseColours";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -27,6 +29,7 @@ type Assignment = {
   _id: Id<"assignments">;
   name: string;
   courseCode?: string;
+  courseId?: Id<"courses">;
   dueDate?: number;
   wordCountTarget?: number;
   submittedAt?: number;
@@ -65,7 +68,18 @@ function convexHttpBase(): string {
 
 export default function CalendarClient() {
   const assignments = useQuery(api.assignments.list);
+  const courses = useQuery(api.courses.list, {});
   const updateAssignment = useMutation(api.assignments.update);
+
+  // Map of courseId -> colour entry. Used to colour assignment chips by
+  // course; submitted assignments stay emerald and override course colour.
+  const courseColourById = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof colourFor>>();
+    for (const c of courses ?? []) {
+      map.set(c._id, colourFor(c.colour));
+    }
+    return map;
+  }, [courses]);
   const myToken = useQuery(api.icalSubscription.getMyToken);
   const ensureToken = useMutation(api.icalSubscription.ensureToken);
   const rotateToken = useMutation(api.icalSubscription.rotateToken);
@@ -75,7 +89,7 @@ export default function CalendarClient() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
-  const [showRegional, setShowRegional] = useState(true);
+  const [showRegional, setShowRegional] = useStoredState<boolean>("uni-calendar-show-regional", true);
   const [draggingId, setDraggingId] = useState<Id<"assignments"> | null>(null);
 
   // Index data for fast lookups during render
@@ -336,7 +350,14 @@ export default function CalendarClient() {
                 )}
               </div>
               <div className="mt-1 space-y-0.5">
-                {dayAssignments.slice(0, 3).map((a) => (
+                {dayAssignments.slice(0, 3).map((a) => {
+                  const colour = a.courseId ? courseColourById.get(a.courseId) : undefined;
+                  const chipColourClasses = a.submittedAt
+                    ? "bg-emerald-600 text-white"
+                    : colour
+                      ? `${colour.chipBg} ${colour.chipText}`
+                      : "bg-sky-600 text-white";
+                  return (
                   <div
                     key={a._id}
                     draggable={!a.submittedAt}
@@ -345,7 +366,7 @@ export default function CalendarClient() {
                     className={`rounded px-1.5 py-0.5 text-[10px] font-medium truncate ${
                       a.submittedAt
                         ? "bg-emerald-600 text-white"
-                        : "cursor-grab active:cursor-grabbing bg-sky-600 text-white"
+                        : `cursor-grab active:cursor-grabbing ${chipColourClasses}`
                     }`}
                     title={
                       a.submittedAt
@@ -355,7 +376,8 @@ export default function CalendarClient() {
                   >
                     {a.submittedAt ? "✓ " : ""}{a.courseCode ? `${a.courseCode}: ` : ""}{a.name}
                   </div>
-                ))}
+                  );
+                })}
                 {dayAssignments.length > 3 && (
                   <div className="text-[10px] text-slate-500 dark:text-slate-400">
                     +{dayAssignments.length - 3} more
@@ -445,22 +467,26 @@ export default function CalendarClient() {
                     )}
                     {r.assignments.length > 0 && (
                       <div className="mt-2 space-y-1">
-                        {r.assignments.map((a) => (
+                        {r.assignments.map((a) => {
+                          const colour = a.courseId ? courseColourById.get(a.courseId) : undefined;
+                          const cls = a.submittedAt
+                            ? "bg-emerald-600 text-white"
+                            : colour
+                              ? `${colour.chipBg} ${colour.chipText}`
+                              : "bg-sky-600 text-white";
+                          return (
                           <button
                             key={a._id}
                             type="button"
                             onClick={() => setSelectedIso(r.iso)}
-                            className={`block w-full rounded px-2 py-1 text-left text-xs font-medium ${
-                              a.submittedAt
-                                ? "bg-emerald-600 text-white"
-                                : "bg-sky-600 text-white"
-                            }`}
+                            className={`block w-full rounded px-2 py-1 text-left text-xs font-medium ${cls}`}
                           >
                             {a.submittedAt ? "✓ " : ""}
                             {a.courseCode ? `${a.courseCode}: ` : ""}
                             {a.name}
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </li>

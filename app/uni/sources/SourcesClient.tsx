@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { formatReference } from "@/lib/apa7/format";
 import type { Author, SourceFields, SourceType } from "@/lib/apa7/types";
+import { useStoredState } from "@/lib/useStoredState";
 
 type SearchResult = {
   id?: string;
@@ -134,8 +135,8 @@ export default function SourcesClient() {
     Id<"assignments"> | "all"
   >("all");
   const [query, setQuery] = useState("");
-  const [onlyPeerReviewed, setOnlyPeerReviewed] = useState(false);
-  const [yearFrom, setYearFrom] = useState("");
+  const [onlyPeerReviewed, setOnlyPeerReviewed] = useStoredState<boolean>("uni-sources-peer-reviewed", false);
+  const [yearFrom, setYearFrom] = useStoredState<string>("uni-sources-from-year", "");
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
