@@ -51,6 +51,7 @@ export default defineSchema({
     sortKey: v.optional(v.string()),
     notes: v.optional(v.string()),
     annotation: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
   })
     .index("by_user", ["userId"])
     .index("by_user_assignment", ["userId", "assignmentId"])

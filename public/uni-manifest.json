@@ -1,0 +1,19 @@
+{
+  "name": "Uni Citation Tool",
+  "short_name": "Uni Tool",
+  "description": "APA 7 reference manager and study helper for Open Polytechnic NZ assignments.",
+  "start_url": "/uni",
+  "scope": "/uni",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "/uni-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

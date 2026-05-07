@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import PageHeader from "../PageHeader";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatReference } from "@/lib/apa7/format";
 import {
   SOURCE_LABELS,
@@ -569,6 +569,12 @@ export default function ReferencesManager() {
 
   const [filterText, setFilterText] = useState("");
   const [annotatedMode, setAnnotatedMode] = useState(false);
+  const [activeTagFilters, setActiveTagFilters] = useState<Set<string>>(new Set());
+  const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedRefIds, setSelectedRefIds] = useState<Set<string>>(new Set());
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const urlInputRef = useRef<HTMLInputElement | null>(null);
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportRunning, setBulkImportRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; failed: number }>({
@@ -588,22 +594,112 @@ export default function ReferencesManager() {
       return ka.localeCompare(kb);
     });
     const q = filterText.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter((r) => {
-      const haystack = [
-        r.formatted ?? "",
-        r.inTextShort ?? "",
-        r.inTextNarrative ?? "",
-        r.sortKey ?? "",
-        r.notes ?? "",
-        r.annotation ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .replace(/<\/?[a-z]+>/g, "");
-      return haystack.includes(q);
+    let filtered = base;
+    if (q) {
+      filtered = filtered.filter((r) => {
+        const haystack = [
+          r.formatted ?? "",
+          r.inTextShort ?? "",
+          r.inTextNarrative ?? "",
+          r.sortKey ?? "",
+          r.notes ?? "",
+          r.annotation ?? "",
+          (r.tags ?? []).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .replace(/<\/?[a-z]+>/g, "");
+        return haystack.includes(q);
+      });
+    }
+    if (activeTagFilters.size > 0) {
+      filtered = filtered.filter((r) => {
+        const tags = r.tags ?? [];
+        for (const t of activeTagFilters) if (!tags.includes(t)) return false;
+        return true;
+      });
+    }
+    return filtered;
+  }, [refs, filterText, activeTagFilters]);
+
+  const allTags = useMemo(() => {
+    if (!refs) return [];
+    const set = new Set<string>();
+    for (const r of refs) for (const t of r.tags ?? []) set.add(t);
+    return Array.from(set).sort();
+  }, [refs]);
+
+  const toggleTagFilter = (tag: string) =>
+    setActiveTagFilters((s) => {
+      const next = new Set(s);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
     });
-  }, [refs, filterText]);
+
+  const addTagToReference = async (
+    id: Id<"references">,
+    currentTags: string[] | undefined,
+    newTag: string
+  ) => {
+    const cleaned = newTag.trim().toLowerCase();
+    if (!cleaned) return;
+    const existing = currentTags ?? [];
+    if (existing.includes(cleaned)) return;
+    try {
+      await updateRef({ id, tags: [...existing, cleaned] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add tag");
+    }
+  };
+
+  const removeTagFromReference = async (
+    id: Id<"references">,
+    currentTags: string[] | undefined,
+    tag: string
+  ) => {
+    const next = (currentTags ?? []).filter((t) => t !== tag);
+    try {
+      await updateRef({ id, tags: next });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove tag");
+    }
+  };
+
+  // Quick-cite: build "(Smith, 2020; Jones, 2022)" from selected references.
+  const buildMultiCite = (selected: typeof sortedRefs): string => {
+    const groups = selected
+      .map((r) => r.inTextShort ?? "")
+      .map((s) => s.replace(/^\(|\)$/g, "").trim())
+      .filter((s) => s.length > 0)
+      .sort((a, b) => a.localeCompare(b));
+    if (groups.length === 0) return "";
+    return `(${groups.join("; ")})`;
+  };
+
+  const copyMultiCite = async () => {
+    const selected = sortedRefs.filter((r) => selectedRefIds.has(r._id));
+    const text = buildMultiCite(selected);
+    if (!text) {
+      toast.error("Select at least one reference first");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`Copied ${selected.length}-reference citation`);
+    } catch {
+      toast.error("Could not copy to clipboard");
+    }
+  };
+
+  const toggleSelectRef = (id: Id<"references">) =>
+    setSelectedRefIds((s) => {
+      const next = new Set(s);
+      const key = id as unknown as string;
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const update = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((s) => ({ ...s, [k]: v }));
@@ -788,6 +884,41 @@ export default function ReferencesManager() {
 
   // Auto-save state per reference (small green indicator after blur).
   const [savedFlash, setSavedFlash] = useState<Record<string, boolean>>({});
+
+  // Keyboard shortcuts:
+  // "/" focuses search, "n" focuses URL lookup, "Esc" exits select mode + closes notes.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (e.key === "Escape") {
+        if (selectMode) {
+          setSelectMode(false);
+          setSelectedRefIds(new Set());
+          e.preventDefault();
+        }
+        return;
+      }
+      if (isTyping) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === "n") {
+        e.preventDefault();
+        urlInputRef.current?.focus();
+      } else if (e.key === "s") {
+        e.preventDefault();
+        setSelectMode((m) => !m);
+        if (selectMode) setSelectedRefIds(new Set());
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectMode]);
 
   // Onboarding banner — shown once on first visit, dismissed via localStorage.
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1313,6 +1444,7 @@ i { font-style:italic; font-weight:normal; }
           <span className={labelStyle}>Paste a URL</span>
           <div className="mt-1 flex gap-2">
             <input
+              ref={urlInputRef}
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="https://doi.org/10.1234/abcd  •  https://openstax.org/...  •  any article URL"
@@ -1929,10 +2061,11 @@ i { font-style:italic; font-weight:normal; }
                 </svg>
               </span>
               <input
+                ref={searchInputRef}
                 type="text"
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                placeholder="Search author, title, year, notes…"
+                placeholder="Search author, title, year, notes…  ( / )"
                 className={`${inputStyle} pl-9 mt-0`}
               />
             </div>
@@ -1945,7 +2078,55 @@ i { font-style:italic; font-weight:normal; }
               />
               Annotated mode
             </label>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectMode((m) => !m);
+                if (selectMode) setSelectedRefIds(new Set());
+              }}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                selectMode
+                  ? "border-sky-500 bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200"
+                  : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
+              }`}
+              title="Toggle select mode (s) — pick refs and quick-cite them as a group"
+            >
+              {selectMode ? "✕ Exit select" : "Multi-cite"}
+            </button>
           </div>
+
+          {allTags.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-slate-500 dark:text-slate-400">Tags:</span>
+              {allTags.map((tag) => {
+                const active = activeTagFilters.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTagFilter(tag)}
+                    className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                      active
+                        ? "bg-sky-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    #{tag}
+                  </button>
+                );
+              })}
+              {activeTagFilters.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTagFilters(new Set())}
+                  className="text-xs text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                  clear filters
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               onClick={copyRich}
@@ -2063,17 +2244,101 @@ i { font-style:italic; font-weight:normal; }
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8, height: 0, marginBottom: 0 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-sky-700"
+                className={`rounded-xl border bg-white p-4 shadow-sm transition-colors dark:bg-slate-950 ${
+                  selectMode && selectedRefIds.has(r._id)
+                    ? "border-sky-500 ring-2 ring-sky-500/20 dark:border-sky-500"
+                    : "border-slate-200 hover:border-sky-300 dark:border-slate-800 dark:hover:border-sky-700"
+                }`}
               >
-                <p
-                  className="text-sm text-slate-900 dark:text-slate-100"
-                  style={{
-                    textIndent: "-1.27cm",
-                    marginLeft: "1.27cm",
-                    lineHeight: 2,
-                  }}
-                  dangerouslySetInnerHTML={{ __html: r.formatted ?? "" }}
-                />
+                <div className="flex items-start gap-3">
+                  {selectMode && (
+                    <input
+                      type="checkbox"
+                      checked={selectedRefIds.has(r._id)}
+                      onChange={() => toggleSelectRef(r._id)}
+                      aria-label="Select for multi-cite"
+                      className="mt-1 h-4 w-4 shrink-0 rounded border-slate-400 text-sky-600 focus:ring-sky-500 dark:border-slate-600"
+                    />
+                  )}
+                  <p
+                    className="flex-1 text-sm text-slate-900 dark:text-slate-100"
+                    style={{
+                      textIndent: "-1.27cm",
+                      marginLeft: "1.27cm",
+                      lineHeight: 2,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: r.formatted ?? "" }}
+                  />
+                </div>
+
+                {/* Tags row */}
+                {((r.tags && r.tags.length > 0) || tagDrafts[r._id] !== undefined) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[1.27cm]">
+                    {(r.tags ?? []).map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => void removeTagFromReference(r._id, r.tags, tag)}
+                          aria-label={`Remove tag ${tag}`}
+                          className="text-slate-400 hover:text-rose-500"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {tagDrafts[r._id] !== undefined ? (
+                      <input
+                        type="text"
+                        value={tagDrafts[r._id]}
+                        autoFocus
+                        onChange={(e) =>
+                          setTagDrafts((s) => ({ ...s, [r._id]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void addTagToReference(r._id, r.tags, tagDrafts[r._id]);
+                            setTagDrafts((s) => {
+                              const next = { ...s };
+                              delete next[r._id];
+                              return next;
+                            });
+                          } else if (e.key === "Escape") {
+                            setTagDrafts((s) => {
+                              const next = { ...s };
+                              delete next[r._id];
+                              return next;
+                            });
+                          }
+                        }}
+                        onBlur={() => {
+                          if (tagDrafts[r._id]?.trim()) {
+                            void addTagToReference(r._id, r.tags, tagDrafts[r._id]);
+                          }
+                          setTagDrafts((s) => {
+                            const next = { ...s };
+                            delete next[r._id];
+                            return next;
+                          });
+                        }}
+                        placeholder="tag…"
+                        className="w-24 rounded-full border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setTagDrafts((s) => ({ ...s, [r._id]: "" }))}
+                        className="rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-xs text-slate-500 hover:border-sky-500 hover:text-sky-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                      >
+                        + tag
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1.5">
                     In-text:{" "}
@@ -2089,9 +2354,23 @@ i { font-style:italic; font-weight:normal; }
                       label="narrative citation"
                     />
                   </span>
+                  {(!r.tags || r.tags.length === 0) && tagDrafts[r._id] === undefined && (
+                    <button
+                      type="button"
+                      onClick={() => setTagDrafts((s) => ({ ...s, [r._id]: "" }))}
+                      className="ml-auto text-xs text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300"
+                      title="Add a tag to this reference"
+                    >
+                      + Tag
+                    </button>
+                  )}
                   <button
                     onClick={() => toggleNotes(r._id, r.notes)}
-                    className="ml-auto text-xs text-slate-700 dark:text-slate-300 hover:text-sky-300"
+                    className={`text-xs text-slate-700 dark:text-slate-300 hover:text-sky-300 ${
+                      (!r.tags || r.tags.length === 0) && tagDrafts[r._id] === undefined
+                        ? ""
+                        : "ml-auto"
+                    }`}
                     title="Add or view notes / quotes / annotation for this reference"
                   >
                     {openNotes[r._id]
@@ -2197,6 +2476,29 @@ i { font-style:italic; font-weight:normal; }
       </section>
         </div>
       </div>
+
+      {/* Floating quick-cite bar — appears in select mode with at least 1 ref. */}
+      {selectMode && selectedRefIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-slate-300 bg-white px-4 py-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          <span className="text-sm text-slate-700 dark:text-slate-200">
+            {selectedRefIds.size} selected
+          </span>
+          <button
+            type="button"
+            onClick={() => void copyMultiCite()}
+            className={`${buttonPrimary} px-3 py-1.5 text-xs`}
+          >
+            Copy multi-cite
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedRefIds(new Set())}
+            className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </main>
   );
 }

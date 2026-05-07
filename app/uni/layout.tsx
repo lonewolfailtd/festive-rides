@@ -1,5 +1,5 @@
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
 
@@ -7,6 +7,15 @@ export const metadata: Metadata = {
   title: "Uni Citation Tool",
   description: "APA 7 reference manager and study helper for Open Polytechnic NZ assignments.",
   robots: { index: false, follow: false },
+  manifest: "/uni-manifest.json",
+  icons: {
+    icon: "/uni-icon.svg",
+    apple: "/uni-icon.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0284c7",
 };
 
 export default function UniLayout({ children }: { children: React.ReactNode }) {

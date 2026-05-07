@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api";
 import PageHeader from "../PageHeader";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { formatReference } from "@/lib/apa7/format";
 import type { Author, SourceFields, SourceType } from "@/lib/apa7/types";
@@ -29,13 +30,13 @@ type SearchResponse = {
 };
 
 const inputStyle =
-  "mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
+  "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500";
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const buttonPrimary =
-  "rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/10 transition-all hover:-translate-y-px hover:bg-sky-500 hover:shadow-md hover:shadow-sky-900/20 active:translate-y-0 active:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
 const buttonSecondary =
-  "rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-100 dark:bg-slate-800";
+  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
 
 function authorLabel(a: Author): string {
   if (a.kind === "group") return a.name;
@@ -275,8 +276,24 @@ export default function SourcesClient() {
         </form>
       </section>
 
+      {searching && !response && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="space-y-3 animate-pulse">
+            <div className="h-3 w-1/3 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-11/12 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-9/12 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-10/12 rounded bg-slate-200 dark:bg-slate-800" />
+          </div>
+        </div>
+      )}
+
       {response && (
-        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm"
+        >
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
             {response.results.length} of {response.total.toLocaleString()} results
             for &ldquo;{lastQuery}&rdquo;
@@ -300,7 +317,7 @@ export default function SourcesClient() {
                 return (
                   <li
                     key={key}
-                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"
+                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 shadow-sm"
                   >
                     <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                       {r.title}
@@ -380,7 +397,7 @@ export default function SourcesClient() {
               })}
             </ul>
           )}
-        </section>
+        </motion.section>
       )}
     </main>
   );
