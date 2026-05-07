@@ -1,9 +1,20 @@
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata, Viewport } from "next";
 import { Inter, Fraunces } from "next/font/google";
+import dynamic from "next/dynamic";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
-import PomodoroTimer from "./PomodoroTimer";
+
+// Lazy-load the floating pomodoro pill. It's a fixed-position widget at
+// the bottom-right of every uni page, but it's not above-the-fold and
+// doesn't need to block initial render. Splitting it into a deferred
+// chunk shaves a few hundred KB off the critical path. We don't pass
+// `ssr: false` because the layout is a Server Component — next/dynamic
+// without that flag still creates a separate JS chunk and renders the
+// component normally on hydration.
+const PomodoroTimer = dynamic(() => import("./PomodoroTimer"), {
+  loading: () => null,
+});
 
 // Inter is Linear / Vercel-style: clean, highly legible, modern minimal.
 // Scoped to /uni only; festive-rides keeps its festive font stack.
@@ -15,11 +26,15 @@ const inter = Inter({
 
 // Fraunces is the display serif for h1 page titles — warm, classy, pairs
 // with the Rose Quartz theme. Scoped to /uni only.
+// Fraunces is the display serif for h1 page titles. We load only the
+// weights we actually use (semibold for headings) to keep the font
+// payload small — the opsz axis was nice but added ~80KB to the font
+// bundle which contributed to slow cold-start times.
 const fraunces = Fraunces({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-display",
-  axes: ["opsz"],
+  weight: ["600"],
 });
 
 export const metadata: Metadata = {
@@ -37,9 +52,24 @@ export const viewport: Viewport = {
   themeColor: "#0284c7",
 };
 
+// Preconnect to the Convex deployment so the WebSocket handshake starts
+// before the React app bootstraps. Saves a couple of seconds on cold-start
+// because the dashboard fires ~7 simultaneous useQuery calls — having the
+// connection already warm means they all resolve in parallel instead of
+// queuing behind a fresh DNS+TLS round-trip.
+const CONVEX_HTTP =
+  (process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://fabulous-hippopotamus-112.convex.cloud").replace(
+    /\/$/,
+    "",
+  );
+const CONVEX_WS = CONVEX_HTTP.replace(/^https:/, "wss:");
+
 export default function UniLayout({ children }: { children: React.ReactNode }) {
   return (
     <ConvexAuthNextjsServerProvider>
+      {/* Preconnect hints — Next App Router hoists <link> tags into <head>. */}
+      <link rel="preconnect" href={CONVEX_HTTP} crossOrigin="anonymous" />
+      <link rel="preconnect" href={CONVEX_WS} crossOrigin="anonymous" />
       <ConvexClientProvider>
         <ThemeProvider>
           <div

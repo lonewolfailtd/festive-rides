@@ -15,7 +15,7 @@ export default function EmptyState({ icon, title, body, cta, variant = "default"
   const wrapperCx =
     variant === "soft"
       ? "flex flex-col items-center justify-center py-10 text-center"
-      : "flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/40 py-12 px-6 text-center backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/40";
+      : "flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/40 py-12 px-6 text-center dark:border-slate-700 dark:bg-slate-900/40";
   return (
     <div className={wrapperCx}>
       {icon && (
