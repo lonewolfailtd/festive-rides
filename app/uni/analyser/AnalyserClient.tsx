@@ -88,6 +88,8 @@ export default function AnalyserClient() {
 
   const [assignmentId, setAssignmentId] = useState<Id<"assignments"> | "">("");
   const [analysisId, setAnalysisId] = useState<Id<"analyses"> | null>(null);
+  const [extractingPdf, setExtractingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
   const [brief, setBrief] = useState("");
   const [rubric, setRubric] = useState("");
   const [wordCountTarget, setWordCountTarget] = useState("");
@@ -123,6 +125,67 @@ export default function AnalyserClient() {
     setCheckedBullets(new Set(a.checkedBullets ?? []));
     setError(null);
     setShowFeedback(false);
+  };
+
+  // Extract text from a PDF the user uploads, populate the brief textarea.
+  // Uses Mozilla's pdfjs-dist via dynamic import + CDN-loaded worker so the
+  // ~2MB JS only downloads when first needed.
+  const handlePdfUpload = async (file: File) => {
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      toast.error("Please choose a PDF file.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("PDF is over 20MB — please trim and try again.");
+      return;
+    }
+    setExtractingPdf(true);
+    setPdfProgress({ done: 0, total: 0 });
+    try {
+      const pdfjs = await import("pdfjs-dist");
+      // Pull the worker from a CDN matching the installed version.
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+      const buffer = await file.arrayBuffer();
+      const doc = await pdfjs.getDocument({ data: buffer }).promise;
+      const total = doc.numPages;
+      setPdfProgress({ done: 0, total });
+      const parts: string[] = [];
+      for (let i = 1; i <= total; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        const text = content.items
+          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
+          .join(" ");
+        parts.push(text);
+        setPdfProgress({ done: i, total });
+      }
+      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
+      if (extracted.length < 30) {
+        toast.error(
+          "Couldn't pull text from that PDF — it might be scanned / image-based. Try OCR'ing it first."
+        );
+        return;
+      }
+      let truncated = false;
+      if (extracted.length > BRIEF_LIMIT) {
+        extracted = extracted.slice(0, BRIEF_LIMIT);
+        truncated = true;
+      }
+      setBrief(extracted);
+      toast.success(
+        truncated
+          ? `Extracted ${total} pages — trimmed to ${BRIEF_LIMIT} chars`
+          : `Extracted ${total} pages from "${file.name}"`
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+    } finally {
+      setExtractingPdf(false);
+      setPdfProgress(null);
+    }
   };
 
   const sendKeywordsToSources = (keywords: string[]) => {
@@ -356,15 +419,42 @@ export default function AnalyserClient() {
           <div>
             <div className="flex items-baseline justify-between">
               <span className={labelStyle}>Assignment brief</span>
-              <span
-                className={`text-xs ${
-                  brief.length > BRIEF_LIMIT
-                    ? "text-rose-400"
-                    : "text-slate-500"
-                }`}
-              >
-                {brief.length} / {BRIEF_LIMIT}
-              </span>
+              <div className="flex items-center gap-3">
+                <label
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300 ${
+                    extractingPdf ? "pointer-events-none opacity-60" : ""
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handlePdfUpload(f);
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                    disabled={extractingPdf}
+                  />
+                  <span aria-hidden>📄</span>
+                  <span>
+                    {extractingPdf
+                      ? pdfProgress
+                        ? `Extracting ${pdfProgress.done}/${pdfProgress.total}…`
+                        : "Reading PDF…"
+                      : "Upload PDF"}
+                  </span>
+                </label>
+                <span
+                  className={`text-xs ${
+                    brief.length > BRIEF_LIMIT
+                      ? "text-rose-400"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {brief.length} / {BRIEF_LIMIT}
+                </span>
+              </div>
             </div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className={labelStyle}>Save this plan to:</span>
