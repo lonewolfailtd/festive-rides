@@ -677,6 +677,138 @@ const formatForWarning = (v: unknown, field: string): string => {
 };
 
 // ---------------------------------------------------------------------------
+// AI page extraction (DeepSeek V3 via OpenRouter)
+// Used as a fallback when normal scraping returns sparse data and there's no
+// DOI to drive a structured lookup. Best for textbook chapters (OpenStax,
+// Pressbooks), open educational resources, government pages without
+// citation_* tags, and anything else that doesn't expose machine-readable
+// metadata.
+// ---------------------------------------------------------------------------
+
+interface AIExtractionResult {
+  sourceType: SourceType;
+  fields: NormalisedFields;
+  reasoning?: string;
+}
+
+async function aiExtractCitation(
+  pageHtml: string,
+  url: string
+): Promise<AIExtractionResult | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+
+  // Capacity control: large textbook pages can exceed model context. Trim
+  // hard but keep meta tags + heading + first portion of body text.
+  const headMatch = pageHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+  const metaTags = ((headMatch?.[1] ?? "").match(/<meta\s+[^>]+>/gi) ?? [])
+    .join("\n")
+    .slice(0, 3000);
+  const bodyMatch = pageHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const bodyText = (bodyMatch?.[1] ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 6000);
+
+  const systemPrompt = `You extract APA 7 citation metadata from a web page. The user pastes URL + page content. You return ONLY JSON.
+
+Source types you may pick:
+- "book" — entire book
+- "bookChapter" — a chapter of a textbook (very common: OpenStax, Pressbooks, NZ government textbooks)
+- "journalArticle" — peer-reviewed journal article
+- "website" — general web page (default for blogs, organisation pages without scholarly structure)
+- "newsArticle" — news / magazine article
+- "report" — government or organisation report
+
+Field shapes (only include the ones relevant to your chosen source type):
+- book: authors[], year, title, edition?, publisher, doi?
+- bookChapter: authors[], year, chapterTitle, editors[], bookTitle, pageStart?, pageEnd?, edition?, publisher
+- journalArticle: authors[], year, title, journal, volume?, issue?, pageStart?, pageEnd?, doi?, url?
+- website: authors[], year?, monthDay?, title, siteName?, url
+- newsArticle: authors[], year, monthDay?, title, source, url?
+- report: authors[], year, title, reportNumber?, publisher?, url?
+
+Authors / editors: array of {kind:"person",surname,given} or {kind:"group",name}.
+
+Hard rules:
+- Use NZ English (organise, behaviour, analyse, colour) in any prose you write.
+- Do not use the Oxford comma in any prose.
+- For OpenStax pages: source type is "bookChapter". Set publisher to "OpenStax". The book title is on the page (e.g. "Psychology 2e", "College Physics"). The chapter title is the section heading. Authors are typically on the book's About page; if you can identify any from the page content, list them; otherwise leave authors as an empty array — DO NOT invent authors.
+- For pages with no clear authors, prefer a group author (the publishing organisation) over making one up.
+- Year: use the version/copyright year shown on the page; if absent, use the most recent year mentioned.
+- Do NOT make up information. If a field is unknown, omit it entirely.`;
+
+  const userPrompt = `URL: ${url}
+
+PAGE META TAGS:
+${metaTags}
+
+PAGE TEXT EXCERPT:
+${bodyText}
+
+Return JSON of shape:
+{
+  "sourceType": "...",
+  "fields": { ... },
+  "reasoning": "1-2 sentence explanation of source type and key field choices"
+}`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://festiverides.online/uni",
+        "X-Title": "Uni Citation Tool",
+      },
+      body: JSON.stringify({
+        model: "deepseek/deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1500,
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return null;
+    const cleaned = content
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+    const parsed = JSON.parse(cleaned) as AIExtractionResult;
+    if (!parsed.sourceType || !parsed.fields) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+const isFieldsSparse = (fields: NormalisedFields): boolean => {
+  // Count how many fields have meaningful values. Anything below 3 is
+  // treated as "publisher didn't expose enough data" and we ask the AI.
+  let count = 0;
+  for (const key of FIELDS_TO_MERGE) {
+    if (isMeaningful(fields[key])) count++;
+  }
+  return count < 3;
+};
+
+// ---------------------------------------------------------------------------
 // DOI extraction from URLs
 // ---------------------------------------------------------------------------
 
@@ -943,6 +1075,30 @@ export const url = action({
         return await multiSourceDoiLookup(declaredDoi, cleaned);
       } catch {
         // fall back to page-only result below
+      }
+    }
+
+    // No DOI on page either. If the scraped data is sparse (which is
+    // typical for OpenStax, Pressbooks, blogs and most non-academic sites),
+    // fall back to AI extraction over the page text.
+    if (isFieldsSparse(scraped.fields)) {
+      const ai = await aiExtractCitation(scraped.html, cleaned);
+      if (ai) {
+        const fieldSources: Partial<Record<keyof NormalisedFields, string>> = {};
+        const aiLabel = "AI-extracted (DeepSeek)";
+        for (const f of FIELDS_TO_MERGE) {
+          if (isMeaningful(ai.fields[f])) fieldSources[f] = aiLabel;
+        }
+        return {
+          sourceType: ai.sourceType,
+          fields: ai.fields,
+          fieldSources,
+          warnings: [
+            "Page exposed little machine-readable metadata. AI extracted the citation from the page text — please double-check authors, year and title before saving.",
+          ],
+          sourcesQueried: [aiLabel],
+          aiReasoning: ai.reasoning,
+        };
       }
     }
 
