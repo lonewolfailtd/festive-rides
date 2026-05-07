@@ -88,7 +88,7 @@ export default function AnalyserClient() {
 
   const [assignmentId, setAssignmentId] = useState<Id<"assignments"> | "">("");
   const [analysisId, setAnalysisId] = useState<Id<"analyses"> | null>(null);
-  const [extractingPdf, setExtractingPdf] = useState(false);
+  const [extractingPdf, setExtractingPdf] = useState<null | "brief" | "rubric">(null);
   const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
   const [brief, setBrief] = useState("");
   const [rubric, setRubric] = useState("");
@@ -130,7 +130,7 @@ export default function AnalyserClient() {
   // Extract text from a PDF the user uploads, populate the brief textarea.
   // Uses Mozilla's pdfjs-dist via dynamic import + CDN-loaded worker so the
   // ~2MB JS only downloads when first needed.
-  const handlePdfUpload = async (file: File) => {
+  const handlePdfUpload = async (file: File, target: "brief" | "rubric") => {
     const isPdf =
       file.type === "application/pdf" ||
       file.name.toLowerCase().endsWith(".pdf");
@@ -142,11 +142,10 @@ export default function AnalyserClient() {
       toast.error("PDF is over 20MB — please trim and try again.");
       return;
     }
-    setExtractingPdf(true);
+    setExtractingPdf(target);
     setPdfProgress({ done: 0, total: 0 });
     try {
       const pdfjs = await import("pdfjs-dist");
-      // Pull the worker from a CDN matching the installed version.
       pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
       const buffer = await file.arrayBuffer();
       const doc = await pdfjs.getDocument({ data: buffer }).promise;
@@ -174,16 +173,17 @@ export default function AnalyserClient() {
         extracted = extracted.slice(0, BRIEF_LIMIT);
         truncated = true;
       }
-      setBrief(extracted);
+      if (target === "brief") setBrief(extracted);
+      else setRubric(extracted);
       toast.success(
         truncated
           ? `Extracted ${total} pages — trimmed to ${BRIEF_LIMIT} chars`
-          : `Extracted ${total} pages from "${file.name}"`
+          : `Extracted ${total} pages from "${file.name}" into ${target}`
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "PDF extraction failed");
     } finally {
-      setExtractingPdf(false);
+      setExtractingPdf(null);
       setPdfProgress(null);
     }
   };
@@ -422,7 +422,7 @@ export default function AnalyserClient() {
               <div className="flex items-center gap-3">
                 <label
                   className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300 ${
-                    extractingPdf ? "pointer-events-none opacity-60" : ""
+                    extractingPdf !== null ? "pointer-events-none opacity-60" : ""
                   }`}
                 >
                   <input
@@ -430,15 +430,15 @@ export default function AnalyserClient() {
                     accept=".pdf,application/pdf"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) void handlePdfUpload(f);
+                      if (f) void handlePdfUpload(f, "brief");
                       e.target.value = "";
                     }}
                     className="hidden"
-                    disabled={extractingPdf}
+                    disabled={extractingPdf !== null}
                   />
                   <span aria-hidden>📄</span>
                   <span>
-                    {extractingPdf
+                    {extractingPdf === "brief"
                       ? pdfProgress
                         ? `Extracting ${pdfProgress.done}/${pdfProgress.total}…`
                         : "Reading PDF…"
@@ -495,7 +495,34 @@ export default function AnalyserClient() {
           </div>
 
           <div>
-            <span className={labelStyle}>Marking rubric (optional)</span>
+            <div className="flex items-baseline justify-between">
+              <span className={labelStyle}>Marking rubric (optional)</span>
+              <label
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300 ${
+                  extractingPdf !== null ? "pointer-events-none opacity-60" : ""
+                }`}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handlePdfUpload(f, "rubric");
+                    e.target.value = "";
+                  }}
+                  className="hidden"
+                  disabled={extractingPdf !== null}
+                />
+                <span aria-hidden>📄</span>
+                <span>
+                  {extractingPdf === "rubric"
+                    ? pdfProgress
+                      ? `Extracting ${pdfProgress.done}/${pdfProgress.total}…`
+                      : "Reading PDF…"
+                    : "Upload PDF"}
+                </span>
+              </label>
+            </div>
             <textarea
               value={rubric}
               onChange={(e) => setRubric(e.target.value)}
