@@ -24,6 +24,7 @@ type SavedState = {
   completedFocus: number;
   focusMins: number;
   breakMins: number;
+  notificationsEnabled: boolean;
 };
 
 const defaultState = (): SavedState => ({
@@ -33,7 +34,94 @@ const defaultState = (): SavedState => ({
   completedFocus: 0,
   focusMins: FOCUS_MINUTES_DEFAULT,
   breakMins: BREAK_MINUTES_DEFAULT,
+  notificationsEnabled: false,
 });
+
+// Play a 3-note arpeggio rather than a single beep. Sounds more like "time
+// is up" and less like a phone alert. Different chords for focus→break vs
+// break→focus so the student can tell them apart with their eyes shut.
+//
+// Note: each oscillator gets its own AudioContext rather than sharing — on
+// mobile Safari, AudioContexts can fall asleep between phases and the new
+// session needs a fresh context to play.
+function playChime(forPhase: Phase) {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // C-major triad ascending for break (gentle "rest"), G-major for focus
+    // (firmer "go"). Frequencies in Hz.
+    const notes =
+      forPhase === "break"
+        ? [523.25, 659.25, 783.99] // C5 E5 G5
+        : [392.0, 523.25, 659.25]; // G4 C5 E5
+
+    const noteDuration = 0.45; // seconds
+    const noteOverlap = 0.18; // each note starts before the previous ends
+
+    notes.forEach((freq, i) => {
+      const startAt = ctx.currentTime + i * (noteDuration - noteOverlap);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      // Soft attack/release envelope. exponentialRamp can't go to 0 so we
+      // ramp to a tiny value before stopping.
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(0.22, startAt + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + noteDuration);
+      osc.start(startAt);
+      osc.stop(startAt + noteDuration + 0.05);
+    });
+
+    // Close the context after all notes finish so we don't leak resources.
+    setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, (notes.length * (noteDuration - noteOverlap) + noteDuration + 0.2) * 1000);
+  } catch {
+    // ignore — audio is best-effort
+  }
+}
+
+function fireNotification(forPhase: Phase, completedFocus: number): void {
+  if (typeof window === "undefined") return;
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    const title =
+      forPhase === "break"
+        ? "Break time"
+        : "Back to it";
+    const body =
+      forPhase === "break"
+        ? `Focus block done${completedFocus > 0 ? ` (${completedFocus} today)` : ""}. Stretch, water, look out a window.`
+        : "Break's up. Click to dismiss and start the next focus block.";
+    // `renotify` and `badge` are valid options that browsers honour but
+    // aren't yet in TypeScript's NotificationOptions lib type. Cast through
+    // a permissive shape so the build doesn't reject them.
+    const opts = {
+      body,
+      tag: "uni-pomodoro",
+      renotify: true,
+      requireInteraction: true,
+      icon: "/uni-icon.svg",
+      badge: "/uni-icon.svg",
+      silent: false,
+    } as NotificationOptions;
+    const n = new Notification(title, opts);
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch {
+    // ignore
+  }
+}
 
 function loadState(): SavedState {
   if (typeof window === "undefined") return defaultState();
@@ -125,33 +213,46 @@ export default function PomodoroTimer() {
             nextPhase === "focus"
               ? prev.focusMins * 60_000
               : prev.breakMins * 60_000;
-          // Subtle "ding" via Web Audio
+          const newCompleted =
+            prev.phase === "focus" ? prev.completedFocus + 1 : prev.completedFocus;
+          // 3-note arpeggio
+          playChime(nextPhase);
+          // OS-level notification (require interaction so it doesn't auto-dismiss)
+          if (prev.notificationsEnabled) {
+            fireNotification(nextPhase, newCompleted);
+          }
+          // Flash the tab title so a backgrounded tab still gets her attention
           try {
-            const AudioCtx =
-              window.AudioContext ||
-              (window as unknown as { webkitAudioContext?: typeof AudioContext })
-                .webkitAudioContext;
-            if (AudioCtx) {
-              const ctx = new AudioCtx();
-              const osc = ctx.createOscillator();
-              const gain = ctx.createGain();
-              osc.frequency.value = nextPhase === "break" ? 660 : 880;
-              osc.connect(gain);
-              gain.connect(ctx.destination);
-              gain.gain.setValueAtTime(0.001, ctx.currentTime);
-              gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.05);
-              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-              osc.start();
-              osc.stop(ctx.currentTime + 0.65);
-            }
+            const orig = document.title;
+            const flashTitle =
+              nextPhase === "break" ? "⏰ BREAK · Uni" : "⏰ FOCUS · Uni";
+            let flashing = true;
+            let i = 0;
+            const flash = window.setInterval(() => {
+              document.title = i % 2 === 0 ? flashTitle : orig;
+              i++;
+              if (i > 10 || !flashing) {
+                window.clearInterval(flash);
+                document.title = orig;
+              }
+            }, 700);
+            // Stop flashing as soon as the page is focused again
+            const stop = () => {
+              flashing = false;
+              window.clearInterval(flash);
+              document.title = orig;
+              window.removeEventListener("focus", stop);
+              document.removeEventListener("visibilitychange", stop);
+            };
+            window.addEventListener("focus", stop);
+            document.addEventListener("visibilitychange", stop);
           } catch {}
           return {
             ...prev,
             phase: nextPhase,
             remaining: nextDurationMs,
             endsAt: null,
-            completedFocus:
-              prev.phase === "focus" ? prev.completedFocus + 1 : prev.completedFocus,
+            completedFocus: newCompleted,
           };
         }
         return { ...prev, remaining };
@@ -312,20 +413,68 @@ export default function PomodoroTimer() {
         </button>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 flex items-center gap-2">
         <select
           value={`${state.focusMins}/${state.breakMins}`}
           onChange={(e) => {
             const [f, b] = e.target.value.split("/").map(Number);
             setDurations(f, b);
           }}
-          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
           <option value="25/5">25 / 5 (classic)</option>
           <option value="50/10">50 / 10 (deep)</option>
           <option value="15/3">15 / 3 (short)</option>
           <option value="45/15">45 / 15 (long)</option>
         </select>
+        <button
+          type="button"
+          onClick={async () => {
+            // If turning OFF, just toggle.
+            if (state.notificationsEnabled) {
+              setState((p) => ({ ...p, notificationsEnabled: false }));
+              return;
+            }
+            // Need to ask permission. Browsers only prompt once — if denied,
+            // they remember and we can't re-prompt. Fall back to chime + tab
+            // flash in that case.
+            if (typeof Notification === "undefined") return;
+            if (Notification.permission === "granted") {
+              setState((p) => ({ ...p, notificationsEnabled: true }));
+              return;
+            }
+            if (Notification.permission === "denied") {
+              alert(
+                "Notifications are blocked in your browser settings for this site. Look for the lock icon in the address bar to allow them."
+              );
+              return;
+            }
+            try {
+              const result = await Notification.requestPermission();
+              if (result === "granted") {
+                setState((p) => ({ ...p, notificationsEnabled: true }));
+                // Test ping so she knows it works
+                new Notification("Notifications enabled", {
+                  body: "I'll ping you when each focus block or break ends.",
+                  tag: "uni-pomodoro-test",
+                  icon: "/uni-icon.svg",
+                });
+              }
+            } catch {}
+          }}
+          title={
+            state.notificationsEnabled
+              ? "Click to turn off"
+              : "Click to ask your browser for permission"
+          }
+          className={`shrink-0 rounded-md border px-2 py-1 text-xs ${
+            state.notificationsEnabled
+              ? "border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
+              : "border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          }`}
+        >
+          {state.notificationsEnabled ? "🔔 On" : "🔕 Off"}
+        </button>
       </div>
 
       <div className="mt-3 flex items-baseline justify-center gap-3">
