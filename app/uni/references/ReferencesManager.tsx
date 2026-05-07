@@ -17,10 +17,13 @@ import {
 const SOURCE_TYPES: SourceType[] = [
   "book",
   "bookChapter",
+  "editedBook",
   "journalArticle",
   "website",
   "newsArticle",
   "report",
+  "onlineVideo",
+  "aiTool",
 ];
 
 const newAuthor = (): Author => ({ kind: "person", surname: "", given: "" });
@@ -50,6 +53,13 @@ type FormState = {
   source: string;
   // Report
   reportNumber: string;
+  // Online video
+  platform: string;
+  // AI tool
+  maker: string;
+  toolName: string;
+  version: string;
+  description: string;
 };
 
 const emptyForm = (): FormState => ({
@@ -73,6 +83,11 @@ const emptyForm = (): FormState => ({
   retrievedDate: "",
   source: "",
   reportNumber: "",
+  platform: "",
+  maker: "",
+  toolName: "",
+  version: "",
+  description: "",
 });
 
 const labelStyle = "block text-xs font-medium uppercase tracking-wide text-slate-400";
@@ -178,6 +193,45 @@ function buildSourceFields(type: SourceType, f: FormState): SourceFields | null 
           reportNumber: f.reportNumber || undefined,
           publisher: f.publisher || undefined,
           url: f.url || undefined,
+        },
+      };
+    case "editedBook":
+      if (!f.title.trim()) return null;
+      return {
+        sourceType: "editedBook",
+        fields: {
+          editors: cleanEditors,
+          year: f.year,
+          title: f.title,
+          edition: f.edition || undefined,
+          publisher: f.publisher,
+          doi: f.doi || undefined,
+        },
+      };
+    case "onlineVideo":
+      if (!f.title.trim() || !f.url.trim()) return null;
+      return {
+        sourceType: "onlineVideo",
+        fields: {
+          authors: cleanAuthors,
+          year: f.year,
+          monthDay: f.monthDay || undefined,
+          title: f.title,
+          platform: f.platform,
+          url: f.url,
+        },
+      };
+    case "aiTool":
+      if (!f.toolName.trim() || !f.maker.trim()) return null;
+      return {
+        sourceType: "aiTool",
+        fields: {
+          maker: f.maker,
+          year: f.year,
+          toolName: f.toolName,
+          version: f.version || undefined,
+          description: f.description?.trim() || "Large language model",
+          url: f.url,
         },
       };
   }
@@ -344,6 +398,11 @@ function applyFieldsToForm(
     "retrievedDate",
     "source",
     "reportNumber",
+    "platform",
+    "maker",
+    "toolName",
+    "version",
+    "description",
   ];
   for (const k of stringKeys) {
     const v = fields[k as string];
@@ -434,6 +493,8 @@ export default function ReferencesManager() {
   const { signOut } = useAuthActions();
   const assignments = useQuery(api.assignments.list);
   const createAssignment = useMutation(api.assignments.create);
+  const updateAssignment = useMutation(api.assignments.update);
+  const removeAssignment = useMutation(api.assignments.remove);
   const deleteRef = useMutation(api.references.remove);
   const createRef = useMutation(api.references.create);
   const updateRef = useMutation(api.references.update);
@@ -446,6 +507,8 @@ export default function ReferencesManager() {
     Id<"assignments"> | "all"
   >("all");
   const [newAssignmentName, setNewAssignmentName] = useState("");
+  const [renameValue, setRenameValue] = useState("");
+  const [editingAssignment, setEditingAssignment] = useState(false);
   const [sourceType, setSourceType] = useState<SourceType>("book");
   const [form, setForm] = useState<FormState>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
@@ -487,6 +550,44 @@ export default function ReferencesManager() {
 
   const update = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((s) => ({ ...s, [k]: v }));
+
+  const handleRenameAssignment = async () => {
+    if (selectedAssignment === "all") return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      toast.error("Please enter a name");
+      return;
+    }
+    try {
+      await updateAssignment({ id: selectedAssignment, name: trimmed });
+      toast.success("List renamed");
+      setEditingAssignment(false);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not rename list"
+      );
+    }
+  };
+
+  const handleDeleteAssignment = async () => {
+    if (selectedAssignment === "all") return;
+    const current = assignments?.find((a) => a._id === selectedAssignment);
+    if (!current) return;
+    const ok = window.confirm(
+      `Delete the list "${current.name}"? Any references attached to it will become unassigned (they're not deleted).`
+    );
+    if (!ok) return;
+    try {
+      await removeAssignment({ id: selectedAssignment });
+      toast.success(`Deleted list "${current.name}"`);
+      setEditingAssignment(false);
+      setSelectedAssignment("all");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not delete list"
+      );
+    }
+  };
 
   const handleNewAssignment = async () => {
     const name = newAssignmentName.trim();
@@ -684,6 +785,45 @@ ${items}
     );
   };
 
+  const [refreshingFormatting, setRefreshingFormatting] = useState(false);
+  const refreshAllFormatting = async () => {
+    if (sortedRefs.length === 0) return;
+    setRefreshingFormatting(true);
+    let updated = 0;
+    let failed = 0;
+    for (const r of sortedRefs) {
+      try {
+        const built = buildSourceFields(
+          r.sourceType as SourceType,
+          applyFieldsToForm(emptyForm(), (r.fields ?? {}) as Record<string, unknown>)
+        );
+        if (!built) {
+          failed++;
+          continue;
+        }
+        const formatted = formatReference(built);
+        await updateRef({
+          id: r._id,
+          formatted: formatted.formattedHtml,
+          inTextShort: formatted.inTextShort,
+          inTextNarrative: formatted.inTextNarrative,
+          sortKey: formatted.sortKey,
+        });
+        updated++;
+      } catch {
+        failed++;
+      }
+    }
+    setRefreshingFormatting(false);
+    if (failed === 0) {
+      toast.success(`Refreshed formatting on ${updated} reference${updated === 1 ? "" : "s"}`);
+    } else {
+      toast.success(
+        `Refreshed ${updated} reference${updated === 1 ? "" : "s"}; ${failed} could not be re-formatted (probably missing required fields — Edit them manually).`
+      );
+    }
+  };
+
   const runStyleCheck = () => {
     const all: StyleFlag[] = [];
     for (const r of sortedRefs) {
@@ -796,13 +936,14 @@ i { font-style:italic; font-weight:normal; }
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <select
             value={selectedAssignment}
-            onChange={(e) =>
+            onChange={(e) => {
+              setEditingAssignment(false);
               setSelectedAssignment(
                 e.target.value === "all"
                   ? "all"
                   : (e.target.value as Id<"assignments">)
-              )
-            }
+              );
+            }}
             className={`${inputStyle} max-w-md`}
           >
             <option value="all">All references (no assignment filter)</option>
@@ -812,6 +953,21 @@ i { font-style:italic; font-weight:normal; }
               </option>
             ))}
           </select>
+          {selectedAssignment !== "all" && !editingAssignment && (
+            <button
+              type="button"
+              onClick={() => {
+                const current = assignments?.find(
+                  (a) => a._id === selectedAssignment
+                );
+                setRenameValue(current?.name ?? "");
+                setEditingAssignment(true);
+              }}
+              className={buttonGhost}
+            >
+              Edit list
+            </button>
+          )}
           <div className="flex flex-1 items-center gap-2">
             <input
               type="text"
@@ -829,6 +985,44 @@ i { font-style:italic; font-weight:normal; }
             </button>
           </div>
         </div>
+        {editingAssignment && selectedAssignment !== "all" && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-700 bg-slate-950 p-3">
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder="New name for this list"
+              className={`${inputStyle} flex-1`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleRenameAssignment();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void handleRenameAssignment()}
+              className={buttonPrimary}
+            >
+              Save name
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteAssignment()}
+              className="rounded-md border border-rose-700 bg-rose-950/30 px-3 py-1.5 text-sm text-rose-200 hover:bg-rose-900/40"
+            >
+              Delete list
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingAssignment(false)}
+              className={buttonSecondary}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
@@ -960,11 +1154,35 @@ i { font-style:italic; font-weight:normal; }
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          <AuthorsEditor
-            label={sourceType === "report" ? "Author or organisation" : "Authors"}
-            value={form.authors}
-            onChange={(v) => update("authors", v)}
-          />
+          {sourceType === "aiTool" ? (
+            <div>
+              <span className={labelStyle}>Maker / company</span>
+              <input
+                value={form.maker}
+                onChange={(e) => update("maker", e.target.value)}
+                placeholder="e.g. OpenAI"
+                className={inputStyle}
+              />
+            </div>
+          ) : sourceType === "editedBook" ? (
+            <AuthorsEditor
+              label="Editors"
+              value={form.editors}
+              onChange={(v) => update("editors", v)}
+            />
+          ) : (
+            <AuthorsEditor
+              label={
+                sourceType === "report"
+                  ? "Author or organisation"
+                  : sourceType === "onlineVideo"
+                    ? "Uploader / channel"
+                    : "Authors"
+              }
+              value={form.authors}
+              onChange={(v) => update("authors", v)}
+            />
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -976,7 +1194,9 @@ i { font-style:italic; font-weight:normal; }
                 className={inputStyle}
               />
             </div>
-            {(sourceType === "website" || sourceType === "newsArticle") && (
+            {(sourceType === "website" ||
+              sourceType === "newsArticle" ||
+              sourceType === "onlineVideo") && (
               <div>
                 <span className={labelStyle}>Month and day (optional)</span>
                 <input
@@ -989,7 +1209,7 @@ i { font-style:italic; font-weight:normal; }
             )}
           </div>
 
-          {sourceType !== "bookChapter" && (
+          {sourceType !== "bookChapter" && sourceType !== "aiTool" && (
             <div>
               <span className={labelStyle}>Title</span>
               <input
@@ -1004,7 +1224,11 @@ i { font-style:italic; font-weight:normal; }
                         ? "Page title"
                         : sourceType === "report"
                           ? "Report title"
-                          : "Book title"
+                          : sourceType === "onlineVideo"
+                            ? "Video title"
+                            : sourceType === "editedBook"
+                              ? "Book title"
+                              : "Book title"
                 }
                 className={inputStyle}
               />
@@ -1247,6 +1471,100 @@ i { font-style:italic; font-weight:normal; }
             </div>
           )}
 
+          {sourceType === "editedBook" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <span className={labelStyle}>Edition (optional)</span>
+                <input
+                  value={form.edition}
+                  onChange={(e) => update("edition", e.target.value)}
+                  placeholder="2nd ed."
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <span className={labelStyle}>Publisher</span>
+                <input
+                  value={form.publisher}
+                  onChange={(e) => update("publisher", e.target.value)}
+                  className={inputStyle}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <span className={labelStyle}>DOI (optional)</span>
+                <input
+                  value={form.doi}
+                  onChange={(e) => update("doi", e.target.value)}
+                  placeholder="10.1000/xyz123"
+                  className={inputStyle}
+                />
+              </div>
+            </div>
+          )}
+
+          {sourceType === "onlineVideo" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <span className={labelStyle}>Platform</span>
+                <input
+                  value={form.platform}
+                  onChange={(e) => update("platform", e.target.value)}
+                  placeholder="YouTube, Vimeo, TikTok…"
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <span className={labelStyle}>URL</span>
+                <input
+                  value={form.url}
+                  onChange={(e) => update("url", e.target.value)}
+                  className={inputStyle}
+                />
+              </div>
+            </div>
+          )}
+
+          {sourceType === "aiTool" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <span className={labelStyle}>Tool name</span>
+                <input
+                  value={form.toolName}
+                  onChange={(e) => update("toolName", e.target.value)}
+                  placeholder="ChatGPT"
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <span className={labelStyle}>Version (optional)</span>
+                <input
+                  value={form.version}
+                  onChange={(e) => update("version", e.target.value)}
+                  placeholder="GPT-5, Mar 14 version, etc."
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <span className={labelStyle}>Description (in brackets)</span>
+                <input
+                  value={form.description}
+                  onChange={(e) => update("description", e.target.value)}
+                  placeholder="Large language model"
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <span className={labelStyle}>URL</span>
+                <input
+                  value={form.url}
+                  onChange={(e) => update("url", e.target.value)}
+                  placeholder="https://chat.openai.com/chat"
+                  className={inputStyle}
+                />
+              </div>
+            </div>
+          )}
+
           {formError && (
             <p className="text-sm text-rose-400">{formError}</p>
           )}
@@ -1307,6 +1625,14 @@ i { font-style:italic; font-weight:normal; }
               className={buttonSecondary}
             >
               Check NZ English
+            </button>
+            <button
+              onClick={refreshAllFormatting}
+              disabled={sortedRefs.length === 0 || refreshingFormatting}
+              className={buttonSecondary}
+              title="Re-runs the APA formatter on every reference. Use after the formatter has been updated."
+            >
+              {refreshingFormatting ? "Refreshing…" : "Refresh formatting"}
             </button>
           </div>
         </div>

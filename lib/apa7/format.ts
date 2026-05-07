@@ -4,12 +4,15 @@
 // (e.g. comma before "&" in author lists is APA style, not an Oxford comma).
 
 import type {
+  AIToolFields,
   Author,
   BookChapterFields,
   BookFields,
+  EditedBookFields,
   FormattedReference,
   JournalArticleFields,
   NewsArticleFields,
+  OnlineVideoFields,
   ReportFields,
   SourceFields,
   WebsiteFields,
@@ -364,6 +367,111 @@ const buildReport = (f: ReportFields): { html: string; plain: string } => {
   return { html, plain };
 };
 
+// ---------------------------------------------------------------------------
+// New source types
+// ---------------------------------------------------------------------------
+
+const buildEditedBook = (f: EditedBookFields): { html: string; plain: string } => {
+  // APA 7: Editor1, A., & Editor2, B. (Eds.). (Year). *Title* (edition). Publisher. https://doi
+  const editorList = formatAuthorList(f.editors);
+  const editorLabel = f.editors.length > 1 ? "(Eds.)" : "(Ed.)";
+  const titlePart = i(f.title);
+  const editionSuffix = f.edition ? ` (${t(f.edition)})` : "";
+  const editionSuffixPlain = f.edition ? ` (${f.edition})` : "";
+  const tail: string[] = [];
+  if (f.publisher) tail.push(t(f.publisher));
+  const doiLink = doiUrl(f.doi);
+  if (doiLink) tail.push(t(doiLink));
+
+  const html = finalSentence(
+    [
+      `${t(editorList)} ${editorLabel}.`,
+      `(${t(yearOrNd(f.year))}).`,
+      `${titlePart}${editionSuffix}.`,
+      tail.join(". "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  const plain = finalSentence(
+    [
+      `${editorList} ${editorLabel}.`,
+      `(${yearOrNd(f.year)}).`,
+      `${f.title}${editionSuffixPlain}.`,
+      [f.publisher, doiLink].filter(Boolean).join(". "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  return { html, plain };
+};
+
+const buildOnlineVideo = (f: OnlineVideoFields): { html: string; plain: string } => {
+  // APA 7: Uploader. (Year, Month Day). *Title* [Video]. Platform. URL.
+  const authors = formatAuthorList(f.authors);
+  const date = datePart(f.year, f.monthDay);
+  const titleItalic = i(f.title);
+  const tail: string[] = [];
+  if (f.platform) tail.push(t(f.platform));
+  if (f.url) tail.push(t(f.url));
+  const tailPlain: string[] = [];
+  if (f.platform) tailPlain.push(f.platform);
+  if (f.url) tailPlain.push(f.url);
+
+  const html = finalSentence(
+    [
+      t(authors),
+      `(${t(date)}).`,
+      `${titleItalic} [Video].`,
+      tail.join(". "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  const plain = finalSentence(
+    [
+      authors,
+      `(${date}).`,
+      `${f.title} [Video].`,
+      tailPlain.join(". "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  return { html, plain };
+};
+
+const buildAITool = (f: AIToolFields): { html: string; plain: string } => {
+  // APA 7: Maker. (Year). *Tool name* (Version) [Description]. URL.
+  const versionPart = f.version ? ` (${t(f.version)})` : "";
+  const versionPartPlain = f.version ? ` (${f.version})` : "";
+  const desc = f.description?.trim() || "Large language model";
+  const tail = f.url ? [t(f.url)] : [];
+  const tailPlain = f.url ? [f.url] : [];
+
+  const html = finalSentence(
+    [
+      t(f.maker),
+      `(${t(yearOrNd(f.year))}).`,
+      `${i(f.toolName)}${versionPart} [${t(desc)}].`,
+      tail.join(". "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  const plain = finalSentence(
+    [
+      f.maker,
+      `(${yearOrNd(f.year)}).`,
+      `${f.toolName}${versionPartPlain} [${desc}].`,
+      tailPlain.join(". "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  return { html, plain };
+};
+
 export function formatReference(input: SourceFields): FormattedReference {
   let result: { html: string; plain: string };
   let authors: Author[];
@@ -382,6 +490,12 @@ export function formatReference(input: SourceFields): FormattedReference {
       authors = input.fields.authors;
       year = input.fields.year;
       titleForFallback = input.fields.chapterTitle;
+      break;
+    case "editedBook":
+      result = buildEditedBook(input.fields);
+      authors = input.fields.editors;
+      year = input.fields.year;
+      titleForFallback = input.fields.title;
       break;
     case "journalArticle":
       result = buildJournal(input.fields);
@@ -406,6 +520,19 @@ export function formatReference(input: SourceFields): FormattedReference {
       authors = input.fields.authors;
       year = input.fields.year;
       titleForFallback = input.fields.title;
+      break;
+    case "onlineVideo":
+      result = buildOnlineVideo(input.fields);
+      authors = input.fields.authors;
+      year = input.fields.year;
+      titleForFallback = input.fields.title;
+      break;
+    case "aiTool":
+      result = buildAITool(input.fields);
+      // For in-text + sort: maker is treated like a group author.
+      authors = [{ kind: "group", name: input.fields.maker }];
+      year = input.fields.year;
+      titleForFallback = input.fields.toolName;
       break;
   }
 
