@@ -33,6 +33,11 @@ const sectionCard =
   "rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none";
 
 const BRIEF_LIMIT = 12000;
+const countWords = (s: string): number => {
+  const trimmed = s.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).filter(Boolean).length;
+};
 
 function buildMarkdown(r: AnalysisResult): string {
   const lines: string[] = [];
@@ -453,8 +458,9 @@ export default function AnalyserClient() {
                       ? "text-rose-400"
                       : "text-slate-500"
                   }`}
+                  title={`${brief.length} of ${BRIEF_LIMIT} characters`}
                 >
-                  {brief.length} / {BRIEF_LIMIT}
+                  ~{countWords(brief).toLocaleString("en-NZ")} words
                 </span>
               </div>
             </div>

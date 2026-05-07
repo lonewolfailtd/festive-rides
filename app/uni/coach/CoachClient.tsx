@@ -9,6 +9,12 @@ import PageHeader from "../PageHeader";
 const MAX_DRAFT = 30000;
 const MIN_DRAFT = 100;
 
+const countWords = (s: string): number => {
+  const trimmed = s.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).filter(Boolean).length;
+};
+
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const inputStyle =
@@ -155,10 +161,23 @@ export default function CoachClient() {
 
   const [draft, setDraft] = useState("");
   const [brief, setBrief] = useState("");
+  const [wordTarget, setWordTarget] = useState("3000");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CoachResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const draftWords = countWords(draft);
+  const target = Number(wordTarget) || 0;
+  const targetTolerance = target * 0.1; // ±10% per most NZ uni style guides
+  const wordStatus: "ok" | "under" | "over" | "none" =
+    target === 0
+      ? "none"
+      : draftWords < target - targetTolerance
+        ? "under"
+        : draftWords > target + targetTolerance
+          ? "over"
+          : "ok";
 
   // Prefill brief from sessionStorage (handed over from the Analyser).
   useEffect(() => {
@@ -251,19 +270,58 @@ export default function CoachClient() {
 
       <section className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[12rem]">
+              <span className={labelStyle}>Word count target</span>
+              <select
+                value={wordTarget}
+                onChange={(e) => setWordTarget(e.target.value)}
+                className={inputStyle}
+              >
+                <option value="0">No target</option>
+                <option value="1000">1,000 words (100-level)</option>
+                <option value="1500">1,500 words</option>
+                <option value="2000">2,000 words (200-level)</option>
+                <option value="2500">2,500 words</option>
+                <option value="3000">3,000 words (300-level)</option>
+                <option value="3500">3,500 words</option>
+                <option value="4000">4,000 words (honors)</option>
+                <option value="5000">5,000 words (postgrad)</option>
+              </select>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              NZ uni style guides usually allow ±10% around the target.
+            </p>
+          </div>
+
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className={labelStyle}>Your draft</span>
               <span
                 className={`text-xs ${
-                  tooLong
-                    ? "text-rose-400"
+                  tooLong || wordStatus === "over"
+                    ? "text-rose-500 dark:text-rose-400"
                     : tooShort
-                      ? "text-amber-400"
-                      : "text-slate-500"
+                      ? "text-amber-500 dark:text-amber-400"
+                      : wordStatus === "under"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : wordStatus === "ok"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-slate-500 dark:text-slate-400"
                 }`}
+                title={`${draftLen.toLocaleString()} of ${MAX_DRAFT.toLocaleString()} characters`}
               >
-                {draftLen.toLocaleString()} / {MAX_DRAFT.toLocaleString()}
+                {draftWords.toLocaleString("en-NZ")}
+                {target > 0 && (
+                  <>
+                    {" / "}
+                    {target.toLocaleString("en-NZ")} words
+                    {wordStatus === "ok" && " ✓"}
+                    {wordStatus === "under" && ` (need ~${Math.max(0, Math.round(target - targetTolerance) - draftWords)} more)`}
+                    {wordStatus === "over" && ` (over by ~${draftWords - Math.round(target + targetTolerance)})`}
+                  </>
+                )}
+                {target === 0 && " words"}
               </span>
             </div>
             <textarea
