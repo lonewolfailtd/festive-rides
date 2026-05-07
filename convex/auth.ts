@@ -12,7 +12,10 @@ const isAllowed = (email: string | undefined | null): boolean =>
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Resend({
-      from: "Uni Citation <noreply@festiverides.online>",
+      // Reverted to Resend's test sender while festiverides.online finishes
+      // verification. Once Resend status flips to "Verified" (not "Pending"),
+      // swap back to "Uni Citation <noreply@festiverides.online>".
+      from: "Uni Citation <onboarding@resend.dev>",
       apiKey: process.env.RESEND_API_KEY,
       maxAge: 60 * 30,
       async sendVerificationRequest(params) {

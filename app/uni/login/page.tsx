@@ -2,6 +2,7 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
+import { ThemeToggle } from "../ThemeProvider";
 
 export default function UniLoginPage() {
   const { signIn } = useAuthActions();
@@ -25,10 +26,13 @@ export default function UniLoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
+    <main className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-xl">
         <h1 className="text-2xl font-semibold tracking-tight">Uni Citation Tool</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Sign in with your email. We&apos;ll send you a one-tap login link.
         </p>
 
@@ -40,14 +44,14 @@ export default function UniLoginPage() {
         ) : (
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <label className="block">
-              <span className="text-sm text-slate-300">Email address</span>
+              <span className="text-sm text-slate-700 dark:text-slate-300">Email address</span>
               <input
                 type="email"
                 required
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 placeholder="you@example.com"
                 disabled={step === "submitting"}
               />

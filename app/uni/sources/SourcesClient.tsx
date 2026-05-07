@@ -1,7 +1,7 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
+import PageHeader from "../PageHeader";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useState } from "react";
@@ -29,13 +29,13 @@ type SearchResponse = {
 };
 
 const inputStyle =
-  "mt-1 block w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
+  "mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
 const labelStyle =
-  "block text-xs font-medium uppercase tracking-wide text-slate-400";
+  "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const buttonPrimary =
   "rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60";
 const buttonSecondary =
-  "rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:border-slate-500 hover:bg-slate-800";
+  "rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-100 dark:bg-slate-800";
 
 function authorLabel(a: Author): string {
   if (a.kind === "group") return a.name;
@@ -125,7 +125,6 @@ function resultKey(r: SearchResult, idx: number): string {
 }
 
 export default function SourcesClient() {
-  const { signOut } = useAuthActions();
   const assignments = useQuery(api.assignments.list);
   const search = useAction(api.sources.search);
   const createRef = useMutation(api.references.create);
@@ -199,20 +198,14 @@ export default function SourcesClient() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm text-sky-400">Source finder</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Find scholarly sources
-          </h1>
-        </div>
-        <button onClick={() => signOut()} className={buttonSecondary}>
-          Sign out
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="Source Finder"
+        title="Search 250M+ scholarly works"
+        description="Powered by OpenAlex (free, no key). Filter by peer-reviewed and year. One-click import as a properly formatted APA 7 reference."
+      />
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
           Assignment
         </h2>
         <div className="mt-3">
@@ -237,8 +230,8 @@ export default function SourcesClient() {
         </div>
       </section>
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
           Search
         </h2>
         <form onSubmit={handleSearch} className="mt-3 space-y-4">
@@ -253,12 +246,12 @@ export default function SourcesClient() {
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm text-slate-200">
+            <label className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
               <input
                 type="checkbox"
                 checked={onlyPeerReviewed}
                 onChange={(e) => setOnlyPeerReviewed(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-sky-600 focus:ring-sky-500"
+                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500"
               />
               Peer-reviewed only
             </label>
@@ -283,13 +276,13 @@ export default function SourcesClient() {
       </section>
 
       {response && (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-300">
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
             {response.results.length} of {response.total.toLocaleString()} results
             for &ldquo;{lastQuery}&rdquo;
           </h2>
           {response.results.length === 0 ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               No results. Try broader keywords or remove filters.
             </p>
           ) : (
@@ -307,31 +300,31 @@ export default function SourcesClient() {
                 return (
                   <li
                     key={key}
-                    className="rounded-lg border border-slate-800 bg-slate-950 p-4"
+                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"
                   >
-                    <h3 className="text-base font-semibold text-slate-100">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                       {r.title}
                     </h3>
-                    <p className="mt-1 text-sm text-slate-300">
+                    <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
                       {displayAuthors(r.authors)}
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {r.year ?? "n.d."}
                       {r.journal ? ` · ${r.journal}` : ""}
                       {!r.journal && r.publisher ? ` · ${r.publisher}` : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-xs text-slate-300">
+                      <span className="rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-300">
                         Cited {r.citedByCount.toLocaleString()} times
                       </span>
                       {r.type && (
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-xs text-slate-400">
+                        <span className="rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {r.type}
                         </span>
                       )}
                     </div>
                     {abstract && (
-                      <div className="mt-3 text-sm text-slate-300">
+                      <div className="mt-3 text-sm text-slate-700 dark:text-slate-300">
                         <p className="leading-relaxed">
                           {isExpanded ? abstract : truncatedAbstract}
                         </p>

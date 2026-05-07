@@ -1,22 +1,21 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
 import { useAction } from "convex/react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
+import PageHeader from "../PageHeader";
 
 const MAX_DRAFT = 30000;
 const MIN_DRAFT = 100;
 
 const labelStyle =
-  "block text-xs font-medium uppercase tracking-wide text-slate-400";
+  "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const inputStyle =
-  "mt-1 block w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
+  "mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
 const buttonPrimary =
   "rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60";
 const buttonSecondary =
-  "rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:border-slate-500 hover:bg-slate-800";
+  "rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-100 dark:bg-slate-800";
 
 type ScoreEntry = { score: number; feedback: string };
 
@@ -87,12 +86,12 @@ function ScoreCard({
       className={`rounded-2xl border ${colour.border} ${colour.bg} p-4`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800 dark:text-slate-200">
           {label}
         </h3>
         <span className={`text-2xl font-bold ${colour.text}`}>
           {score}
-          <span className="text-sm text-slate-400">/5</span>
+          <span className="text-sm text-slate-500 dark:text-slate-400">/5</span>
         </span>
       </div>
       <div className="mt-2 flex gap-1" aria-hidden>
@@ -100,12 +99,12 @@ function ScoreCard({
           <div
             key={i}
             className={`h-1.5 flex-1 rounded-full ${
-              i <= score ? colour.bar : "bg-slate-800"
+              i <= score ? colour.bar : "bg-slate-100 dark:bg-slate-800"
             }`}
           />
         ))}
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-slate-300">
+      <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
         {entry.feedback}
       </p>
     </div>
@@ -151,7 +150,6 @@ function buildMarkdown(r: CoachResult): string {
 }
 
 export default function CoachClient() {
-  const { signOut } = useAuthActions();
   const coach = useAction(api.coach.coach);
 
   const [draft, setDraft] = useState("");
@@ -230,26 +228,13 @@ export default function CoachClient() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
-      <header className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm text-sky-400">Draft coach</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Get feedback on your draft
-          </h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Paste your draft to get scores, missing elements and specific
-            improvements. Add the assignment brief for sharper feedback.{" "}
-            <Link href="/uni" className="text-sky-400 hover:text-sky-300">
-              Back to dashboard
-            </Link>
-          </p>
-        </div>
-        <button onClick={() => signOut()} className={buttonSecondary}>
-          Sign out
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="Draft Coach"
+        title="Get scored feedback on your draft"
+        description="Paste your draft and the assignment brief. The coach scores structure, argument, evidence, citation density and tone, then suggests specific improvements."
+      />
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -320,17 +305,17 @@ export default function CoachClient() {
 
       {result && (
         <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+          <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Overall summary
             </h2>
-            <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-100">
+            <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-900 dark:text-slate-100">
               {result.overallSummary}
             </p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Scores
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -345,7 +330,7 @@ export default function CoachClient() {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-300">
                 Missing elements
               </h2>
-              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-100">
+              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-900 dark:text-slate-100">
                 {result.missingElements.map((m, i) => (
                   <li key={i}>{m}</li>
                 ))}
@@ -354,26 +339,26 @@ export default function CoachClient() {
           )}
 
           {result.specificImprovements.length > 0 && (
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Specific improvements
               </h2>
               <ul className="mt-4 space-y-4">
                 {result.specificImprovements.map((imp, i) => (
                   <li
                     key={i}
-                    className="rounded-lg border border-slate-800 bg-slate-950 p-4"
+                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4"
                   >
-                    <p className="text-sm italic text-slate-300">
+                    <p className="text-sm italic text-slate-700 dark:text-slate-300">
                       &ldquo;{imp.where}&rdquo;
                     </p>
-                    <p className="mt-2 text-sm text-slate-100">
+                    <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">
                       <span className="font-semibold text-rose-300">
                         Issue:
                       </span>{" "}
                       {imp.issue}
                     </p>
-                    <p className="mt-1 text-sm text-slate-100">
+                    <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
                       <span className="font-semibold text-emerald-300">
                         Suggestion:
                       </span>{" "}
@@ -386,8 +371,8 @@ export default function CoachClient() {
           )}
 
           {result.nzEnglishFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 NZ English flags
               </h2>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -404,8 +389,8 @@ export default function CoachClient() {
           )}
 
           {result.oxfordCommaFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Oxford comma flags
               </h2>
               <div className="mt-3 flex flex-wrap gap-2">

@@ -1,6 +1,7 @@
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata } from "next";
 import ConvexClientProvider from "./ConvexClientProvider";
+import { ThemeProvider } from "./ThemeProvider";
 
 export const metadata: Metadata = {
   title: "Uni Citation Tool",
@@ -12,7 +13,11 @@ export default function UniLayout({ children }: { children: React.ReactNode }) {
   return (
     <ConvexAuthNextjsServerProvider>
       <ConvexClientProvider>
-        <div className="min-h-screen bg-slate-950 text-slate-100">{children}</div>
+        <ThemeProvider>
+          <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
+            {children}
+          </div>
+        </ThemeProvider>
       </ConvexClientProvider>
     </ConvexAuthNextjsServerProvider>
   );

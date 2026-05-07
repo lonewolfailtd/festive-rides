@@ -1,8 +1,9 @@
 "use client";
 
 import { toast } from "sonner";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/convex/_generated/api";
+import PageHeader from "../PageHeader";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
@@ -90,15 +91,16 @@ const emptyForm = (): FormState => ({
   description: "",
 });
 
-const labelStyle = "block text-xs font-medium uppercase tracking-wide text-slate-400";
+const labelStyle =
+  "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const inputStyle =
-  "mt-1 block w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
+  "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500";
 const buttonPrimary =
-  "rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/10 transition-all hover:-translate-y-px hover:bg-sky-500 hover:shadow-md hover:shadow-sky-900/20 active:translate-y-0 active:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
 const buttonSecondary =
-  "rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:border-slate-500 hover:bg-slate-800";
+  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
 const buttonGhost =
-  "text-xs text-slate-400 hover:text-slate-200";
+  "text-xs text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100";
 
 function buildSourceFields(type: SourceType, f: FormState): SourceFields | null {
   const cleanAuthors = f.authors.filter((a) =>
@@ -362,7 +364,7 @@ function CopyChip({ text, label }: { text: string; label: string }) {
       type="button"
       onClick={handleCopy}
       title={copied ? "Copied to clipboard" : `Copy ${label}`}
-      className={`rounded bg-slate-800 px-1.5 py-0.5 text-slate-200 transition-colors hover:bg-slate-700 ${
+      className={`rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-slate-800 dark:text-slate-200 transition-colors hover:bg-slate-700 ${
         copied ? "ring-1 ring-emerald-500/60 text-emerald-200" : ""
       }`}
     >
@@ -498,7 +500,6 @@ function checkNzStyle(text: string): StyleFlag[] {
 }
 
 export default function ReferencesManager() {
-  const { signOut } = useAuthActions();
   const assignments = useQuery(api.assignments.list);
   const createAssignment = useMutation(api.assignments.create);
   const updateAssignment = useMutation(api.assignments.update);
@@ -1047,20 +1048,14 @@ i { font-style:italic; font-weight:normal; }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm text-sky-400">References</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            APA 7 reference list
-          </h1>
-        </div>
-        <button onClick={() => signOut()} className={buttonSecondary}>
-          Sign out
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="References"
+        title="APA 7 reference list"
+        description="Build, edit and export properly formatted references — copy them straight into Word."
+      />
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
           Assignment
         </h2>
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -1116,7 +1111,7 @@ i { font-style:italic; font-weight:normal; }
           </div>
         </div>
         {editingAssignment && selectedAssignment !== "all" && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-700 bg-slate-950 p-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-3">
             <input
               type="text"
               value={renameValue}
@@ -1155,9 +1150,9 @@ i { font-style:italic; font-weight:normal; }
         )}
       </section>
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
         <details>
-          <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-300 hover:text-sky-300">
+          <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300 hover:text-sky-300">
             Bulk import — paste a list of DOIs or URLs
           </summary>
           <div className="mt-3 space-y-3">
@@ -1190,8 +1185,8 @@ i { font-style:italic; font-weight:normal; }
         </details>
       </section>
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
           {editingId ? "Edit reference" : "Add a reference"}
         </h2>
 
@@ -1280,13 +1275,13 @@ i { font-style:italic; font-weight:normal; }
                   <>
                     {" · "}
                     <details className="inline">
-                      <summary className="cursor-pointer text-slate-400 hover:text-slate-200">
+                      <summary className="cursor-pointer text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200">
                         per-field sources
                       </summary>
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-slate-400">
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-slate-500 dark:text-slate-400">
                         {Object.entries(lookupInfo.fieldSources).map(([field, source]) => (
                           <li key={field}>
-                            <span className="font-mono text-slate-300">{field}</span>: {source}
+                            <span className="font-mono text-slate-700 dark:text-slate-300">{field}</span>: {source}
                           </li>
                         ))}
                       </ul>
@@ -1310,7 +1305,7 @@ i { font-style:italic; font-weight:normal; }
               className={`rounded-full px-3 py-1.5 text-xs ${
                 sourceType === s
                   ? "bg-sky-600 text-white"
-                  : "border border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500"
+                  : "border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-500"
               }`}
             >
               {SOURCE_LABELS[s]}
@@ -1763,7 +1758,7 @@ i { font-style:italic; font-weight:normal; }
         </form>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <input
             type="text"
@@ -1772,18 +1767,18 @@ i { font-style:italic; font-weight:normal; }
             placeholder="Search this list (author, title, year, notes)…"
             className={`${inputStyle} max-w-md`}
           />
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"
               checked={annotatedMode}
               onChange={(e) => setAnnotatedMode(e.target.checked)}
-              className="rounded border-slate-600 bg-slate-950"
+              className="rounded border-slate-600 bg-white dark:bg-slate-950"
             />
             Annotated bibliography mode
           </label>
         </div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
             References ({sortedRefs.length}
             {filterText ? ` of ${refs?.length ?? 0}` : ""})
           </h2>
@@ -1822,9 +1817,9 @@ i { font-style:italic; font-weight:normal; }
         </div>
 
         {styleFlags !== null && (
-          <div className="mb-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+          <div className="mb-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-200">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                 Style check ({styleFlags.length}{" "}
                 {styleFlags.length === 1 ? "issue" : "issues"})
               </h3>
@@ -1843,11 +1838,11 @@ i { font-style:italic; font-weight:normal; }
             ) : (
               <ul className="space-y-2 text-sm">
                 {styleFlags.map((f, i) => (
-                  <li key={i} className="text-slate-300">
+                  <li key={i} className="text-slate-700 dark:text-slate-300">
                     <span className="rounded bg-rose-900/40 px-1.5 py-0.5 text-rose-300">
                       {f.kind === "us-spelling" ? "US spelling" : "Oxford comma"}
                     </span>{" "}
-                    <code className="text-slate-100">{f.match}</code> →{" "}
+                    <code className="text-slate-900 dark:text-slate-100">{f.match}</code> →{" "}
                     <span className="text-emerald-300">{f.suggestion}</span>
                     <div className="mt-0.5 text-xs text-slate-500">
                       {f.snippet}
@@ -1860,18 +1855,29 @@ i { font-style:italic; font-weight:normal; }
         )}
 
         {sortedRefs.length === 0 ? (
-          <p className="text-sm text-slate-400">
-            No references yet. Add one above.
-          </p>
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+            <p className="font-medium text-slate-700 dark:text-slate-200">No references yet</p>
+            <p className="mt-1">
+              {filterText
+                ? "Nothing matches your search. Clear the search box to see everything."
+                : "Use the form above to add your first reference, or paste a list of DOIs / URLs into the bulk-import panel."}
+            </p>
+          </div>
         ) : (
-          <ul className="space-y-4">
+          <ul className="space-y-3">
+            <AnimatePresence initial={false}>
             {sortedRefs.map((r) => (
-              <li
+              <motion.li
                 key={r._id}
-                className="rounded-lg border border-slate-800 bg-slate-950 p-4"
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8, height: 0, marginBottom: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-sky-700"
               >
                 <p
-                  className="text-sm text-slate-100"
+                  className="text-sm text-slate-900 dark:text-slate-100"
                   style={{
                     textIndent: "-1.27cm",
                     marginLeft: "1.27cm",
@@ -1879,7 +1885,7 @@ i { font-style:italic; font-weight:normal; }
                   }}
                   dangerouslySetInnerHTML={{ __html: r.formatted ?? "" }}
                 />
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1.5">
                     In-text:{" "}
                     <CopyChip
@@ -1896,7 +1902,7 @@ i { font-style:italic; font-weight:normal; }
                   </span>
                   <button
                     onClick={() => toggleNotes(r._id, r.notes)}
-                    className="ml-auto text-xs text-slate-300 hover:text-sky-300"
+                    className="ml-auto text-xs text-slate-700 dark:text-slate-300 hover:text-sky-300"
                     title="Add or view notes / quotes / annotation for this reference"
                   >
                     {openNotes[r._id]
@@ -1928,7 +1934,7 @@ i { font-style:italic; font-weight:normal; }
 
                 {annotatedMode && (r.annotation?.trim() || openNotes[r._id]) && (
                   <p
-                    className="mt-2 text-sm italic text-slate-300"
+                    className="mt-2 text-sm italic text-slate-700 dark:text-slate-300"
                     style={{ marginLeft: "1.27cm", lineHeight: 1.7 }}
                   >
                     {r.annotation?.trim() || (
@@ -1940,7 +1946,7 @@ i { font-style:italic; font-weight:normal; }
                 )}
 
                 {openNotes[r._id] && (
-                  <div className="mt-3 space-y-3 rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                  <div className="mt-3 space-y-3 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-3">
                     <div>
                       <span className={labelStyle}>Quick notes (private — not exported)</span>
                       <textarea
@@ -1991,8 +1997,9 @@ i { font-style:italic; font-weight:normal; }
                     </div>
                   </div>
                 )}
-              </li>
+              </motion.li>
             ))}
+            </AnimatePresence>
           </ul>
         )}
       </section>

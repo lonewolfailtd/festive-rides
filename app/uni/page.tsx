@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "./ThemeProvider";
 
 const cards = [
   {
@@ -30,10 +31,13 @@ const cards = [
 export default function UniHomePage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
+      <div className="mb-4 flex justify-end">
+        <ThemeToggle />
+      </div>
       <header className="mb-10">
-        <p className="text-sm text-sky-400">Open Polytechnic NZ · APA 7</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Uni Citation Tool</h1>
-        <p className="mt-2 text-slate-400">
+        <p className="text-sm font-medium text-sky-600 dark:text-sky-400">Open Polytechnic NZ · APA 7</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Uni Citation Tool</h1>
+        <p className="mt-2 text-slate-500 dark:text-slate-400">
           Build APA 7 references, organise them per assignment, plan and
           polish your writing — and copy a properly formatted list straight
           into your assignment.
@@ -45,10 +49,10 @@ export default function UniHomePage() {
           <Link
             key={c.href}
             href={c.href}
-            className="block rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-sky-700 hover:bg-slate-900/80"
+            className="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:shadow-none dark:hover:border-sky-700 dark:hover:bg-slate-900/80"
           >
             <h2 className="text-lg font-semibold">{c.title}</h2>
-            <p className="mt-1 text-sm text-slate-400">{c.blurb}</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{c.blurb}</p>
             <span className="mt-3 inline-block text-sm text-sky-400">Open →</span>
           </Link>
         ))}
