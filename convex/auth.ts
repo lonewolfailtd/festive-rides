@@ -23,14 +23,23 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
-      const email = args.profile.email as string | undefined;
-      if (!isAllowed(email)) {
+      const rawEmail = args.profile.email as string | undefined;
+      if (!isAllowed(rawEmail)) {
         throw new Error("This email is not authorised for the Uni Citation Tool.");
       }
+      const email = rawEmail!.toLowerCase().trim();
       if (args.existingUserId) return args.existingUserId;
-      return await ctx.db.insert("users", {
-        email: email!.toLowerCase().trim(),
-      });
+      // If a user row already exists for this email (e.g. after a password
+      // reset that wiped the authAccount), reuse it so references and
+      // assignments stay attached to the same userId.
+      // Note: filter not withIndex because TypeScript inference loses the
+      // email index through the authTables spread. Tiny users table — fine.
+      const existing = await ctx.db
+        .query("users")
+        .filter((q) => q.eq(q.field("email"), email))
+        .first();
+      if (existing) return existing._id;
+      return await ctx.db.insert("users", { email });
     },
   },
 });
