@@ -143,11 +143,10 @@ const finalSentence = (s: string): string => {
 
 const buildBook = (f: BookFields): { html: string; plain: string } => {
   const authors = formatAuthorList(f.authors);
-  const titleWithEd = f.edition
-    ? `${f.title} (${f.edition})`
-    : f.title;
-  const titlePart = i(titleWithEd);
-  const titlePlain = titleWithEd;
+  // APA 7: title is italic; edition parens are NOT italic.
+  const titlePart = i(f.title);
+  const editionSuffix = f.edition ? ` (${t(f.edition)})` : "";
+  const editionSuffixPlain = f.edition ? ` (${f.edition})` : "";
 
   const tail: string[] = [];
   if (f.publisher) tail.push(t(f.publisher));
@@ -155,12 +154,22 @@ const buildBook = (f: BookFields): { html: string; plain: string } => {
   if (doiLink) tail.push(t(doiLink));
 
   const html = finalSentence(
-    [t(authors), `(${t(yearOrNd(f.year))}).`, `${titlePart}.`, tail.join(". ")]
+    [
+      t(authors),
+      `(${t(yearOrNd(f.year))}).`,
+      `${titlePart}${editionSuffix}.`,
+      tail.join(". "),
+    ]
       .filter(Boolean)
       .join(" ")
   );
   const plain = finalSentence(
-    [authors, `(${yearOrNd(f.year)}).`, `${titlePlain}.`, [f.publisher, doiLink].filter(Boolean).join(". ")]
+    [
+      authors,
+      `(${yearOrNd(f.year)}).`,
+      `${f.title}${editionSuffixPlain}.`,
+      [f.publisher, doiLink].filter(Boolean).join(". "),
+    ]
       .filter(Boolean)
       .join(" ")
   );
@@ -172,11 +181,12 @@ const buildBookChapter = (f: BookChapterFields): { html: string; plain: string }
   const editorsRaw = formatAuthorList(f.editors);
   const editorsLabel = f.editors.length > 1 ? "Eds." : "Ed.";
   const pages = pageRange(f.pageStart, f.pageEnd);
-  const titleWithEdRaw = f.edition
-    ? `${f.bookTitle} (${f.edition}${pages ? `, pp. ${pages}` : ""})`
-    : pages
-      ? `${f.bookTitle} (pp. ${pages})`
-      : f.bookTitle;
+  // APA 7: book title is italic; (edition, pp. xx-xx) parens are NOT italic.
+  const parenParts: string[] = [];
+  if (f.edition) parenParts.push(f.edition);
+  if (pages) parenParts.push(`pp. ${pages}`);
+  const parenSuffix = parenParts.length > 0 ? ` (${t(parenParts.join(", "))})` : "";
+  const parenSuffixPlain = parenParts.length > 0 ? ` (${parenParts.join(", ")})` : "";
 
   const html = finalSentence(
     [
@@ -184,7 +194,7 @@ const buildBookChapter = (f: BookChapterFields): { html: string; plain: string }
       `(${t(yearOrNd(f.year))}).`,
       `${t(f.chapterTitle)}.`,
       `In ${t(editorsRaw)} (${editorsLabel}),`,
-      `${i(titleWithEdRaw)}.`,
+      `${i(f.bookTitle)}${parenSuffix}.`,
       f.publisher ? t(f.publisher) : "",
     ]
       .filter(Boolean)
@@ -196,7 +206,7 @@ const buildBookChapter = (f: BookChapterFields): { html: string; plain: string }
       `(${yearOrNd(f.year)}).`,
       `${f.chapterTitle}.`,
       `In ${editorsRaw} (${editorsLabel}),`,
-      `${titleWithEdRaw}.`,
+      `${f.bookTitle}${parenSuffixPlain}.`,
       f.publisher,
     ]
       .filter(Boolean)
@@ -264,11 +274,17 @@ const buildWebsite = (f: WebsiteFields): { html: string; plain: string } => {
     ? `Retrieved ${f.retrievedDate}, from ${f.url}`
     : f.url;
 
-  const titlePart = i(f.title);
-  const titlePlain = f.title;
+  // APA 7: when a page is part of a larger site, the page title is plain
+  // and the site name is italic. When the work stands alone (no site name),
+  // the title itself is italic.
+  const standAlone = !f.siteName || !f.siteName.trim();
+  const titlePart = standAlone ? i(f.title) : t(f.title);
   const tail: string[] = [];
-  if (f.siteName) tail.push(t(f.siteName));
+  if (f.siteName) tail.push(i(f.siteName));
   if (retrieved) tail.push(t(retrieved));
+  const tailPlain: string[] = [];
+  if (f.siteName) tailPlain.push(f.siteName);
+  if (retrieved) tailPlain.push(retrieved);
 
   const html = finalSentence(
     [t(authors), `(${t(date)}).`, `${titlePart}.`, tail.join(". ")]
@@ -279,8 +295,8 @@ const buildWebsite = (f: WebsiteFields): { html: string; plain: string } => {
     [
       authors,
       `(${date}).`,
-      `${titlePlain}.`,
-      [f.siteName, retrieved].filter(Boolean).join(". "),
+      `${f.title}.`,
+      tailPlain.join(". "),
     ]
       .filter(Boolean)
       .join(" ")
@@ -313,9 +329,11 @@ const buildNews = (f: NewsArticleFields): { html: string; plain: string } => {
 
 const buildReport = (f: ReportFields): { html: string; plain: string } => {
   const authors = formatAuthorList(f.authors);
-  const titleWithNumberRaw = f.reportNumber
-    ? `${f.title} (${f.reportNumber})`
-    : f.title;
+  // APA 7: report title is italic; (Report No. X) parens are NOT italic.
+  const titlePart = i(f.title);
+  const reportNumberSuffix = f.reportNumber ? ` (${t(f.reportNumber)})` : "";
+  const reportNumberSuffixPlain = f.reportNumber ? ` (${f.reportNumber})` : "";
+
   const tail: string[] = [];
   if (f.publisher) tail.push(t(f.publisher));
   if (f.url) tail.push(t(f.url));
@@ -324,7 +342,12 @@ const buildReport = (f: ReportFields): { html: string; plain: string } => {
   if (f.url) tailPlain.push(f.url);
 
   const html = finalSentence(
-    [t(authors), `(${t(yearOrNd(f.year))}).`, `${i(titleWithNumberRaw)}.`, tail.join(". ")]
+    [
+      t(authors),
+      `(${t(yearOrNd(f.year))}).`,
+      `${titlePart}${reportNumberSuffix}.`,
+      tail.join(". "),
+    ]
       .filter(Boolean)
       .join(" ")
   );
@@ -332,7 +355,7 @@ const buildReport = (f: ReportFields): { html: string; plain: string } => {
     [
       authors,
       `(${yearOrNd(f.year)}).`,
-      `${titleWithNumberRaw}.`,
+      `${f.title}${reportNumberSuffixPlain}.`,
       tailPlain.join(". "),
     ]
       .filter(Boolean)
