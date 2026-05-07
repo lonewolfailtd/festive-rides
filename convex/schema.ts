@@ -74,6 +74,17 @@ export default defineSchema({
     .index("by_user_assignment", ["userId", "assignmentId"])
     .index("by_user_sortKey", ["userId", "sortKey"]),
 
+  // Long random opaque tokens that grant read-only access to a user's
+  // calendar subscription feed. The token lives in the URL, so it has to
+  // be unguessable; revoking simply deletes the row.
+  icalTokens: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_token", ["token"]),
+
   // Festive Rides bookings
   bookings: defineTable({
     passengerName: v.string(),

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as _ical from "../_ical.js";
 import type * as aiChecker from "../aiChecker.js";
 import type * as analyser from "../analyser.js";
 import type * as analysisStore from "../analysisStore.js";
@@ -19,6 +20,7 @@ import type * as citations from "../citations.js";
 import type * as coach from "../coach.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
+import type * as icalSubscription from "../icalSubscription.js";
 import type * as lookup from "../lookup.js";
 import type * as openrouter from "../openrouter.js";
 import type * as passwordReset from "../passwordReset.js";
@@ -34,6 +36,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  _ical: typeof _ical;
   aiChecker: typeof aiChecker;
   analyser: typeof analyser;
   analysisStore: typeof analysisStore;
@@ -45,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   coach: typeof coach;
   crons: typeof crons;
   http: typeof http;
+  icalSubscription: typeof icalSubscription;
   lookup: typeof lookup;
   openrouter: typeof openrouter;
   passwordReset: typeof passwordReset;

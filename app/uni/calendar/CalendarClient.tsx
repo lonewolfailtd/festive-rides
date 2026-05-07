@@ -53,9 +53,20 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
+// Convert the convex .cloud URL to its .site sibling, where HTTP routes live.
+// e.g. https://fabulous-hippopotamus-112.convex.cloud → https://fabulous-hippopotamus-112.convex.site
+function convexHttpBase(): string {
+  const cloudUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "";
+  return cloudUrl.replace(".convex.cloud", ".convex.site");
+}
+
 export default function CalendarClient() {
   const assignments = useQuery(api.assignments.list);
   const updateAssignment = useMutation(api.assignments.update);
+  const myToken = useQuery(api.icalSubscription.getMyToken);
+  const ensureToken = useMutation(api.icalSubscription.ensureToken);
+  const rotateToken = useMutation(api.icalSubscription.rotateToken);
+  const revokeToken = useMutation(api.icalSubscription.revokeToken);
 
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
@@ -457,6 +468,145 @@ export default function CalendarClient() {
           )}
         </div>
       )}
+
+      {/* Live subscription panel */}
+      <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+          Subscribe live to Google / Apple / Outlook
+        </h3>
+        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+          Better than the .ics download — your calendar app will re-fetch this URL every few hours and stay in sync as you add or reschedule assignments.
+        </p>
+
+        {myToken === undefined ? (
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Loading…</p>
+        ) : myToken === null ? (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await ensureToken({});
+                toast.success("Subscription URL ready");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Couldn't create");
+              }
+            }}
+            className="mt-3 inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-medium text-white hover:from-emerald-400 hover:to-emerald-500"
+          >
+            Generate subscription URL
+          </button>
+        ) : (
+          (() => {
+            const base = convexHttpBase();
+            const url = `${base}/ical/${myToken.token}.ics`;
+            // For Google Calendar's "From URL" import, http(s) is fine.
+            // For one-click subscribe on macOS / iOS / Outlook, the
+            // webcal:// scheme triggers a "Subscribe to Calendar" prompt.
+            const webcalUrl = url.replace(/^https?:\/\//, "webcal://");
+            return (
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={url}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="flex-1 min-w-[16rem] rounded-md border border-emerald-300 bg-white px-2 py-1.5 font-mono text-xs text-slate-700 dark:border-emerald-800 dark:bg-slate-900 dark:text-slate-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Copied to clipboard");
+                      } catch {
+                        toast.error("Couldn't copy");
+                      }
+                    }}
+                    className="rounded-md border border-emerald-400 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-slate-900 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
+                  >
+                    Copy
+                  </button>
+                  <a
+                    href={webcalUrl}
+                    className="rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
+                  >
+                    One-click subscribe (Apple / Outlook)
+                  </a>
+                </div>
+
+                <details className="text-sm text-slate-700 dark:text-slate-300">
+                  <summary className="cursor-pointer font-medium hover:text-emerald-700 dark:hover:text-emerald-300">
+                    How to add this to Google Calendar / Apple Calendar
+                  </summary>
+                  <div className="mt-2 space-y-3 pl-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Google Calendar (web)</p>
+                      <ol className="mt-1 ml-4 list-decimal space-y-0.5 text-xs">
+                        <li>Open Google Calendar in a browser.</li>
+                        <li>Left sidebar → click the <strong>+</strong> next to &ldquo;Other calendars&rdquo; → <strong>From URL</strong>.</li>
+                        <li>Paste the URL above and click <strong>Add calendar</strong>.</li>
+                        <li>It appears under &ldquo;Other calendars&rdquo; and re-fetches every few hours.</li>
+                      </ol>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Apple Calendar (Mac / iPhone)</p>
+                      <ol className="mt-1 ml-4 list-decimal space-y-0.5 text-xs">
+                        <li>Click the <strong>One-click subscribe</strong> button above (uses webcal://).</li>
+                        <li>Or: Mac &mdash; File → New Calendar Subscription → paste the URL.</li>
+                        <li>Or: iPhone &mdash; Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → paste.</li>
+                      </ol>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Outlook</p>
+                      <ol className="mt-1 ml-4 list-decimal space-y-0.5 text-xs">
+                        <li>Outlook web: Add calendar → Subscribe from web → paste the URL.</li>
+                        <li>Outlook desktop: Add Calendar → From Internet → paste.</li>
+                      </ol>
+                    </div>
+                  </div>
+                </details>
+
+                <div className="flex flex-wrap items-center gap-3 border-t border-emerald-200 pt-3 dark:border-emerald-900/40">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Anyone with this URL can read your calendar. Created {new Date(myToken.createdAt).toLocaleDateString("en-NZ")}.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("Generate a new URL? The old one will stop working immediately and any existing subscriptions will need to be re-added.")) return;
+                      try {
+                        await rotateToken({});
+                        toast.success("URL rotated");
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Couldn't rotate");
+                      }
+                    }}
+                    className="ml-auto rounded-md border border-amber-400 bg-white px-2 py-1 text-xs text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:bg-slate-900 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                  >
+                    Rotate URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("Revoke the URL? Existing subscriptions will stop receiving updates.")) return;
+                      try {
+                        await revokeToken({});
+                        toast.success("Subscription revoked");
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Couldn't revoke");
+                      }
+                    }}
+                    className="rounded-md border border-rose-400 bg-white px-2 py-1 text-xs text-rose-800 hover:bg-rose-50 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-200 dark:hover:bg-rose-900/30"
+                  >
+                    Revoke
+                  </button>
+                </div>
+              </div>
+            );
+          })()
+        )}
+      </div>
 
       {/* Upcoming list (next 30 days) */}
       <div className="mt-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950">
