@@ -294,7 +294,7 @@ const yearFromDate = (s: string | undefined): string => {
 
 async function pageScrape(
   url: string
-): Promise<{ sourceType: SourceType; fields: NormalisedFields } | null> {
+): Promise<{ sourceType: SourceType; fields: NormalisedFields; html: string } | null> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -420,7 +420,146 @@ async function pageScrape(
       siteName: ogSite ?? parsed.hostname,
       monthDay,
     },
+    html,
   };
+}
+
+// ---------------------------------------------------------------------------
+// AI disambiguation via OpenRouter (DeepSeek V3)
+// Only fires when sources disagree AND we have the article page HTML.
+// ---------------------------------------------------------------------------
+
+const AI_DISAMBIGUATION_FIELDS = [
+  "year",
+  "authors",
+  "title",
+  "journal",
+  "volume",
+  "issue",
+  "pageStart",
+  "pageEnd",
+  "doi",
+] as const;
+
+const extractPageExcerpt = (html: string): string => {
+  const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+  const metaTags = ((headMatch?.[1] ?? "").match(/<meta\s+[^>]+>/gi) ?? [])
+    .join("\n")
+    .slice(0, 3000);
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const bodyText = (bodyMatch?.[1] ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 4000);
+  return `META TAGS:\n${metaTags}\n\nPAGE TEXT EXCERPT:\n${bodyText}`;
+};
+
+const describeCandidates = (
+  candidates: { name: LookupSource; fields: NormalisedFields }[]
+): string =>
+  candidates
+    .map((c) => {
+      const lines = AI_DISAMBIGUATION_FIELDS.filter((f) => isMeaningful(c.fields[f]))
+        .map((f) => `  ${f}: ${formatForWarning(c.fields[f], f)}`)
+        .join("\n");
+      return `${SOURCE_LABELS[c.name]}:\n${lines || "  (no values)"}`;
+    })
+    .join("\n\n");
+
+interface AICorrections {
+  year?: string;
+  authors?: Author[];
+  title?: string;
+  journal?: string;
+  volume?: string;
+  issue?: string;
+  pageStart?: string;
+  pageEnd?: string;
+  doi?: string;
+  reasoning?: string;
+}
+
+async function aiDisambiguate(
+  candidates: { name: LookupSource; fields: NormalisedFields }[],
+  warnings: string[],
+  pageHtml: string
+): Promise<AICorrections | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+  if (warnings.length === 0) return null;
+
+  const pageExcerpt = extractPageExcerpt(pageHtml);
+  const candidateBlock = describeCandidates(candidates);
+
+  const systemPrompt = `You verify article metadata for academic citations. Three lookup sources disagree on some fields. Read the actual article page and decide the correct value for each disputed field.
+
+Hard rules:
+- The first author is the one printed first on the article byline (header / running head / author list).
+- citation_author meta tags are sometimes formatted "Last, First" — confirm against the visible byline in the body text before committing.
+- Year = the publication year as printed on the article (the print year), NOT the DOI registration year.
+- Pages: use exactly what the article header shows. A single article ID like e70119 is a valid "page".
+- Use NZ English in any explanation text (organise, behaviour, analyse, colour).
+- Do not use the Oxford comma in any prose you write.`;
+
+  const userPrompt = `ARTICLE PAGE EXCERPT:
+${pageExcerpt}
+
+DISPUTES (sources disagree):
+${warnings.map((w) => `- ${w}`).join("\n")}
+
+ALL CANDIDATE VALUES FROM EACH SOURCE:
+${candidateBlock}
+
+Return ONLY a JSON object. Include only fields where the candidates disagree AND you can confirm the correct value from the article page. For author lists, use the same shape as the candidates: array of {"kind":"person","surname":"…","given":"…"} or {"kind":"group","name":"…"}.
+
+Example shape (omit any field you can't determine):
+{
+  "year": "2025",
+  "authors": [{"kind": "person", "surname": "Grigoryevich", "given": "Yevgeniy F."}],
+  "pageStart": "150",
+  "pageEnd": "159",
+  "issue": "7",
+  "reasoning": "Article header shows 'Yevgeniy F. Grigoryevich' as byline; pp. 150-159 in volume 8 issue 7."
+}`;
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://festiverides.online/uni",
+        "X-Title": "Uni Citation Tool",
+      },
+      body: JSON.stringify({
+        model: "deepseek/deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1500,
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return null;
+    const cleaned = content
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+    return JSON.parse(cleaned) as AICorrections;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -559,55 +698,100 @@ interface PublicResult {
   fieldSources: Partial<Record<keyof NormalisedFields, string>>;
   warnings: string[];
   sourcesQueried: string[];
+  aiReasoning?: string;
 }
 
 async function multiSourceDoiLookup(
   doi: string,
   pageUrl?: string
 ): Promise<PublicResult> {
-  const queries: Promise<{
-    name: LookupSource;
+  type ScrapedPage = {
+    name: "page";
     sourceType: SourceType;
     fields: NormalisedFields;
-  } | null>[] = [
+    html: string;
+  };
+  type SourceResult =
+    | { name: "openalex" | "crossref"; sourceType: SourceType; fields: NormalisedFields }
+    | ScrapedPage;
+
+  const queries: Promise<SourceResult | null>[] = [
     openAlexLookup(doi).then((r) =>
-      r ? { name: "openalex" as const, sourceType: r.sourceType, fields: r.fields } : null
+      r
+        ? ({ name: "openalex" as const, sourceType: r.sourceType, fields: r.fields })
+        : null
     ),
     crossRefLookup(doi).then((r) =>
-      r ? { name: "crossref" as const, sourceType: r.sourceType, fields: r.fields } : null
+      r
+        ? ({ name: "crossref" as const, sourceType: r.sourceType, fields: r.fields })
+        : null
     ),
   ];
   if (pageUrl) {
     queries.push(
       pageScrape(pageUrl).then((r) =>
-        r ? { name: "page" as const, sourceType: r.sourceType, fields: r.fields } : null
+        r
+          ? ({
+              name: "page" as const,
+              sourceType: r.sourceType,
+              fields: r.fields,
+              html: r.html,
+            })
+          : null
       )
     );
   }
 
   const settled = await Promise.all(queries);
-  const successful = settled.filter(
-    (s): s is { name: LookupSource; sourceType: SourceType; fields: NormalisedFields } =>
-      s !== null
-  );
+  const successful = settled.filter((s): s is SourceResult => s !== null);
 
   if (successful.length === 0) {
     throw new Error("No metadata found from any source");
   }
 
-  // Source type: prefer the most specific non-website. Priority order matches
-  // the array (OpenAlex > CrossRef > page).
   const sourceType = successful[0].sourceType;
   const merge = mergeSources(
     successful.map((s) => ({ name: s.name, fields: s.fields }))
   );
 
+  let fields = merge.fields;
+  let fieldSources = merge.fieldSources;
+  let aiReasoning: string | undefined;
+
+  // If the merge produced disagreements AND we have the page HTML, ask
+  // DeepSeek (via OpenRouter) to pick the right values.
+  if (merge.warnings.length > 0) {
+    const pageEntry = successful.find(
+      (s): s is ScrapedPage => s.name === "page"
+    );
+    if (pageEntry) {
+      const corrections = await aiDisambiguate(
+        successful.map((s) => ({ name: s.name, fields: s.fields })),
+        merge.warnings,
+        pageEntry.html
+      );
+      if (corrections) {
+        fields = { ...merge.fields };
+        fieldSources = { ...merge.fieldSources };
+        for (const field of AI_DISAMBIGUATION_FIELDS) {
+          const value = corrections[field];
+          if (isMeaningful(value)) {
+            (fields as Record<string, unknown>)[field] = value;
+            fieldSources[field] = "AI-resolved (DeepSeek)";
+          }
+        }
+        if (corrections.reasoning) aiReasoning = corrections.reasoning;
+      }
+    }
+  }
+
   return {
     sourceType,
-    fields: merge.fields,
-    fieldSources: merge.fieldSources,
+    fields,
+    fieldSources,
     warnings: merge.warnings,
     sourcesQueried: successful.map((s) => SOURCE_LABELS[s.name]),
+    aiReasoning,
   };
 }
 
