@@ -94,7 +94,7 @@ const emptyForm = (): FormState => ({
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const inputStyle =
-  "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500";
+  "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
 const buttonPrimary =
   "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
 const buttonSecondary =
@@ -1289,7 +1289,7 @@ i { font-style:italic; font-weight:normal; }
                   }}
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     selectedAssignment === "all"
-                      ? "bg-sky-100 text-sky-900 dark:bg-sky-900/30 dark:text-sky-200"
+                      ? "relative bg-gradient-to-r from-sky-50 via-sky-100/70 to-transparent text-sky-900 ring-1 ring-inset ring-sky-200/60 before:absolute before:inset-y-1 before:left-0 before:w-1 before:rounded-r before:bg-sky-500 dark:from-sky-900/40 dark:via-sky-900/20 dark:to-transparent dark:text-sky-200 dark:ring-sky-700/40 dark:before:bg-sky-400"
                       : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                   }`}
                 >
@@ -1312,7 +1312,7 @@ i { font-style:italic; font-weight:normal; }
                       }}
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                         isActive
-                          ? "bg-sky-100 text-sky-900 dark:bg-sky-900/30 dark:text-sky-200"
+                          ? "relative bg-gradient-to-r from-sky-50 via-sky-100/70 to-transparent text-sky-900 ring-1 ring-inset ring-sky-200/60 before:absolute before:inset-y-1 before:left-0 before:w-1 before:rounded-r before:bg-sky-500 dark:from-sky-900/40 dark:via-sky-900/20 dark:to-transparent dark:text-sky-200 dark:ring-sky-700/40 dark:before:bg-sky-400"
                           : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                       }`}
                     >
@@ -2253,10 +2253,10 @@ i { font-style:italic; font-weight:normal; }
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8, height: 0, marginBottom: 0 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
-                className={`rounded-xl border bg-white p-4 shadow-sm transition-colors dark:bg-slate-950 ${
+                className={`rounded-xl border bg-gradient-to-br from-white to-slate-50/50 p-4 shadow-sm transition-all dark:from-slate-950 dark:to-slate-950 dark:shadow-none ${
                   selectMode && selectedRefIds.has(r._id)
                     ? "border-sky-500 ring-2 ring-sky-500/20 dark:border-sky-500"
-                    : "border-slate-200 hover:border-sky-300 dark:border-slate-800 dark:hover:border-sky-700"
+                    : "border-slate-200 hover:-translate-y-px hover:border-sky-300 hover:shadow-md dark:border-slate-800 dark:hover:border-sky-700"
                 }`}
               >
                 <div className="flex items-start gap-3">
