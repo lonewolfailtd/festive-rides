@@ -125,8 +125,18 @@ const doiUrl = (doi: string | undefined): string | undefined => {
   return `https://doi.org/${v.replace(/^doi:\s*/i, "")}`;
 };
 
-const finalSentence = (s: string): string =>
-  s.endsWith(".") ? s : `${s}.`;
+// APA 7: do not end a reference with a period when the entry ends with
+// a DOI or URL (avoids the period looking like part of the link).
+const endsWithLink = (raw: string): boolean => {
+  const trailingTagsStripped = raw.replace(/<\/?[a-z]+>\s*$/i, "").trimEnd();
+  return /https?:\/\/\S+$/i.test(trailingTagsStripped);
+};
+
+const finalSentence = (s: string): string => {
+  const trimmed = s.trimEnd();
+  if (endsWithLink(trimmed)) return trimmed;
+  return trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
+};
 
 const buildBook = (f: BookFields): { html: string; plain: string } => {
   const authors = formatAuthorList(f.authors);
