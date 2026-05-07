@@ -808,6 +808,31 @@ const isFieldsSparse = (fields: NormalisedFields): boolean => {
   return count < 3;
 };
 
+// Pages from these hosts are typically textbook chapters or open educational
+// resources without DOIs or journal metadata. Always run AI extraction over
+// them so we correctly classify as bookChapter and pull book/chapter titles
+// + publisher properly.
+const KNOWN_TEXTBOOK_HOSTS = [
+  "openstax.org",
+  "pressbooks.",
+  "libretexts.org",
+  "oercommons.org",
+  "open.umn.edu",
+  "ocw.mit.edu",
+];
+
+const isTextbookOrOerHost = (url: string): boolean => {
+  const lower = url.toLowerCase();
+  return KNOWN_TEXTBOOK_HOSTS.some((h) => lower.includes(h));
+};
+
+// "Looks academic" if the page exposed a DOI or a journal title. Pages that
+// don't are typically blogs, OERs, government pages or news articles where
+// scraping page meta gives the wrong source type — so we route through AI.
+const looksAcademic = (fields: NormalisedFields): boolean =>
+  !!(fields.doi && fields.doi.trim()) ||
+  !!(fields.journal && fields.journal.trim());
+
 // ---------------------------------------------------------------------------
 // DOI extraction from URLs
 // ---------------------------------------------------------------------------
@@ -1078,10 +1103,16 @@ export const url = action({
       }
     }
 
-    // No DOI on page either. If the scraped data is sparse (which is
-    // typical for OpenStax, Pressbooks, blogs and most non-academic sites),
-    // fall back to AI extraction over the page text.
-    if (isFieldsSparse(scraped.fields)) {
+    // No DOI on page either. Run AI extraction for any page that doesn't
+    // look academic (no DOI, no journal title) OR comes from a known
+    // textbook / OER host. This ensures OpenStax pages get classified as
+    // book chapters, blogs as websites with proper authors etc.
+    const shouldUseAi =
+      isFieldsSparse(scraped.fields) ||
+      !looksAcademic(scraped.fields) ||
+      isTextbookOrOerHost(cleaned);
+
+    if (shouldUseAi) {
       const ai = await aiExtractCitation(scraped.html, cleaned);
       if (ai) {
         const fieldSources: Partial<Record<keyof NormalisedFields, string>> = {};
@@ -1094,7 +1125,7 @@ export const url = action({
           fields: ai.fields,
           fieldSources,
           warnings: [
-            "Page exposed little machine-readable metadata. AI extracted the citation from the page text — please double-check authors, year and title before saving.",
+            "AI extracted the citation from the page text. Please double-check authors, year and title before saving — small publishers and textbook pages sometimes have inconsistent metadata.",
           ],
           sourcesQueried: [aiLabel],
           aiReasoning: ai.reasoning,
