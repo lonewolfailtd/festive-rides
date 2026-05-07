@@ -46,6 +46,8 @@ export const create = mutation({
     inTextShort: v.optional(v.string()),
     inTextNarrative: v.optional(v.string()),
     sortKey: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    annotation: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -63,6 +65,8 @@ export const update = mutation({
     inTextShort: v.optional(v.string()),
     inTextNarrative: v.optional(v.string()),
     sortKey: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    annotation: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...patch }) => {
     const userId = await requireUserId(ctx);

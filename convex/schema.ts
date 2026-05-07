@@ -49,6 +49,8 @@ export default defineSchema({
     inTextShort: v.optional(v.string()),
     inTextNarrative: v.optional(v.string()),
     sortKey: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    annotation: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_assignment", ["userId", "assignmentId"])

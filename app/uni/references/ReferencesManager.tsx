@@ -455,6 +455,14 @@ const stripHtmlTags = (s: string): string =>
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
 
+const escapeHtml = (s: string): string =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 function checkNzStyle(text: string): StyleFlag[] {
   const flags: StyleFlag[] = [];
   for (const [re, suggestion] of US_TO_NZ) {
@@ -539,14 +547,43 @@ export default function ReferencesManager() {
       selectedAssignment === "all" ? undefined : selectedAssignment,
   });
 
+  const [filterText, setFilterText] = useState("");
+  const [annotatedMode, setAnnotatedMode] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [bulkImportRunning, setBulkImportRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; failed: number }>({
+    done: 0,
+    total: 0,
+    failed: 0,
+  });
+  const [openNotes, setOpenNotes] = useState<Record<string, boolean>>({});
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+  const [annotationDraft, setAnnotationDraft] = useState<Record<string, string>>({});
+
   const sortedRefs = useMemo(() => {
     if (!refs) return [];
-    return [...refs].sort((a, b) => {
+    const base = [...refs].sort((a, b) => {
       const ka = (a.sortKey ?? "").toLowerCase();
       const kb = (b.sortKey ?? "").toLowerCase();
       return ka.localeCompare(kb);
     });
-  }, [refs]);
+    const q = filterText.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((r) => {
+      const haystack = [
+        r.formatted ?? "",
+        r.inTextShort ?? "",
+        r.inTextNarrative ?? "",
+        r.sortKey ?? "",
+        r.notes ?? "",
+        r.annotation ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .replace(/<\/?[a-z]+>/g, "");
+      return haystack.includes(q);
+    });
+  }, [refs, filterText]);
 
   const update = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((s) => ({ ...s, [k]: v }));
@@ -663,6 +700,89 @@ export default function ReferencesManager() {
     }
   };
 
+  const handleBulkImport = async () => {
+    const lines = bulkImportText
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (lines.length === 0) {
+      toast.error("Paste at least one DOI or URL");
+      return;
+    }
+    setBulkImportRunning(true);
+    setBulkProgress({ done: 0, total: lines.length, failed: 0 });
+    let done = 0;
+    let failed = 0;
+    for (const line of lines) {
+      try {
+        const isDoi = /^10\.\d{4,9}\//.test(line);
+        const result = isDoi
+          ? await lookupDoi({ doi: line })
+          : await lookupUrl({ url: line });
+        if (!result || !result.fields) {
+          failed++;
+          continue;
+        }
+        const built = buildSourceFields(
+          result.sourceType as SourceType,
+          applyFieldsToForm(emptyForm(), result.fields as Record<string, unknown>)
+        );
+        if (!built) {
+          failed++;
+          continue;
+        }
+        const formatted = formatReference(built);
+        await createRef({
+          assignmentId:
+            selectedAssignment === "all" ? undefined : selectedAssignment,
+          sourceType: built.sourceType,
+          fields: built.fields,
+          formatted: formatted.formattedHtml,
+          inTextShort: formatted.inTextShort,
+          inTextNarrative: formatted.inTextNarrative,
+          sortKey: formatted.sortKey,
+        });
+        done++;
+      } catch {
+        failed++;
+      }
+      setBulkProgress({ done: done + failed, total: lines.length, failed });
+    }
+    setBulkImportRunning(false);
+    if (failed === 0) {
+      toast.success(`Imported ${done} reference${done === 1 ? "" : "s"}`);
+    } else {
+      toast.success(
+        `Imported ${done}, ${failed} failed (probably bad DOI/URL or paywalled site)`
+      );
+    }
+    setBulkImportText("");
+  };
+
+  const toggleNotes = (id: string, currentNotes?: string) => {
+    setOpenNotes((s) => ({ ...s, [id]: !s[id] }));
+    if (!(id in notesDraft)) {
+      setNotesDraft((s) => ({ ...s, [id]: currentNotes ?? "" }));
+    }
+  };
+
+  const saveNotes = async (id: Id<"references">, currentAnnotation?: string) => {
+    try {
+      await updateRef({
+        id,
+        notes: notesDraft[id] ?? "",
+        annotation:
+          annotationDraft[id] !== undefined
+            ? annotationDraft[id]
+            : currentAnnotation,
+      });
+      toast.success("Notes saved");
+      setOpenNotes((s) => ({ ...s, [id]: false }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save notes");
+    }
+  };
+
   const handleLookup = async (kind: "doi" | "isbn" | "issn" | "url") => {
     setLookupError(null);
     setLookupInfo(null);
@@ -733,11 +853,17 @@ export default function ReferencesManager() {
     // 12pt Times New Roman.
     const paragraphStyle =
       "margin:0;mso-line-spacing:'Multiple 2';line-height:200%;mso-line-height-rule:exactly;mso-pagination:widow-orphan;text-indent:-36.0pt;margin-left:36.0pt;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;";
+    const annotationStyle =
+      "margin:0 0 12.0pt 0;text-indent:0;margin-left:36.0pt;line-height:200%;mso-line-height-rule:exactly;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;";
     const items = sortedRefs
-      .map(
-        (r) =>
-          `<p class=MsoNormal style='${paragraphStyle}'>${r.formatted ?? ""}</p>`,
-      )
+      .map((r) => {
+        const ref = `<p class=MsoNormal style='${paragraphStyle}'>${r.formatted ?? ""}</p>`;
+        if (annotatedMode && r.annotation && r.annotation.trim()) {
+          const ann = `<p class=MsoNormal style='${annotationStyle}'>${escapeHtml(r.annotation.trim())}</p>`;
+          return ref + ann;
+        }
+        return ref;
+      })
       .join("");
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -839,11 +965,17 @@ ${items}
     // (36pt / 1.27 cm) hanging indent on second+ lines; 12pt Times New Roman.
     const paragraphStyle =
       "mso-style-name:\"Normal\";margin:0;margin-left:36.0pt;text-indent:-36.0pt;line-height:200%;mso-line-height-rule:exactly;mso-pagination:widow-orphan;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;color:black;";
+    const annotationStyle =
+      "mso-style-name:\"Normal\";margin:0 0 12.0pt 0;margin-left:36.0pt;text-indent:0;line-height:200%;mso-line-height-rule:exactly;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;color:black;";
     const items = sortedRefs
-      .map(
-        (r) =>
-          `<p class=MsoNormal style='${paragraphStyle}'><span style='font-weight:normal;font-style:normal;'>${r.formatted ?? ""}</span></p>`
-      )
+      .map((r) => {
+        const ref = `<p class=MsoNormal style='${paragraphStyle}'><span style='font-weight:normal;font-style:normal;'>${r.formatted ?? ""}</span></p>`;
+        if (annotatedMode && r.annotation && r.annotation.trim()) {
+          const ann = `<p class=MsoNormal style='${annotationStyle}'>${escapeHtml(r.annotation.trim())}</p>`;
+          return ref + ann;
+        }
+        return ref;
+      })
       .join("");
     return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -870,15 +1002,13 @@ i { font-style:italic; font-weight:normal; }
 
   const buildBulkPlain = (): string => {
     return sortedRefs
-      .map((r) =>
-        (r.formatted ?? "")
-          .replace(/<\/?i>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-      )
+      .map((r) => {
+        const ref = stripHtmlTags(r.formatted ?? "");
+        if (annotatedMode && r.annotation && r.annotation.trim()) {
+          return `${ref}\n${r.annotation.trim()}`;
+        }
+        return ref;
+      })
       .join("\n\n");
   };
 
@@ -1023,6 +1153,41 @@ i { font-style:italic; font-weight:normal; }
             </button>
           </div>
         )}
+      </section>
+
+      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <details>
+          <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-300 hover:text-sky-300">
+            Bulk import — paste a list of DOIs or URLs
+          </summary>
+          <div className="mt-3 space-y-3">
+            <textarea
+              value={bulkImportText}
+              onChange={(e) => setBulkImportText(e.target.value)}
+              rows={5}
+              placeholder={`One DOI or URL per line, e.g.:\n10.1000/xyz123\nhttps://doi.org/10.1234/abcd\nhttps://openstax.org/books/...`}
+              className={`${inputStyle} font-mono text-xs`}
+              disabled={bulkImportRunning}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleBulkImport()}
+                disabled={bulkImportRunning || !bulkImportText.trim()}
+                className={buttonPrimary}
+              >
+                {bulkImportRunning
+                  ? `Importing ${bulkProgress.done}/${bulkProgress.total}…`
+                  : "Look up and import all"}
+              </button>
+              {bulkImportRunning && bulkProgress.failed > 0 && (
+                <span className="text-xs text-amber-300">
+                  {bulkProgress.failed} failed so far
+                </span>
+              )}
+            </div>
+          </div>
+        </details>
       </section>
 
       <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
@@ -1599,9 +1764,28 @@ i { font-style:italic; font-weight:normal; }
       </section>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            placeholder="Search this list (author, title, year, notes)…"
+            className={`${inputStyle} max-w-md`}
+          />
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={annotatedMode}
+              onChange={(e) => setAnnotatedMode(e.target.checked)}
+              className="rounded border-slate-600 bg-slate-950"
+            />
+            Annotated bibliography mode
+          </label>
+        </div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
-            References ({sortedRefs.length})
+            References ({sortedRefs.length}
+            {filterText ? ` of ${refs?.length ?? 0}` : ""})
           </h2>
           <div className="flex flex-wrap gap-2">
             <button
@@ -1711,6 +1895,17 @@ i { font-style:italic; font-weight:normal; }
                     />
                   </span>
                   <button
+                    onClick={() => toggleNotes(r._id, r.notes)}
+                    className="ml-auto text-xs text-slate-300 hover:text-sky-300"
+                    title="Add or view notes / quotes / annotation for this reference"
+                  >
+                    {openNotes[r._id]
+                      ? "Hide notes"
+                      : (r.notes && r.notes.trim()) || (r.annotation && r.annotation.trim())
+                        ? "Notes ●"
+                        : "+ Notes"}
+                  </button>
+                  <button
                     onClick={() =>
                       startEdit({
                         _id: r._id,
@@ -1719,7 +1914,7 @@ i { font-style:italic; font-weight:normal; }
                         assignmentId: r.assignmentId,
                       })
                     }
-                    className="ml-auto text-xs text-sky-400 hover:text-sky-300"
+                    className="text-xs text-sky-400 hover:text-sky-300"
                   >
                     Edit
                   </button>
@@ -1730,6 +1925,72 @@ i { font-style:italic; font-weight:normal; }
                     Delete
                   </button>
                 </div>
+
+                {annotatedMode && (r.annotation?.trim() || openNotes[r._id]) && (
+                  <p
+                    className="mt-2 text-sm italic text-slate-300"
+                    style={{ marginLeft: "1.27cm", lineHeight: 1.7 }}
+                  >
+                    {r.annotation?.trim() || (
+                      <span className="text-slate-500">
+                        (No annotation yet — open notes to add one)
+                      </span>
+                    )}
+                  </p>
+                )}
+
+                {openNotes[r._id] && (
+                  <div className="mt-3 space-y-3 rounded-md border border-slate-800 bg-slate-900/60 p-3">
+                    <div>
+                      <span className={labelStyle}>Quick notes (private — not exported)</span>
+                      <textarea
+                        rows={3}
+                        value={notesDraft[r._id] ?? r.notes ?? ""}
+                        onChange={(e) =>
+                          setNotesDraft((s) => ({
+                            ...s,
+                            [r._id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Quotes, page numbers, ideas to use…"
+                        className={`${inputStyle} text-sm`}
+                      />
+                    </div>
+                    <div>
+                      <span className={labelStyle}>
+                        Annotation (50–150 words, exported in annotated bibliography mode)
+                      </span>
+                      <textarea
+                        rows={4}
+                        value={annotationDraft[r._id] ?? r.annotation ?? ""}
+                        onChange={(e) =>
+                          setAnnotationDraft((s) => ({
+                            ...s,
+                            [r._id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Brief summary + relevance to your assignment…"
+                        className={`${inputStyle} text-sm`}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() =>
+                          setOpenNotes((s) => ({ ...s, [r._id]: false }))
+                        }
+                        className={buttonSecondary}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => void saveNotes(r._id, r.annotation)}
+                        className={buttonPrimary}
+                      >
+                        Save notes
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
