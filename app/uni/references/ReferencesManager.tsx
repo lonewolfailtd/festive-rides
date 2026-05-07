@@ -645,13 +645,15 @@ ${items}
   };
 
   const buildBulkHtml = (): string => {
+    // Explicit normal weight on each <p> so Word doesn't inherit bold from
+    // the destination cursor's paragraph style.
     const items = sortedRefs
       .map(
         (r) =>
-          `<p style="margin:0 0 0.5em 0;text-indent:-2em;padding-left:2em;line-height:2;font-family:'Times New Roman',serif;">${r.formatted ?? ""}</p>`
+          `<p style="margin:0 0 0.5em 0;text-indent:-2em;padding-left:2em;line-height:2;font-family:'Times New Roman',serif;font-size:12pt;font-weight:normal;font-style:normal;color:#000;">${r.formatted ?? ""}</p>`
       )
       .join("");
-    return `<div>${items}</div>`;
+    return `<div style="font-weight:normal;font-style:normal;">${items}</div>`;
   };
 
   const buildBulkPlain = (): string => {
@@ -692,10 +694,6 @@ ${items}
     await navigator.clipboard.writeText(plain);
   };
 
-  const copyPlain = async () => {
-    if (sortedRefs.length === 0) return;
-    await navigator.clipboard.writeText(buildBulkPlain());
-  };
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
@@ -1211,16 +1209,10 @@ ${items}
             <button
               onClick={copyRich}
               disabled={sortedRefs.length === 0}
-              className={buttonSecondary}
+              className={buttonPrimary}
+              title="Copies the full reference list with italics + hanging indent. Paste straight into Word."
             >
-              Copy all (rich)
-            </button>
-            <button
-              onClick={copyPlain}
-              disabled={sortedRefs.length === 0}
-              className={buttonSecondary}
-            >
-              Copy all (plain)
+              Copy for Word
             </button>
             <button
               onClick={downloadDocx}
