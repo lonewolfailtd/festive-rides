@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
+import PomodoroTimer from "./PomodoroTimer";
 
 // Inter is Linear / Vercel-style: clean, highly legible, modern minimal.
 // Scoped to /uni only; festive-rides keeps its festive font stack.
@@ -49,6 +50,9 @@ export default function UniLayout({ children }: { children: React.ReactNode }) {
               className="pointer-events-none absolute -right-32 top-96 -z-10 h-[300px] w-[300px] rounded-full bg-sky-200/40 blur-3xl dark:hidden"
             />
             {children}
+            {/* Floating timer — visible on every uni page so the student
+                can keep an eye on the session while moving between tools. */}
+            <PomodoroTimer />
           </div>
         </ThemeProvider>
       </ConvexClientProvider>

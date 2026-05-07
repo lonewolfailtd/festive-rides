@@ -1,6 +1,5 @@
 import SignOutButton from "./SignOutButton";
 import { ThemeToggle } from "./ThemeProvider";
-import PomodoroTimer from "./PomodoroTimer";
 import WorkspaceBar from "./WorkspaceBar";
 import DashboardCards from "./DashboardCards";
 
@@ -74,10 +73,6 @@ export default function UniHomePage() {
 
       <section className="mb-6">
         <WorkspaceBar />
-      </section>
-
-      <section className="mb-8">
-        <PomodoroTimer />
       </section>
 
       <DashboardCards cards={cards} />

@@ -1,9 +1,12 @@
 "use client";
 
-// Compact pomodoro timer for the dashboard. State persists across reloads via
-// localStorage so a session keeps running visually if the student navigates
-// between tools. Keeps the public surface tiny — no settings UI, just the
-// classic 25/5 cadence (configurable via two button presses).
+// Floating pomodoro timer that lives in the uni layout, so it appears on
+// every uni page and keeps ticking while the student moves between tools.
+//
+// Compact by default (rounded pill in the bottom-right). Click to expand
+// to full controls. State persists across reloads via localStorage; we use
+// a state-based hydration flag (NOT a ref) to avoid clobbering saved state
+// on remount — see the long comment on `hydrated` below.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -38,8 +41,6 @@ function loadState(): SavedState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw) as SavedState;
-    // If a run was active, recompute remaining from endsAt so a tab reload
-    // doesn't reset the clock.
     if (parsed.endsAt) {
       const remaining = Math.max(0, parsed.endsAt - Date.now());
       return { ...parsed, remaining };
@@ -60,29 +61,51 @@ const formatMs = (ms: number): string => {
 export default function PomodoroTimer() {
   const [state, setState] = useState<SavedState>(defaultState);
   const tickRef = useRef<number | null>(null);
-  // Hydration guard. Without this, the persist effect fires on first render
-  // with the placeholder defaultState, OVERWRITING the real saved state in
-  // localStorage before the load effect can read it. This was the bug that
-  // made the timer reset every time you switched tabs.
-  const hydrated = useRef(false);
+  const [expanded, setExpanded] = useState(false);
+
+  // Hydration flag is STATE not ref. Refs update synchronously, which means
+  // when both effects run in the same commit, the persist effect would see
+  // hydrated.current=true (just set by the load effect) but state=defaultState
+  // (because setState is async) and stamp the default into localStorage.
+  // Using state means the persist effect's dep array still sees `hydrated:false`
+  // on first run and skips, then re-runs with the loaded state in the next
+  // render after both setStates are reconciled.
+  const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from localStorage after mount (avoids SSR mismatch)
   useEffect(() => {
     setState(loadState());
-    hydrated.current = true;
+    setHydrated(true);
   }, []);
 
   // Persist on every state change — but ONLY after hydration, so we never
   // clobber saved state with the placeholder defaultState.
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {}
-  }, [state]);
+  }, [state, hydrated]);
 
-  // Tick while running. We compute remaining from endsAt rather than
-  // decrementing — that keeps the clock accurate even if the tab was
+  // Sync across tabs / pages of the same site. If another tab updates
+  // localStorage (e.g. starts the timer there), pick that change up here.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY || !e.newValue) return;
+      try {
+        const parsed = JSON.parse(e.newValue) as SavedState;
+        if (parsed.endsAt) {
+          parsed.remaining = Math.max(0, parsed.endsAt - Date.now());
+        }
+        setState(parsed);
+      } catch {}
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Tick while running. Compute remaining from endsAt rather than
+  // decrementing — keeps the clock accurate even if the tab was
   // backgrounded (browsers throttle setInterval).
   useEffect(() => {
     if (!state.endsAt) {
@@ -97,13 +120,12 @@ export default function PomodoroTimer() {
         if (!prev.endsAt) return prev;
         const remaining = Math.max(0, prev.endsAt - Date.now());
         if (remaining <= 0) {
-          // Phase complete — flip phase and either auto-start break, or stop.
           const nextPhase: Phase = prev.phase === "focus" ? "break" : "focus";
           const nextDurationMs =
             nextPhase === "focus"
               ? prev.focusMins * 60_000
               : prev.breakMins * 60_000;
-          // Subtle "ding" via Web Audio so the student knows time's up
+          // Subtle "ding" via Web Audio
           try {
             const AudioCtx =
               window.AudioContext ||
@@ -127,7 +149,7 @@ export default function PomodoroTimer() {
             ...prev,
             phase: nextPhase,
             remaining: nextDurationMs,
-            endsAt: null, // pause at phase boundary; student presses Start to continue
+            endsAt: null,
             completedFocus:
               prev.phase === "focus" ? prev.completedFocus + 1 : prev.completedFocus,
           };
@@ -151,10 +173,7 @@ export default function PomodoroTimer() {
   const progress = 1 - state.remaining / totalForPhase;
 
   const start = () => {
-    setState((prev) => ({
-      ...prev,
-      endsAt: Date.now() + prev.remaining,
-    }));
+    setState((prev) => ({ ...prev, endsAt: Date.now() + prev.remaining }));
   };
   const pause = () => {
     setState((prev) => {
@@ -182,8 +201,6 @@ export default function PomodoroTimer() {
   };
   const setDurations = (focus: number, breakMins: number) => {
     setState((prev) => {
-      // If we change duration mid-pause, also reset remaining for the
-      // current phase so the display matches.
       const remaining =
         prev.phase === "focus" ? focus * 60_000 : breakMins * 60_000;
       return { ...prev, focusMins: focus, breakMins, remaining, endsAt: null };
@@ -195,10 +212,85 @@ export default function PomodoroTimer() {
     state.phase === "focus"
       ? "from-sky-500 to-sky-600"
       : "from-emerald-500 to-emerald-600";
+  const ringColour =
+    state.phase === "focus"
+      ? "stroke-sky-500"
+      : "stroke-emerald-500";
 
+  // SSR-safe: render nothing until mounted, so server HTML matches the
+  // client's hydrated render.
+  if (!hydrated) return null;
+
+  // Compact pill (collapsed): bottom-right, click to expand.
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        title={`${phaseLabel} · click to expand`}
+        className={`fixed bottom-4 right-4 z-50 group flex items-center gap-2 rounded-full border bg-white/95 px-3 py-2 shadow-lg backdrop-blur transition-all hover:shadow-xl dark:bg-slate-900/95 ${
+          isRunning
+            ? state.phase === "focus"
+              ? "border-sky-300 dark:border-sky-700"
+              : "border-emerald-300 dark:border-emerald-700"
+            : "border-slate-200 dark:border-slate-700"
+        }`}
+      >
+        <span className="relative flex h-6 w-6 items-center justify-center">
+          <svg viewBox="0 0 24 24" className="absolute inset-0 -rotate-90">
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              className="stroke-slate-200 dark:stroke-slate-700"
+              strokeWidth="2.5"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              className={ringColour}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray={62.83}
+              strokeDashoffset={62.83 * (1 - progress)}
+              style={{ transition: "stroke-dashoffset 0.3s ease" }}
+            />
+          </svg>
+          {isRunning ? (
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                state.phase === "focus" ? "bg-sky-500" : "bg-emerald-500"
+              } animate-pulse`}
+              aria-hidden
+            />
+          ) : (
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                state.remaining < totalForPhase
+                  ? "bg-amber-500"
+                  : "bg-slate-400 dark:bg-slate-500"
+              }`}
+              aria-hidden
+            />
+          )}
+        </span>
+        <span className="font-mono text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+          {formatMs(state.remaining)}
+        </span>
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          {state.phase}
+        </span>
+      </button>
+    );
+  }
+
+  // Expanded panel
   return (
-    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Study session
@@ -208,29 +300,37 @@ export default function PomodoroTimer() {
             {state.completedFocus === 1 ? "" : "s"} done today
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={`${state.focusMins}/${state.breakMins}`}
-            onChange={(e) => {
-              const [f, b] = e.target.value.split("/").map(Number);
-              setDurations(f, b);
-            }}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-          >
-            <option value="25/5">25 / 5 (classic)</option>
-            <option value="50/10">50 / 10 (deep)</option>
-            <option value="15/3">15 / 3 (short)</option>
-            <option value="45/15">45 / 15 (long)</option>
-          </select>
-        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          aria-label="Collapse"
+          className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
-      <div className="mt-4 flex items-baseline justify-center gap-3">
+      <div className="mt-3">
+        <select
+          value={`${state.focusMins}/${state.breakMins}`}
+          onChange={(e) => {
+            const [f, b] = e.target.value.split("/").map(Number);
+            setDurations(f, b);
+          }}
+          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        >
+          <option value="25/5">25 / 5 (classic)</option>
+          <option value="50/10">50 / 10 (deep)</option>
+          <option value="15/3">15 / 3 (short)</option>
+          <option value="45/15">45 / 15 (long)</option>
+        </select>
+      </div>
+
+      <div className="mt-3 flex items-baseline justify-center gap-3">
         <span className="font-mono text-5xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
           {formatMs(state.remaining)}
-        </span>
-        <span className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          {state.phase}
         </span>
       </div>
 
@@ -246,7 +346,7 @@ export default function PomodoroTimer() {
           <button
             type="button"
             onClick={pause}
-            className="inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-amber-500 to-amber-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-px hover:from-amber-400 hover:to-amber-500"
+            className="inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-amber-500 to-amber-600 px-4 py-2 text-sm font-medium text-white hover:from-amber-400 hover:to-amber-500"
           >
             Pause
           </button>
@@ -254,7 +354,7 @@ export default function PomodoroTimer() {
           <button
             type="button"
             onClick={start}
-            className={`inline-flex items-center justify-center rounded-lg bg-gradient-to-b ${phaseColour} px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-px`}
+            className={`inline-flex items-center justify-center rounded-lg bg-gradient-to-b ${phaseColour} px-4 py-2 text-sm font-medium text-white hover:-translate-y-px transition-all`}
           >
             {state.remaining < totalForPhase ? "Resume" : `Start ${phaseLabel.toLowerCase()}`}
           </button>
@@ -262,14 +362,14 @@ export default function PomodoroTimer() {
         <button
           type="button"
           onClick={reset}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
         >
           Reset
         </button>
         <button
           type="button"
           onClick={skipPhase}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/40 dark:hover:text-sky-300"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/40 dark:hover:text-sky-300"
         >
           Skip to {state.phase === "focus" ? "break" : "focus"}
         </button>
