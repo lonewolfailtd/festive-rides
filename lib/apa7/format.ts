@@ -112,9 +112,12 @@ const pageRange = (
   start: string | undefined,
   end: string | undefined
 ): string => {
-  if (!start) return "";
-  if (end && end !== start) return `${start}–${end}`;
-  return start;
+  const s = (start ?? "").trim();
+  const e = (end ?? "").trim();
+  if (!s && !e) return "";
+  if (!s) return e;
+  if (!e || e === s) return s;
+  return `${s}–${e}`;
 };
 
 const doiUrl = (doi: string | undefined): string | undefined => {
