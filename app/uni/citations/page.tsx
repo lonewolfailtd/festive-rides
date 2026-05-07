@@ -1,5 +1,10 @@
 import CitationsClient from "./CitationsClient";
+import { ToolErrorBoundary } from "../ToolErrorBoundary";
 
 export default function Page() {
-  return <CitationsClient />;
+  return (
+    <ToolErrorBoundary toolName="Citation Extractor">
+      <CitationsClient />
+    </ToolErrorBoundary>
+  );
 }

@@ -117,7 +117,13 @@ const fold = (line: string): string => {
   return chunks.join("\r\n");
 };
 
-export function buildIcs(events: IcsEvent[]): string {
+interface IcsEventExt extends IcsEvent {
+  // If true, attach a 24-hour-before VALARM (display + audio) — used for
+  // assignment due-date events. Holiday events don't get reminders.
+  remindDayBefore?: boolean;
+}
+
+export function buildIcs(events: IcsEventExt[]): string {
   const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const lines: string[] = [
     "BEGIN:VCALENDAR",
@@ -142,6 +148,16 @@ export function buildIcs(events: IcsEvent[]): string {
     if (e.description) lines.push(fold(`DESCRIPTION:${escapeIcs(e.description)}`));
     if (e.category) lines.push(fold(`CATEGORIES:${escapeIcs(e.category)}`));
     lines.push("TRANSP:TRANSPARENT");
+    if (e.remindDayBefore) {
+      // 24-hour-before alarm. -PT24H from the event start (which is
+      // midnight on the due day). Apple/Google display the trigger the
+      // previous morning local time.
+      lines.push("BEGIN:VALARM");
+      lines.push("ACTION:DISPLAY");
+      lines.push(fold(`DESCRIPTION:Reminder — ${escapeIcs(e.summary)}`));
+      lines.push("TRIGGER:-PT24H");
+      lines.push("END:VALARM");
+    }
     lines.push("END:VEVENT");
   }
   lines.push("END:VCALENDAR");
@@ -149,9 +165,18 @@ export function buildIcs(events: IcsEvent[]): string {
 }
 
 export function buildFeedForUser(
-  assignments: { _id: string; name: string; courseCode?: string; dueDate?: number; wordCountTarget?: number }[]
+  assignments: {
+    _id: string;
+    name: string;
+    courseCode?: string;
+    dueDate?: number;
+    wordCountTarget?: number;
+    submittedAt?: number;
+    grade?: number;
+    gradeLetter?: string;
+  }[]
 ): string {
-  const events: IcsEvent[] = [];
+  const events: IcsEventExt[] = [];
   for (const h of NZ_HOLIDAYS) {
     events.push({
       uid: `nz-holiday-${h.date}-${h.name.replace(/\W+/g, "")}@uni-citation`,
@@ -168,12 +193,28 @@ export function buildFeedForUser(
   }
   for (const a of assignments) {
     if (!a.dueDate) continue;
+    const submitted = a.submittedAt !== undefined;
+    const gradeBit =
+      a.grade !== undefined
+        ? ` (${a.grade}%${a.gradeLetter ? `, ${a.gradeLetter}` : ""})`
+        : a.gradeLetter
+          ? ` (${a.gradeLetter})`
+          : "";
+    const summary = submitted
+      ? `✓ ${a.courseCode ? `${a.courseCode}: ` : ""}${a.name}${gradeBit}`
+      : `${a.courseCode ? `${a.courseCode}: ` : ""}${a.name} — DUE`;
+    const descriptionParts: string[] = [];
+    if (a.wordCountTarget) descriptionParts.push(`Target: ${a.wordCountTarget} words.`);
+    if (submitted) descriptionParts.push(`Submitted ${new Date(a.submittedAt!).toLocaleDateString("en-NZ")}.`);
     events.push({
       uid: `assignment-${a._id}@uni-citation`,
       date: toIsoDay(new Date(a.dueDate)),
-      summary: `${a.courseCode ? `${a.courseCode}: ` : ""}${a.name} — DUE`,
-      description: a.wordCountTarget ? `Target: ${a.wordCountTarget} words.` : undefined,
-      category: "Assignment",
+      summary,
+      description: descriptionParts.length > 0 ? descriptionParts.join(" ") : undefined,
+      category: submitted ? "Submitted Assignment" : "Assignment",
+      // Only remind for unsubmitted assignments — no point pinging them
+      // about something they've already turned in.
+      remindDayBefore: !submitted,
     });
   }
   return buildIcs(events);

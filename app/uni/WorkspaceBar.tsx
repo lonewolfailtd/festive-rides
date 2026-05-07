@@ -71,8 +71,13 @@ function dayToTs(iso: string): number {
 
 export default function WorkspaceBar() {
   const assignments = useQuery(api.assignments.list);
+  const courses = useQuery(api.courses.list, {});
   const updateAssignment = useMutation(api.assignments.update);
   const createAssignment = useMutation(api.assignments.create);
+  const markSubmitted = useMutation(api.assignments.markSubmitted);
+  const unmarkSubmitted = useMutation(api.assignments.unmarkSubmitted);
+  const setGrade = useMutation(api.assignments.setGrade);
+  const createCourse = useMutation(api.courses.create);
 
   const [activeId, setActiveIdLocal] = useState<Id<"assignments"> | null>(null);
   const hydrated = useRef(false);
@@ -148,10 +153,12 @@ export default function WorkspaceBar() {
   // Compute the single most useful next step. Priorities (highest first):
   //   1. No assignments at all → create one
   //   2. No active assignment → pick one
-  //   3. Active but no analysis → run Analyser
-  //   4. Analysis but <5 references → start adding sources
-  //   5. References but no notes/draft signal → start drafting in Coach
-  //   6. Otherwise → run AI Checker before submission
+  //   3. Active is submitted, no grade → waiting for marker
+  //   4. Active is graded → celebrate / move on
+  //   5. Active but no analysis → run Analyser
+  //   6. Analysis but <5 references → start adding sources
+  //   7. References but no notes/draft signal → start drafting in Coach
+  //   8. Otherwise → run AI Checker before submission
   // Every nudge has a target href so it's a one-click action.
   const nudge = useMemo(() => {
     if (!assignments) return null;
@@ -159,7 +166,7 @@ export default function WorkspaceBar() {
       return {
         text: "You haven't created an assignment yet — start one to unlock per-assignment references and outlines.",
         cta: "Create assignment",
-        href: "/uni/references", // assignment creation lives on references page
+        href: "/uni/references",
       };
     }
     if (!activeId || !active) {
@@ -169,7 +176,21 @@ export default function WorkspaceBar() {
         href: null,
       };
     }
-    if (analyses === undefined || refs === undefined) return null; // still loading
+    if (active.submittedAt && active.grade !== undefined) {
+      return {
+        text: `Graded ${active.grade}%${active.gradeLetter ? ` (${active.gradeLetter})` : ""}. Pick another assignment to keep the streak going.`,
+        cta: null,
+        href: null,
+      };
+    }
+    if (active.submittedAt) {
+      return {
+        text: "Submitted — waiting on the marker. Add your grade here once you get it back so the dashboard tracks your progress.",
+        cta: null,
+        href: null,
+      };
+    }
+    if (analyses === undefined || refs === undefined) return null;
     if (analyses.length === 0) {
       return {
         text: `No analysis for ${active.name} yet — paste the brief and let the Analyser break it down.`,
@@ -197,6 +218,94 @@ export default function WorkspaceBar() {
       href: `/uni/checker`,
     };
   }, [assignments, activeId, active, analyses, refs]);
+
+  // Submission + grade state
+  const [editingGrade, setEditingGrade] = useState(false);
+  const [gradeNumDraft, setGradeNumDraft] = useState("");
+  const [gradeLetterDraft, setGradeLetterDraft] = useState("");
+  const [feedbackDraft, setFeedbackDraft] = useState("");
+  const startEditingGrade = () => {
+    setGradeNumDraft(active?.grade !== undefined ? String(active.grade) : "");
+    setGradeLetterDraft(active?.gradeLetter ?? "");
+    setFeedbackDraft(active?.markerFeedback ?? "");
+    setEditingGrade(true);
+  };
+  const saveGrade = async () => {
+    if (!active) return;
+    const num = gradeNumDraft.trim() ? Number(gradeNumDraft) : undefined;
+    if (num !== undefined && (isNaN(num) || num < 0 || num > 100)) {
+      toast.error("Grade must be a number between 0 and 100.");
+      return;
+    }
+    try {
+      await setGrade({
+        id: active._id,
+        grade: num,
+        gradeLetter: gradeLetterDraft.trim() || undefined,
+        markerFeedback: feedbackDraft.trim() || undefined,
+      });
+      toast.success("Grade saved");
+      setEditingGrade(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save");
+    }
+  };
+
+  const handleMarkSubmitted = async () => {
+    if (!active) return;
+    try {
+      await markSubmitted({ id: active._id });
+      toast.success("Marked submitted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save");
+    }
+  };
+  const handleUnsubmit = async () => {
+    if (!active) return;
+    if (!confirm("Undo submission? This also clears any grade you've recorded.")) return;
+    try {
+      await unmarkSubmitted({ id: active._id });
+      toast.success("Submission cleared");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save");
+    }
+  };
+
+  // Course assignment for the active assignment
+  const handleSetCourse = async (courseId: Id<"courses"> | "") => {
+    if (!active) return;
+    try {
+      await updateAssignment({
+        id: active._id,
+        courseId: courseId === "" ? undefined : courseId,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save");
+    }
+  };
+
+  const [creatingCourse, setCreatingCourse] = useState(false);
+  const [newCourseCode, setNewCourseCode] = useState("");
+  const [newCourseName, setNewCourseName] = useState("");
+  const handleCreateCourse = async () => {
+    if (!newCourseCode.trim() || !newCourseName.trim()) {
+      toast.error("Both code and name are required.");
+      return;
+    }
+    try {
+      const id = await createCourse({
+        code: newCourseCode.trim().toUpperCase(),
+        name: newCourseName.trim(),
+      });
+      if (active) await updateAssignment({ id: active._id, courseId: id });
+      setNewCourseCode("");
+      setNewCourseName("");
+      setCreatingCourse(false);
+      toast.success(`Course ${newCourseCode.trim().toUpperCase()} created`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't create");
+    }
+  };
 
   // Inline due-date editor
   const [editingDue, setEditingDue] = useState(false);
@@ -269,13 +378,19 @@ export default function WorkspaceBar() {
             className={inputStyle}
           >
             <option value="">— none selected —</option>
-            {assignments.map((a) => (
-              <option key={a._id} value={a._id}>
-                {a.name}
-                {a.courseCode ? ` · ${a.courseCode}` : ""}
-                {a.dueDate ? ` · ${fmtDate(a.dueDate)}` : ""}
-              </option>
-            ))}
+            {assignments.map((a) => {
+              const c = courses?.find((c) => c._id === a.courseId);
+              const prefix = c ? c.code : a.courseCode;
+              return (
+                <option key={a._id} value={a._id}>
+                  {prefix ? `${prefix} · ` : ""}
+                  {a.name}
+                  {a.submittedAt ? " ✓" : ""}
+                  {a.grade !== undefined ? ` (${a.grade}%)` : ""}
+                  {!a.submittedAt && a.dueDate ? ` · ${fmtDate(a.dueDate)}` : ""}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -390,6 +505,158 @@ export default function WorkspaceBar() {
                 className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
               >
                 {active.dueDate ? "Edit" : "Set due date"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Course row */}
+      {active && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className={labelStyle}>Course</span>
+          {creatingCourse ? (
+            <>
+              <input
+                type="text"
+                value={newCourseCode}
+                onChange={(e) => setNewCourseCode(e.target.value)}
+                placeholder="PSY108"
+                className="w-28 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                onKeyDown={(e) => e.key === "Escape" && setCreatingCourse(false)}
+                autoFocus
+              />
+              <input
+                type="text"
+                value={newCourseName}
+                onChange={(e) => setNewCourseName(e.target.value)}
+                placeholder="Introduction to Psychology"
+                className="flex-1 min-w-[10rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                onKeyDown={(e) => e.key === "Escape" && setCreatingCourse(false)}
+              />
+              <button
+                type="button"
+                onClick={() => void handleCreateCourse()}
+                className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-500"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatingCourse(false)}
+                className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <select
+                value={active.courseId ?? ""}
+                onChange={(e) =>
+                  void handleSetCourse(
+                    e.target.value === ""
+                      ? ""
+                      : (e.target.value as Id<"courses">)
+                  )
+                }
+                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                <option value="">— no course —</option>
+                {(courses ?? []).map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.code} · {c.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setCreatingCourse(true)}
+                className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+              >
+                + New course
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Submission + grade row */}
+      {active && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className={labelStyle}>Status</span>
+          {!active.submittedAt ? (
+            <button
+              type="button"
+              onClick={() => void handleMarkSubmitted()}
+              className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+            >
+              ✓ Mark submitted
+            </button>
+          ) : editingGrade ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                value={gradeNumDraft}
+                onChange={(e) => setGradeNumDraft(e.target.value)}
+                placeholder="%"
+                className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <input
+                type="text"
+                value={gradeLetterDraft}
+                onChange={(e) => setGradeLetterDraft(e.target.value)}
+                placeholder="A+ / Pass"
+                className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <input
+                type="text"
+                value={feedbackDraft}
+                onChange={(e) => setFeedbackDraft(e.target.value)}
+                placeholder="Marker feedback (optional)"
+                className="flex-1 min-w-[12rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => void saveGrade()}
+                className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-500"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingGrade(false)}
+                className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                ✓ Submitted {new Date(active.submittedAt).toLocaleDateString("en-NZ", { day: "numeric", month: "short" })}
+              </span>
+              {active.grade !== undefined && (
+                <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">
+                  {active.grade}%{active.gradeLetter ? ` · ${active.gradeLetter}` : ""}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={startEditingGrade}
+                className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+              >
+                {active.grade !== undefined ? "Edit grade" : "Add grade"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleUnsubmit()}
+                className="ml-auto text-xs text-rose-600 hover:text-rose-500 dark:text-rose-400 dark:hover:text-rose-300"
+              >
+                Undo
               </button>
             </>
           )}

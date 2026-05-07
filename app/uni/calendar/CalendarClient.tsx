@@ -29,6 +29,9 @@ type Assignment = {
   courseCode?: string;
   dueDate?: number;
   wordCountTarget?: number;
+  submittedAt?: number;
+  grade?: number;
+  gradeLetter?: string;
 };
 
 // Build the 42-cell grid (6 weeks × 7 days) starting on the Sunday on or
@@ -280,7 +283,7 @@ export default function CalendarClient() {
                 if (draggingId) e.preventDefault();
               }}
               onDrop={() => void onDropOnDay(iso)}
-              className={`min-h-[5.5rem] rounded-md border p-1.5 text-left transition-colors ${cellTone} ${
+              className={`min-h-[4rem] sm:min-h-[5.5rem] rounded-md border p-1 sm:p-1.5 text-left transition-colors ${cellTone} ${
                 inMonth
                   ? "border-slate-200 dark:border-slate-800"
                   : "border-slate-100 opacity-50 dark:border-slate-900"
@@ -304,7 +307,7 @@ export default function CalendarClient() {
                 </span>
                 {dayHolidays[0] && (
                   <span
-                    className={`truncate max-w-[60%] text-[10px] font-medium ${
+                    className={`hidden sm:inline truncate max-w-[60%] text-[10px] font-medium ${
                       dayHolidays[0].type === "national"
                         ? "text-rose-700 dark:text-rose-300"
                         : dayHolidays[0].type === "matariki"
@@ -316,18 +319,39 @@ export default function CalendarClient() {
                     {dayHolidays[0].name.replace(/\(observed\)/, "(obs)")}
                   </span>
                 )}
+                {dayHolidays[0] && (
+                  <span
+                    className={`sm:hidden h-1.5 w-1.5 shrink-0 rounded-full ${
+                      dayHolidays[0].type === "national"
+                        ? "bg-rose-500"
+                        : dayHolidays[0].type === "matariki"
+                          ? "bg-amber-500"
+                          : "bg-sky-500"
+                    }`}
+                    aria-hidden
+                    title={dayHolidays.map((h) => h.name).join(" · ")}
+                  />
+                )}
               </div>
               <div className="mt-1 space-y-0.5">
                 {dayAssignments.slice(0, 3).map((a) => (
                   <div
                     key={a._id}
-                    draggable
-                    onDragStart={() => setDraggingId(a._id)}
+                    draggable={!a.submittedAt}
+                    onDragStart={() => !a.submittedAt && setDraggingId(a._id)}
                     onDragEnd={() => setDraggingId(null)}
-                    className="cursor-grab rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-medium text-white truncate active:cursor-grabbing"
-                    title={`Due: ${a.name}${a.courseCode ? ` (${a.courseCode})` : ""}`}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium truncate ${
+                      a.submittedAt
+                        ? "bg-emerald-600 text-white"
+                        : "cursor-grab active:cursor-grabbing bg-sky-600 text-white"
+                    }`}
+                    title={
+                      a.submittedAt
+                        ? `Submitted ${new Date(a.submittedAt).toLocaleDateString("en-NZ")}${a.grade !== undefined ? ` · ${a.grade}%` : ""}`
+                        : `Due: ${a.name}${a.courseCode ? ` (${a.courseCode})` : ""}`
+                    }
                   >
-                    {a.courseCode ? `${a.courseCode}: ` : ""}{a.name}
+                    {a.submittedAt ? "✓ " : ""}{a.courseCode ? `${a.courseCode}: ` : ""}{a.name}
                   </div>
                 ))}
                 {dayAssignments.length > 3 && (
@@ -433,6 +457,18 @@ export default function CalendarClient() {
                     {a.wordCountTarget && (
                       <p className="text-xs text-slate-600 dark:text-slate-400">
                         Target: {a.wordCountTarget.toLocaleString("en-NZ")} words
+                      </p>
+                    )}
+                    {a.submittedAt && (
+                      <p className="mt-1 inline-flex items-center gap-1.5 text-xs">
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                          ✓ Submitted {new Date(a.submittedAt).toLocaleDateString("en-NZ", { day: "numeric", month: "short" })}
+                        </span>
+                        {a.grade !== undefined && (
+                          <span className="rounded-full bg-sky-100 px-2 py-0.5 font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">
+                            {a.grade}%{a.gradeLetter ? ` · ${a.gradeLetter}` : ""}
+                          </span>
+                        )}
                       </p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">

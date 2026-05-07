@@ -1,5 +1,10 @@
 import CheckerClient from "./CheckerClient";
+import { ToolErrorBoundary } from "../ToolErrorBoundary";
 
 export default function CheckerPage() {
-  return <CheckerClient />;
+  return (
+    <ToolErrorBoundary toolName="AI Checker">
+      <CheckerClient />
+    </ToolErrorBoundary>
+  );
 }

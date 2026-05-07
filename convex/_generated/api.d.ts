@@ -18,7 +18,9 @@ import type * as bibliographyImport from "../bibliographyImport.js";
 import type * as bookings from "../bookings.js";
 import type * as citations from "../citations.js";
 import type * as coach from "../coach.js";
+import type * as courses from "../courses.js";
 import type * as crons from "../crons.js";
+import type * as dataExport from "../dataExport.js";
 import type * as http from "../http.js";
 import type * as icalSubscription from "../icalSubscription.js";
 import type * as lookup from "../lookup.js";
@@ -28,6 +30,7 @@ import type * as plagiarism from "../plagiarism.js";
 import type * as references from "../references.js";
 import type * as reverseLookup from "../reverseLookup.js";
 import type * as sources from "../sources.js";
+import type * as userSettings from "../userSettings.js";
 
 import type {
   ApiFromModules,
@@ -46,7 +49,9 @@ declare const fullApi: ApiFromModules<{
   bookings: typeof bookings;
   citations: typeof citations;
   coach: typeof coach;
+  courses: typeof courses;
   crons: typeof crons;
+  dataExport: typeof dataExport;
   http: typeof http;
   icalSubscription: typeof icalSubscription;
   lookup: typeof lookup;
@@ -56,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   references: typeof references;
   reverseLookup: typeof reverseLookup;
   sources: typeof sources;
+  userSettings: typeof userSettings;
 }>;
 
 /**

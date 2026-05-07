@@ -1,5 +1,10 @@
 import ReferencesManager from "./ReferencesManager";
+import { ToolErrorBoundary } from "../ToolErrorBoundary";
 
 export default function ReferencesPage() {
-  return <ReferencesManager />;
+  return (
+    <ToolErrorBoundary toolName="References">
+      <ReferencesManager />
+    </ToolErrorBoundary>
+  );
 }

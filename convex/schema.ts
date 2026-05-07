@@ -30,15 +30,36 @@ export default defineSchema({
   ...authTables,
 
   // Uni Citation Tool
+
+  // Optional courses/papers layer. Assignments without a courseId stay
+  // valid (backwards compat), so existing data keeps working. New
+  // assignments can be grouped under a course to keep the dashboard tidy
+  // once the student has multiple papers running.
+  courses: defineTable({
+    userId: v.id("users"),
+    code: v.string(), // e.g. "PSY108"
+    name: v.string(), // e.g. "Introduction to Psychology"
+    colour: v.optional(v.string()), // tailwind colour key: sky, emerald, amber, rose, violet
+    archived: v.optional(v.boolean()),
+  }).index("by_user", ["userId"]),
+
   assignments: defineTable({
     userId: v.id("users"),
     name: v.string(),
     courseCode: v.optional(v.string()),
+    courseId: v.optional(v.id("courses")),
     dueDate: v.optional(v.number()),
     wordCountTarget: v.optional(v.number()),
     brief: v.optional(v.string()),
     notes: v.optional(v.string()),
-  }).index("by_user", ["userId"]),
+    // Submission + grade tracker
+    submittedAt: v.optional(v.number()), // epoch ms
+    grade: v.optional(v.number()), // 0-100 numeric
+    gradeLetter: v.optional(v.string()), // "A+", "B-", "Pass", etc.
+    markerFeedback: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_course", ["userId", "courseId"]),
 
   analyses: defineTable({
     userId: v.id("users"),

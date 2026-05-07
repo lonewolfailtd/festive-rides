@@ -3,6 +3,7 @@ import SignOutButton from "./SignOutButton";
 import { ThemeToggle } from "./ThemeProvider";
 import WorkspaceBar from "./WorkspaceBar";
 import DashboardCards from "./DashboardCards";
+import GradesChart from "./GradesChart";
 
 const cards = [
   {
@@ -65,6 +66,12 @@ export default function UniHomePage() {
         >
           <span aria-hidden>📅</span> Calendar
         </Link>
+        <Link
+          href="/uni/settings"
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+        >
+          <span aria-hidden>⚙</span> Settings
+        </Link>
         <ThemeToggle />
         <SignOutButton />
       </div>
@@ -80,6 +87,10 @@ export default function UniHomePage() {
 
       <section className="mb-6">
         <WorkspaceBar />
+      </section>
+
+      <section className="mb-6">
+        <GradesChart />
       </section>
 
       <DashboardCards cards={cards} />
