@@ -191,64 +191,78 @@ function AuthorsEditor({
   value: Author[];
   onChange: (next: Author[]) => void;
 }) {
+  const subLabel =
+    "block text-[10px] font-medium uppercase tracking-wide text-slate-500";
   return (
     <div>
       <span className={labelStyle}>{label}</span>
-      <div className="mt-1 space-y-2">
+      <div className="mt-1 space-y-3">
         {value.map((a, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <select
-              value={a.kind}
-              onChange={(e) => {
-                const next = [...value];
-                next[idx] =
-                  e.target.value === "person"
-                    ? { kind: "person", surname: "", given: "" }
-                    : { kind: "group", name: "" };
-                onChange(next);
-              }}
-              className={`${inputStyle} max-w-[7rem]`}
-            >
-              <option value="person">Person</option>
-              <option value="group">Group</option>
-            </select>
-            {a.kind === "person" ? (
-              <>
-                <input
-                  type="text"
-                  placeholder="Surname"
-                  value={a.surname}
-                  onChange={(e) => {
-                    const next = [...value];
-                    next[idx] = { ...a, surname: e.target.value };
-                    onChange(next);
-                  }}
-                  className={inputStyle}
-                />
-                <input
-                  type="text"
-                  placeholder="Given names"
-                  value={a.given}
-                  onChange={(e) => {
-                    const next = [...value];
-                    next[idx] = { ...a, given: e.target.value };
-                    onChange(next);
-                  }}
-                  className={inputStyle}
-                />
-              </>
-            ) : (
-              <input
-                type="text"
-                placeholder="Group / organisation name"
-                value={a.name}
+          <div key={idx} className="flex items-end gap-2">
+            <div>
+              <span className={subLabel}>Type</span>
+              <select
+                value={a.kind}
                 onChange={(e) => {
                   const next = [...value];
-                  next[idx] = { ...a, name: e.target.value };
+                  next[idx] =
+                    e.target.value === "person"
+                      ? { kind: "person", surname: "", given: "" }
+                      : { kind: "group", name: "" };
                   onChange(next);
                 }}
-                className={inputStyle}
-              />
+                className={`${inputStyle} max-w-[7rem]`}
+              >
+                <option value="person">Person</option>
+                <option value="group">Group</option>
+              </select>
+            </div>
+            {a.kind === "person" ? (
+              <>
+                <div className="flex-1">
+                  <span className={subLabel}>Last name (surname)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Grigoryevich"
+                    value={a.surname}
+                    onChange={(e) => {
+                      const next = [...value];
+                      next[idx] = { ...a, surname: e.target.value };
+                      onChange(next);
+                    }}
+                    className={inputStyle}
+                  />
+                </div>
+                <div className="flex-1">
+                  <span className={subLabel}>First name (given names)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Yevgeniy F."
+                    value={a.given}
+                    onChange={(e) => {
+                      const next = [...value];
+                      next[idx] = { ...a, given: e.target.value };
+                      onChange(next);
+                    }}
+                    className={inputStyle}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="flex-1">
+                <span className={subLabel}>Organisation name</span>
+                <input
+                  type="text"
+                  placeholder="e.g. Ministry of Health"
+                  value={a.name}
+                  onChange={(e) => {
+                    const next = [...value];
+                    next[idx] = { ...a, name: e.target.value };
+                    onChange(next);
+                  }}
+                  className={inputStyle}
+                />
+              </div>
             )}
             <button
               type="button"
@@ -256,7 +270,7 @@ function AuthorsEditor({
                 if (value.length === 1) onChange([newAuthor()]);
                 else onChange(value.filter((_, i) => i !== idx));
               }}
-              className={buttonGhost}
+              className={`${buttonGhost} mb-2`}
               aria-label="Remove"
             >
               ×
