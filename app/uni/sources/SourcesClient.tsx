@@ -5,7 +5,7 @@ import PageHeader from "../PageHeader";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatReference } from "@/lib/apa7/format";
 import type { Author, SourceFields, SourceType } from "@/lib/apa7/types";
 
@@ -143,6 +143,19 @@ export default function SourcesClient() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [added, setAdded] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState<Record<string, boolean>>({});
+
+  // Prefill from ?q=... URL param so the Analyser can hand off keywords.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    if (q && q.trim()) {
+      setQuery(q.trim());
+      // Clean the URL so the prefill doesn't re-fire on back/forward.
+      const cleaned = window.location.pathname;
+      window.history.replaceState({}, "", cleaned);
+    }
+  }, []);
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -1,9 +1,12 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
-import { useAction } from "convex/react";
+import type { Id } from "@/convex/_generated/dataModel";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 
 type AnalysisResult = {
@@ -76,16 +79,138 @@ function buildMarkdown(r: AnalysisResult): string {
 
 export default function AnalyserClient() {
   const analyse = useAction(api.analyser.analyse);
+  const iterate = useAction(api.analyser.iterate);
+  const toggleBulletMutation = useMutation(api.analysisStore.toggleBullet);
+  const removeAnalysis = useMutation(api.analysisStore.remove);
 
+  const assignments = useQuery(api.assignments.list);
+  const savedAnalyses = useQuery(api.analysisStore.list, {});
+
+  const [assignmentId, setAssignmentId] = useState<Id<"assignments"> | "">("");
+  const [analysisId, setAnalysisId] = useState<Id<"analyses"> | null>(null);
   const [brief, setBrief] = useState("");
   const [rubric, setRubric] = useState("");
   const [wordCountTarget, setWordCountTarget] = useState("");
   const [running, setRunning] = useState(false);
+  const [iterating, setIterating] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [checkedBullets, setCheckedBullets] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<Record<number, boolean>>({});
   const [copiedKeywords, setCopiedKeywords] = useState(false);
   const [copiedPlan, setCopiedPlan] = useState(false);
+
+  // Reactively sync local state when the saved analysis updates (e.g. after
+  // a checkbox toggle saves to Convex). We track the current analysisId and
+  // pull from savedAnalyses.
+  useEffect(() => {
+    if (!analysisId || !savedAnalyses) return;
+    const current = savedAnalyses.find((a) => a._id === analysisId);
+    if (current) {
+      setCheckedBullets(new Set(current.checkedBullets ?? []));
+    }
+  }, [analysisId, savedAnalyses]);
+
+  const loadSaved = (a: NonNullable<typeof savedAnalyses>[number]) => {
+    setAnalysisId(a._id);
+    setAssignmentId(a.assignmentId ?? "");
+    setBrief(a.brief);
+    setRubric(a.rubric ?? "");
+    setWordCountTarget(a.wordCountTarget ? String(a.wordCountTarget) : "");
+    setResult(a.result as AnalysisResult);
+    setCheckedBullets(new Set(a.checkedBullets ?? []));
+    setError(null);
+    setShowFeedback(false);
+  };
+
+  const sendKeywordsToSources = (keywords: string[]) => {
+    const q = keywords.slice(0, 6).join(" ");
+    const url = `/uni/sources?q=${encodeURIComponent(q)}`;
+    window.location.href = url;
+  };
+
+  const sendBriefToCoach = () => {
+    try {
+      window.sessionStorage.setItem("uni:coach:prefilled-brief", brief);
+      window.location.href = "/uni/coach";
+    } catch {
+      window.location.href = "/uni/coach";
+    }
+  };
+
+  const onToggleBullet = async (sectionIdx: number, bulletIdx: number) => {
+    if (!analysisId) return;
+    const key = `${sectionIdx}:${bulletIdx}`;
+    // optimistic update
+    setCheckedBullets((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    try {
+      await toggleBulletMutation({ id: analysisId, bulletKey: key });
+    } catch {
+      // revert on error
+      setCheckedBullets((s) => {
+        const next = new Set(s);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+      toast.error("Couldn't save your tick");
+    }
+  };
+
+  const onIterate = async () => {
+    if (!analysisId || !feedback.trim()) {
+      toast.error("Add some feedback first.");
+      return;
+    }
+    setIterating(true);
+    try {
+      const res = (await iterate({ id: analysisId, feedback })) as {
+        result: AnalysisResult;
+      };
+      setResult(res.result);
+      setCheckedBullets(new Set()); // outline likely changed; reset
+      setFeedback("");
+      setShowFeedback(false);
+      toast.success("Updated with your feedback");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't iterate.");
+    } finally {
+      setIterating(false);
+    }
+  };
+
+  const onDeleteAnalysis = async () => {
+    if (!analysisId) return;
+    const id = analysisId;
+    toast(`Delete this saved plan?`, {
+      duration: 8000,
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          try {
+            await removeAnalysis({ id });
+            toast.success("Plan deleted");
+            setAnalysisId(null);
+            setResult(null);
+            setBrief("");
+            setRubric("");
+            setWordCountTarget("");
+            setCheckedBullets(new Set());
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Couldn't delete");
+          }
+        },
+      },
+      cancel: { label: "Cancel", onClick: () => {} },
+    });
+  };
 
   const sortedRubric = useMemo(() => {
     if (!result) return [];
@@ -117,15 +242,23 @@ export default function AnalyserClient() {
         brief: string;
         rubric?: string;
         wordCountTarget?: number;
+        assignmentId?: Id<"assignments">;
       } = { brief };
       if (rubric.trim()) args.rubric = rubric;
       if (wordCountTarget.trim()) {
         const n = Number(wordCountTarget);
         if (Number.isFinite(n) && n > 0) args.wordCountTarget = Math.round(n);
       }
-      const res = (await analyse(args)) as AnalysisResult;
-      setResult(res);
+      if (assignmentId) args.assignmentId = assignmentId;
+      const res = (await analyse(args)) as {
+        id: Id<"analyses">;
+        result: AnalysisResult;
+      };
+      setResult(res.result);
+      setAnalysisId(res.id);
+      setCheckedBullets(new Set());
       setOpenSections({});
+      toast.success("Plan saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -164,6 +297,51 @@ export default function AnalyserClient() {
         description="Paste your brief and (optionally) the rubric and word-count target. You'll get the actual question, task verbs, suggested outline, word-count split, and source types to look for."
       />
 
+      {savedAnalyses && savedAnalyses.length > 0 && (
+        <section className={`${sectionCard} mb-6`}>
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-300">
+              Saved plans ({savedAnalyses.length})
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {savedAnalyses.map((a) => {
+                const assignment = assignments?.find((x) => x._id === a.assignmentId);
+                const summary =
+                  (a.result as AnalysisResult | null)?.keyQuestion ??
+                  a.brief.slice(0, 80);
+                const isCurrent = a._id === analysisId;
+                return (
+                  <li key={a._id}>
+                    <button
+                      type="button"
+                      onClick={() => loadSaved(a)}
+                      className={`block w-full rounded-lg border p-3 text-left text-xs transition-colors ${
+                        isCurrent
+                          ? "border-sky-500 bg-sky-50 dark:border-sky-500 dark:bg-sky-900/30"
+                          : "border-slate-200 bg-white hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-sky-700"
+                      }`}
+                    >
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
+                        {assignment ? assignment.name : "Unassigned"}
+                        {isCurrent && (
+                          <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
+                            Current
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-slate-500 dark:text-slate-400">{summary}</p>
+                      <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        Saved {new Date(a._creationTime).toLocaleDateString("en-NZ", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
+        </section>
+      )}
+
       <section className={`${sectionCard} mb-6`}>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
           Paste your assignment
@@ -187,6 +365,33 @@ export default function AnalyserClient() {
               >
                 {brief.length} / {BRIEF_LIMIT}
               </span>
+            </div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className={labelStyle}>Save this plan to:</span>
+              <select
+                value={assignmentId}
+                onChange={(e) =>
+                  setAssignmentId(
+                    e.target.value === ""
+                      ? ""
+                      : (e.target.value as Id<"assignments">)
+                  )
+                }
+                className={`${inputStyle} mt-0 max-w-[20rem]`}
+              >
+                <option value="">No assignment (unassigned)</option>
+                {assignments?.map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.courseCode ? `${a.courseCode} — ${a.name}` : a.name}
+                  </option>
+                ))}
+              </select>
+              <Link
+                href="/uni/references"
+                className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+              >
+                + Manage assignments
+              </Link>
             </div>
             <textarea
               value={brief}
@@ -411,9 +616,21 @@ export default function AnalyserClient() {
           </section>
 
           <section className={sectionCard}>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Outline
-            </h3>
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Outline
+              </h3>
+              {analysisId && result.outline.length > 0 && (() => {
+                const total = result.outline.reduce((sum, o) => sum + o.bullets.length, 0);
+                const done = checkedBullets.size;
+                const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+                return (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {done}/{total} ticked ({pct}%)
+                  </span>
+                );
+              })()}
+            </div>
             {result.outline.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No outline returned.</p>
             ) : (
@@ -438,10 +655,31 @@ export default function AnalyserClient() {
                         </span>
                       </button>
                       {open && (
-                        <ul className="list-disc space-y-1 px-8 pb-3 pt-1 text-sm text-slate-800 dark:text-slate-200">
-                          {o.bullets.map((b, j) => (
-                            <li key={j}>{b}</li>
-                          ))}
+                        <ul className="space-y-1.5 px-3 pb-3 pt-1 text-sm text-slate-800 dark:text-slate-200">
+                          {o.bullets.map((b, j) => {
+                            const key = `${i}:${j}`;
+                            const checked = checkedBullets.has(key);
+                            return (
+                              <li key={j} className="flex items-start gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => void onToggleBullet(i, j)}
+                                  disabled={!analysisId}
+                                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400 text-sky-600 focus:ring-sky-500 dark:border-slate-600"
+                                />
+                                <span
+                                  className={
+                                    checked
+                                      ? "text-slate-500 line-through dark:text-slate-500"
+                                      : ""
+                                  }
+                                >
+                                  {b}
+                                </span>
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </div>
@@ -478,27 +716,109 @@ export default function AnalyserClient() {
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Research keywords
               </h3>
-              {result.researchKeywords.length > 0 && (
-                <button onClick={copyKeywords} className={buttonSecondary}>
-                  {copiedKeywords ? "Copied" : "Copy keywords"}
-                </button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {result.researchKeywords.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => sendKeywordsToSources(result.researchKeywords)}
+                      className={buttonPrimary}
+                      title="Open Source Finder pre-loaded with these keywords"
+                    >
+                      Search on OpenAlex →
+                    </button>
+                    <button onClick={copyKeywords} className={buttonSecondary}>
+                      {copiedKeywords ? "Copied" : "Copy keywords"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             {result.researchKeywords.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No keywords yet.</p>
             ) : (
               <div className="mt-3 flex flex-wrap gap-2">
                 {result.researchKeywords.map((k, i) => (
-                  <span
+                  <button
                     key={i}
-                    className="rounded-full bg-sky-900/40 px-3 py-1 text-xs text-sky-200 ring-1 ring-sky-700/50"
+                    type="button"
+                    onClick={() => sendKeywordsToSources([k])}
+                    className="rounded-full bg-sky-100 px-3 py-1 text-xs text-sky-800 ring-1 ring-sky-200 transition-colors hover:bg-sky-200 dark:bg-sky-900/40 dark:text-sky-200 dark:ring-sky-700/50 dark:hover:bg-sky-900/60"
+                    title={`Search "${k}" on OpenAlex`}
                   >
                     {k}
-                  </span>
+                  </button>
                 ))}
               </div>
             )}
           </section>
+
+          {/* Workflow: send to Coach when ready to draft */}
+          <section className={sectionCard}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Next step
+                </h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Once you've drafted some of this, take it to the Draft Coach for scored feedback.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={sendBriefToCoach}
+                className={buttonPrimary}
+              >
+                Send brief to Draft Coach →
+              </button>
+            </div>
+          </section>
+
+          {/* Refine the analysis with feedback */}
+          {analysisId && (
+            <section className={sectionCard}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Refine this plan
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowFeedback((s) => !s)}
+                    className={buttonSecondary}
+                  >
+                    {showFeedback ? "Cancel" : "Add feedback"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onDeleteAnalysis()}
+                    className="rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-700/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/40"
+                  >
+                    Delete plan
+                  </button>
+                </div>
+              </div>
+              {showFeedback && (
+                <div className="mt-3 space-y-2">
+                  <textarea
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    rows={3}
+                    placeholder={`e.g. "Make the outline focus more on Mātauranga Māori frameworks" or "The word-count split feels off — give the discussion more space"`}
+                    className={`${inputStyle} text-sm`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void onIterate()}
+                    disabled={iterating || !feedback.trim()}
+                    className={buttonPrimary}
+                  >
+                    {iterating ? "Refining…" : "Refine with feedback"}
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
         </motion.div>
       )}
     </main>

@@ -40,6 +40,23 @@ export default defineSchema({
     notes: v.optional(v.string()),
   }).index("by_user", ["userId"]),
 
+  analyses: defineTable({
+    userId: v.id("users"),
+    assignmentId: v.optional(v.id("assignments")),
+    brief: v.string(),
+    rubric: v.optional(v.string()),
+    wordCountTarget: v.optional(v.number()),
+    // The full structured AnalysisResult JSON. Stored as v.any() so the
+    // shape can evolve without migrations.
+    result: v.any(),
+    // Encoded as "<sectionIdx>:<bulletIdx>" strings — checked outline bullets.
+    checkedBullets: v.optional(v.array(v.string())),
+    notes: v.optional(v.string()),
+    modelUsed: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_assignment", ["userId", "assignmentId"]),
+
   references: defineTable({
     userId: v.id("users"),
     assignmentId: v.optional(v.id("assignments")),

@@ -3,7 +3,7 @@
 import { api } from "@/convex/_generated/api";
 import { useAction } from "convex/react";
 import { motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageHeader from "../PageHeader";
 
 const MAX_DRAFT = 30000;
@@ -159,6 +159,20 @@ export default function CoachClient() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CoachResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Prefill brief from sessionStorage (handed over from the Analyser).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const prefill = window.sessionStorage.getItem("uni:coach:prefilled-brief");
+      if (prefill && prefill.trim()) {
+        setBrief(prefill.trim());
+        window.sessionStorage.removeItem("uni:coach:prefilled-brief");
+      }
+    } catch {
+      // ignore (private mode etc.)
+    }
+  }, []);
 
   const draftLen = draft.length;
   const tooShort = draftLen > 0 && draftLen < MIN_DRAFT;

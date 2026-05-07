@@ -3,6 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { callOpenRouter, safeJsonParse } from "./openrouter";
 
 const SYSTEM_PROMPT = `You are an academic study coach for Open Polytechnic of New Zealand students working on assignments referenced in APA 7.
@@ -51,9 +53,13 @@ export const analyse = action({
     brief: v.string(),
     rubric: v.optional(v.string()),
     wordCountTarget: v.optional(v.number()),
+    assignmentId: v.optional(v.id("assignments")),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ id: Id<"analyses">; result: unknown }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.brief.trim();
@@ -64,8 +70,9 @@ export const analyse = action({
       throw new Error("Brief is very long — please trim to under 12000 characters.");
     }
 
+    const model = args.model ?? "anthropic/claude-sonnet-4.6";
     const raw = await callOpenRouter({
-      model: args.model,
+      model,
       responseFormatJson: true,
       temperature: 0.2,
       maxTokens: 3000,
@@ -75,6 +82,77 @@ export const analyse = action({
       ],
     });
 
-    return safeJsonParse(raw);
+    const result = safeJsonParse(raw);
+
+    // Persist alongside the assignment so the plan reloads on next visit.
+    const id = await ctx.runMutation(internal.analysisStore._saveResult, {
+      userId,
+      assignmentId: args.assignmentId,
+      brief: trimmed,
+      rubric: args.rubric,
+      wordCountTarget: args.wordCountTarget,
+      result,
+      modelUsed: model,
+    });
+
+    return { id, result };
+  },
+});
+
+// Iterate on an existing analysis with feedback. Re-runs the AI with the
+// previous result + the user's targeted feedback, then patches the analysis
+// row in place (so checkboxes are preserved if applicable).
+export const iterate = action({
+  args: {
+    id: v.id("analyses"),
+    feedback: v.string(),
+    model: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ result: unknown }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    if (args.feedback.trim().length < 5) {
+      throw new Error("Feedback is too short.");
+    }
+    const existing = (await ctx.runQuery(internal.analysisStore._getInternal, {
+      id: args.id,
+      userId,
+    })) as
+      | {
+          brief: string;
+          rubric?: string;
+          wordCountTarget?: number;
+          result: unknown;
+        }
+      | null;
+    if (!existing) throw new Error("Analysis not found");
+
+    const model = args.model ?? "anthropic/claude-sonnet-4.6";
+    const userPrompt = `${buildPrompt(existing.brief, existing.rubric, existing.wordCountTarget)}
+
+PREVIOUS ANALYSIS (refine this — don't start from scratch):
+${JSON.stringify(existing.result, null, 2)}
+
+USER FEEDBACK:
+${args.feedback.trim()}`;
+
+    const raw = await callOpenRouter({
+      model,
+      responseFormatJson: true,
+      temperature: 0.25,
+      maxTokens: 3000,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+    });
+    const result = safeJsonParse(raw);
+    await ctx.runMutation(internal.analysisStore._patchResult, {
+      id: args.id,
+      userId,
+      result,
+      modelUsed: model,
+    });
+    return { result };
   },
 });
