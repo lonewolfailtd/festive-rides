@@ -365,7 +365,7 @@ function CopyChip({ text, label }: { text: string; label: string }) {
       onClick={handleCopy}
       title={copied ? "Copied to clipboard" : `Copy ${label}`}
       className={`rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-slate-800 dark:text-slate-200 transition-colors hover:bg-slate-700 ${
-        copied ? "ring-1 ring-emerald-500/60 text-emerald-200" : ""
+        copied ? "ring-1 ring-emerald-500/60 text-emerald-700 dark:text-emerald-200" : ""
       }`}
     >
       {copied ? "✓ Copied" : text}
@@ -1767,7 +1767,7 @@ i { font-style:italic; font-weight:normal; }
                   : "Look up and import all"}
               </button>
               {bulkImportRunning && bulkProgress.failed > 0 && (
-                <span className="text-xs text-amber-300">
+                <span className="text-xs text-amber-700 dark:text-amber-300">
                   {bulkProgress.failed} failed so far
                 </span>
               )}
@@ -1877,13 +1877,13 @@ i { font-style:italic; font-weight:normal; }
           </div>
         </details>
         {lookupError && (
-          <p className="mt-2 text-sm text-rose-400">{lookupError}</p>
+          <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{lookupError}</p>
         )}
 
         {lookupInfo && (lookupInfo.warnings.length > 0 || lookupInfo.sourcesQueried.length > 0) && (
           <div className="mt-3 space-y-2">
             {lookupInfo.warnings.length > 0 && (
-              <div className="rounded-md border border-amber-700/50 bg-amber-950/30 p-3 text-xs text-amber-200">
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
                 <p className="font-medium">Sources disagreed on some fields — please double-check before saving:</p>
                 <ul className="mt-1.5 list-disc space-y-1 pl-4">
                   {lookupInfo.warnings.map((w, i) => (
@@ -1891,7 +1891,7 @@ i { font-style:italic; font-weight:normal; }
                   ))}
                 </ul>
                 {lookupInfo.aiReasoning && (
-                  <p className="mt-2 border-t border-amber-700/30 pt-2 italic text-amber-300/80">
+                  <p className="mt-2 border-t border-amber-300 pt-2 italic text-amber-700/90 dark:border-amber-700/30 dark:text-amber-300/80">
                     AI (DeepSeek) reviewed the page and chose: {lookupInfo.aiReasoning}
                   </p>
                 )}
@@ -2355,7 +2355,7 @@ i { font-style:italic; font-weight:normal; }
           )}
 
           {formError && (
-            <p className="text-sm text-rose-400">{formError}</p>
+            <p className="text-sm text-rose-600 dark:text-rose-400">{formError}</p>
           )}
 
           <div className="flex items-center gap-3">
@@ -2519,18 +2519,18 @@ i { font-style:italic; font-weight:normal; }
               </button>
             </div>
             {styleFlags.length === 0 ? (
-              <p className="text-sm text-emerald-400">
+              <p className="text-sm text-emerald-700 dark:text-emerald-400">
                 No US spellings or Oxford commas found.
               </p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {styleFlags.map((f, i) => (
                   <li key={i} className="text-slate-700 dark:text-slate-300">
-                    <span className="rounded bg-rose-900/40 px-1.5 py-0.5 text-rose-300">
+                    <span className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
                       {f.kind === "us-spelling" ? "US spelling" : "Oxford comma"}
                     </span>{" "}
                     <code className="text-slate-900 dark:text-slate-100">{f.match}</code> →{" "}
-                    <span className="text-emerald-300">{f.suggestion}</span>
+                    <span className="text-emerald-700 dark:text-emerald-300">{f.suggestion}</span>
                     <div className="mt-0.5 text-xs text-slate-500">
                       {f.snippet}
                     </div>
@@ -2730,13 +2730,32 @@ i { font-style:italic; font-weight:normal; }
                         assignmentId: r.assignmentId,
                       })
                     }
-                    className="text-xs text-sky-400 hover:text-sky-300"
+                    className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={() => deleteRef({ id: r._id })}
-                    className="text-xs text-rose-400 hover:text-rose-300"
+                    onClick={() => {
+                      toast("Delete this reference?", {
+                        description: "This can't be undone.",
+                        duration: 8000,
+                        action: {
+                          label: "Delete",
+                          onClick: async () => {
+                            try {
+                              await deleteRef({ id: r._id });
+                              toast.success("Reference deleted");
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error ? err.message : "Could not delete reference"
+                              );
+                            }
+                          },
+                        },
+                        cancel: { label: "Cancel", onClick: () => {} },
+                      });
+                    }}
+                    className="text-xs text-rose-600 hover:text-rose-500 dark:text-rose-400 dark:hover:text-rose-300"
                   >
                     Delete
                   </button>

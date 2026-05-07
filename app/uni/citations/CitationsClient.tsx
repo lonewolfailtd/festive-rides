@@ -293,15 +293,40 @@ export default function CitationsClient() {
 
           {result.missingFromRefList.length > 0 && (
             <section className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-rose-300">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
                 These will lose you marks
               </h2>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
                 Cited in your draft but missing from your references list. Add a matching reference for each.
               </p>
-              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-900 dark:text-slate-100">
+              <ul className="mt-3 space-y-1.5 text-sm text-slate-900 dark:text-slate-100">
                 {result.missingFromRefList.map((m, i) => (
-                  <li key={i}>{m}</li>
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(m);
+                          toast.success("Copied — paste into the References add form", {
+                            action: {
+                              label: "Open References →",
+                              onClick: () => {
+                                window.location.href =
+                                  assignmentId === ""
+                                    ? "/uni/references"
+                                    : `/uni/references?assignmentId=${assignmentId}`;
+                              },
+                            },
+                          });
+                        } catch {
+                          toast.error("Couldn't copy");
+                        }
+                      }}
+                      className="block w-full rounded-md border border-rose-300 bg-white px-3 py-2 text-left font-mono text-xs text-rose-900 transition-colors hover:border-rose-500 hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-950 dark:text-rose-200 dark:hover:bg-rose-950/40"
+                    >
+                      {m}
+                    </button>
+                  </li>
                 ))}
               </ul>
             </section>
@@ -309,7 +334,7 @@ export default function CitationsClient() {
 
           {result.unusedRefs.length > 0 && (
             <section className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-300">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 Unused references
               </h2>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
@@ -335,7 +360,7 @@ export default function CitationsClient() {
                 {result.paragraphsWithNoCitations.map((p) => (
                   <span
                     key={p}
-                    className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-200"
+                    className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-800 dark:text-amber-200"
                   >
                     Paragraph {p + 1}
                   </span>

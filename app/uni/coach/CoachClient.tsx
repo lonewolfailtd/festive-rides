@@ -57,7 +57,7 @@ function scoreColour(score: number): {
 } {
   if (score <= 2) {
     return {
-      text: "text-rose-400",
+      text: "text-rose-700 dark:text-rose-300",
       bar: "bg-rose-500",
       bg: "bg-rose-500/10",
       border: "border-rose-500/30",
@@ -65,14 +65,14 @@ function scoreColour(score: number): {
   }
   if (score === 3) {
     return {
-      text: "text-amber-400",
+      text: "text-amber-700 dark:text-amber-300",
       bar: "bg-amber-500",
       bg: "bg-amber-500/10",
       border: "border-amber-500/30",
     };
   }
   return {
-    text: "text-emerald-400",
+    text: "text-emerald-700 dark:text-emerald-300",
     bar: "bg-emerald-500",
     bg: "bg-emerald-500/10",
     border: "border-emerald-500/30",
@@ -363,7 +363,7 @@ export default function CoachClient() {
               rows={14}
               required
               placeholder="Paste your draft here. At least 100 characters."
-              className={`${inputStyle} resize-y font-mono`}
+              className={`${inputStyle} resize-y font-mono max-h-96 overflow-y-auto`}
             />
           </div>
 
@@ -378,7 +378,7 @@ export default function CoachClient() {
             />
           </div>
 
-          {error && <p className="text-sm text-rose-400">{error}</p>}
+          {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -449,7 +449,7 @@ export default function CoachClient() {
 
           {result.missingElements.length > 0 && (
             <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-300">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 Missing elements
               </h2>
               <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-900 dark:text-slate-100">
@@ -475,13 +475,13 @@ export default function CoachClient() {
                       &ldquo;{imp.where}&rdquo;
                     </p>
                     <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">
-                      <span className="font-semibold text-rose-300">
+                      <span className="font-semibold text-rose-700 dark:text-rose-300">
                         Issue:
                       </span>{" "}
                       {imp.issue}
                     </p>
                     <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
-                      <span className="font-semibold text-emerald-300">
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-300">
                         Suggestion:
                       </span>{" "}
                       {imp.suggestion}
@@ -501,7 +501,7 @@ export default function CoachClient() {
                 {result.nzEnglishFlags.map((f, i) => (
                   <span
                     key={i}
-                    className="rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs text-sky-200"
+                    className="rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs text-sky-800 dark:text-sky-200"
                   >
                     {f}
                   </span>
@@ -519,7 +519,7 @@ export default function CoachClient() {
                 {result.oxfordCommaFlags.map((f, i) => (
                   <span
                     key={i}
-                    className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-200"
+                    className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-800 dark:text-amber-200"
                   >
                     {f}
                   </span>

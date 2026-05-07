@@ -419,11 +419,13 @@ export default function CheckerClient() {
 
       {/* Calibration sub-tool */}
       <section className={`${sectionCard} mb-6`}>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <details className="group">
+          <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-slate-600 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300">
+            <span className="mr-1.5 inline-block transition-transform group-open:rotate-90">▸</span>
+            Sanity-check the model
+          </summary>
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Sanity-check the model
-            </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Three known samples — a human-written, an obviously-AI, and a mixed paragraph. Run them to see if the model is calibrated correctly today before you trust its verdict on your own draft.
             </p>
@@ -487,6 +489,7 @@ export default function CheckerClient() {
             Healthy calibration: human under 30, AI over 70, mixed somewhere between 40–60. If the human sample scores high or the AI sample scores low, switch models.
           </p>
         )}
+        </details>
       </section>
 
       {result && (

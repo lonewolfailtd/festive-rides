@@ -140,7 +140,7 @@ export default function PlagiarismClient() {
       <PageHeader
         eyebrow="Plagiarism Self-Check"
         title="Spot phrasing that looks plagiarised"
-        description="Paste your draft. We'll flag 6-12 word phrases that read as templated, distinctive or copy-paste-flavoured, with a Google search link so you can verify each one before submission."
+        description="This is a self-check, not a real plagiarism database query. We flag phrases that LOOK plagiarised so you can verify yourself with Google. Paste your draft and we'll flag 6-12 word phrases that read as templated, distinctive or copy-paste-flavoured, with a Google search link so you can verify each one before submission."
       />
 
       {showOnboarding && (

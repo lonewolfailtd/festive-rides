@@ -152,25 +152,13 @@ export default function SettingsClient() {
               {me?.email ?? "…"}
             </span>
           </p>
+        </section>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleSignOutEverywhere}
-              disabled={signingOutAll}
-              className={buttonSecondary}
-            >
-              {signingOutAll ? "Signing out…" : "Sign out everywhere"}
-            </button>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Wipes every active session including this one.
-            </p>
-          </div>
-
-          <form onSubmit={handleChangePassword} className="mt-6 space-y-4">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+        <section className={sectionCard}>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Change password
-            </h3>
+            </h2>
             <p className="-mt-2 text-xs text-slate-500 dark:text-slate-400">
               For safety this will sign you out — sign back in with your new
               password.
@@ -232,6 +220,24 @@ export default function SettingsClient() {
 
         <section className={sectionCard}>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+            Calendar subscription
+          </h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Generate, rotate or revoke the long-lived URL that lets Google
+            Calendar and Apple Calendar pull your assignment due dates.
+          </p>
+          <div className="mt-4">
+            <Link
+              href="/uni/calendar"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+            >
+              Manage on the calendar page →
+            </Link>
+          </div>
+        </section>
+
+        <section className={sectionCard}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
             Data export
           </h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
@@ -264,21 +270,22 @@ export default function SettingsClient() {
           </div>
         </section>
 
-        <section className={sectionCard}>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-            Calendar subscription
+        <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/30">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-rose-800 dark:text-rose-200">
+            Danger zone
           </h2>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Generate, rotate or revoke the long-lived URL that lets Google
-            Calendar and Apple Calendar pull your assignment due dates.
-          </p>
-          <div className="mt-4">
-            <Link
-              href="/uni/calendar"
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSignOutEverywhere}
+              disabled={signingOutAll}
+              className="rounded-md border border-rose-400 bg-white px-2 py-1 text-xs text-rose-800 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-200 dark:hover:bg-rose-900/30"
             >
-              Manage on the calendar page →
-            </Link>
+              {signingOutAll ? "Signing out…" : "Sign out everywhere"}
+            </button>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Wipes every active session including this one.
+            </p>
           </div>
         </section>
 

@@ -59,7 +59,7 @@ export default function DashboardCards({ cards }: { cards: Card[] }) {
           >
             <h2 className="text-lg font-semibold">{c.title}</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{c.blurb}</p>
-            <span className="mt-3 inline-block text-sm text-sky-400">Open →</span>
+            <span className="mt-3 inline-block text-sm text-sky-600 dark:text-sky-400">Open →</span>
           </Link>
         );
       })}

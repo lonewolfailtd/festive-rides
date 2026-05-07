@@ -313,7 +313,7 @@ export default function SourcesClient() {
               />
             </div>
           </div>
-          {error && <p className="text-sm text-rose-400">{error}</p>}
+          {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
           <div>
             <button type="submit" disabled={searching} className={buttonPrimary}>
               {searching ? "Searching…" : "Search"}
@@ -397,7 +397,7 @@ export default function SourcesClient() {
                             onClick={() =>
                               setExpanded((s) => ({ ...s, [key]: !isExpanded }))
                             }
-                            className="mt-1 text-xs text-sky-400 hover:text-sky-300"
+                            className="mt-1 text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
                           >
                             {isExpanded ? "Show less" : "Show more"}
                           </button>
@@ -410,7 +410,7 @@ export default function SourcesClient() {
                           href={`https://doi.org/${r.doi}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-sky-400 hover:text-sky-300"
+                          className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
                         >
                           DOI: {r.doi}
                         </a>
@@ -420,7 +420,7 @@ export default function SourcesClient() {
                           href={r.openAccessUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-md border border-emerald-700 bg-emerald-900/40 px-2.5 py-1 text-xs text-emerald-200 hover:bg-emerald-900/60"
+                          className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60"
                         >
                           Open-access PDF
                         </a>

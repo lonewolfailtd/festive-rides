@@ -242,6 +242,8 @@ export default function CalendarClient() {
         </div>
       </div>
 
+      {/* Desktop / tablet: month grid (sm and up) */}
+      <div className="hidden sm:block">
       {/* Day-name header row */}
       <div className="mb-1 grid grid-cols-7 gap-1.5">
         {DAY_NAMES.map((d) => (
@@ -363,6 +365,110 @@ export default function CalendarClient() {
             </button>
           );
         })}
+      </div>
+      </div>
+
+      {/* Mobile: stacked agenda (below sm) */}
+      <div className="block sm:hidden">
+        {(() => {
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const rows: { iso: string; date: Date; holidays: NzHoliday[]; assignments: Assignment[] }[] = [];
+          for (let day = 1; day <= daysInMonth; day++) {
+            const d = new Date(year, month, day);
+            const iso = toIsoDay(d);
+            const hs = (holidaysByDay.get(iso) ?? []).filter(
+              (h) => showRegional || h.type !== "regional"
+            );
+            const ass = assignmentsByDay.get(iso) ?? [];
+            if (hs.length === 0 && ass.length === 0) continue;
+            rows.push({ iso, date: d, holidays: hs, assignments: ass });
+          }
+          if (rows.length === 0) {
+            return (
+              <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                Nothing scheduled this month.
+              </p>
+            );
+          }
+          return (
+            <ul className="space-y-3">
+              {rows.map((r) => {
+                const isToday = isSameDay(r.date, today);
+                const isSelected = selectedIso === r.iso;
+                return (
+                  <li
+                    key={r.iso}
+                    className={`rounded-lg border p-3 ${
+                      isSelected
+                        ? "border-sky-500 ring-2 ring-sky-500"
+                        : isToday
+                          ? "border-sky-300 dark:border-sky-700"
+                          : "border-slate-200 dark:border-slate-800"
+                    } bg-white dark:bg-slate-950`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIso(r.iso)}
+                      className="block w-full text-left"
+                    >
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {r.date.toLocaleDateString("en-NZ", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        })}
+                        {isToday && (
+                          <span className="ml-2 rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                            Today
+                          </span>
+                        )}
+                      </p>
+                    </button>
+                    {r.holidays.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {r.holidays.map((h, i) => (
+                          <span
+                            key={i}
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              h.type === "national"
+                                ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200"
+                                : h.type === "matariki"
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                  : "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200"
+                            }`}
+                            title={h.region ?? h.notes}
+                          >
+                            {h.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {r.assignments.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {r.assignments.map((a) => (
+                          <button
+                            key={a._id}
+                            type="button"
+                            onClick={() => setSelectedIso(r.iso)}
+                            className={`block w-full rounded px-2 py-1 text-left text-xs font-medium ${
+                              a.submittedAt
+                                ? "bg-emerald-600 text-white"
+                                : "bg-sky-600 text-white"
+                            }`}
+                          >
+                            {a.submittedAt ? "✓ " : ""}
+                            {a.courseCode ? `${a.courseCode}: ` : ""}
+                            {a.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        })()}
       </div>
 
       {/* Legend */}

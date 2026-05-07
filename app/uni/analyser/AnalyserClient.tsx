@@ -9,9 +9,27 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 
+type AnalysisTask = {
+  taskNumber: string;
+  scenario: string;
+  subQuestions: string[];
+  conceptsRequired: string[];
+  wordCountGuideline: number | null;
+  marks: number | null;
+  outline: string[];
+  suggestedSources: string[];
+};
+
 type AnalysisResult = {
   summary: string;
   keyQuestion: string;
+  // New optional context fields. Older saved analyses won't have these — they
+  // render only when populated.
+  courseCode?: string | null;
+  assessmentNumber?: string | null;
+  weightingPercent?: number | null;
+  totalMarks?: number | null;
+  tasks?: AnalysisTask[];
   taskVerbs: { verb: string; meaning: string }[];
   rubricBreakdown: { criterion: string; weightPercent: number; focus: string }[];
   wordCountSplit: { section: string; words: number; purpose: string }[];
@@ -43,12 +61,54 @@ function buildMarkdown(r: AnalysisResult): string {
   const lines: string[] = [];
   lines.push("# Assignment plan");
   lines.push("");
+  const ctxBits: string[] = [];
+  if (r.courseCode) ctxBits.push(`Course ${r.courseCode}`);
+  if (r.assessmentNumber) ctxBits.push(r.assessmentNumber);
+  if (r.weightingPercent != null) ctxBits.push(`${r.weightingPercent}% weighting`);
+  if (r.totalMarks != null) ctxBits.push(`${r.totalMarks} marks`);
+  if (ctxBits.length > 0) {
+    lines.push(`_${ctxBits.join(" · ")}_`);
+    lines.push("");
+  }
   lines.push("## Summary");
   lines.push(r.summary);
   lines.push("");
   lines.push("## The actual question");
   lines.push(`> ${r.keyQuestion}`);
   lines.push("");
+  if (r.tasks && r.tasks.length > 0) {
+    lines.push("## Tasks");
+    for (const t of r.tasks) {
+      const meta: string[] = [];
+      if (t.marks != null) meta.push(`${t.marks} marks`);
+      if (t.wordCountGuideline != null) meta.push(`${t.wordCountGuideline} words`);
+      lines.push(`### ${t.taskNumber}${meta.length ? ` — ${meta.join(" · ")}` : ""}`);
+      if (t.scenario) {
+        lines.push("");
+        lines.push(`_${t.scenario}_`);
+      }
+      if (t.subQuestions.length > 0) {
+        lines.push("");
+        lines.push("**Sub-questions**");
+        for (const q of t.subQuestions) lines.push(`- ${q}`);
+      }
+      if (t.conceptsRequired.length > 0) {
+        lines.push("");
+        lines.push(`**Concepts you need:** ${t.conceptsRequired.join(", ")}`);
+      }
+      if (t.outline.length > 0) {
+        lines.push("");
+        lines.push("**Outline**");
+        for (const b of t.outline) lines.push(`- ${b}`);
+      }
+      if (t.suggestedSources.length > 0) {
+        lines.push("");
+        lines.push("**Suggested sources**");
+        for (const s of t.suggestedSources) lines.push(`- ${s}`);
+      }
+      lines.push("");
+    }
+  }
   if (r.warnings.length) {
     lines.push("## Warnings");
     for (const w of r.warnings) lines.push(`- ${w}`);
@@ -148,6 +208,7 @@ export default function AnalyserClient() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [checkedBullets, setCheckedBullets] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<Record<number, boolean>>({});
+  const [openTasks, setOpenTasks] = useState<Record<number, boolean>>({});
   const [copiedKeywords, setCopiedKeywords] = useState(false);
   const [copiedPlan, setCopiedPlan] = useState(false);
 
@@ -630,7 +691,7 @@ export default function AnalyserClient() {
                 <span
                   className={`text-xs ${
                     brief.length > BRIEF_LIMIT
-                      ? "text-rose-400"
+                      ? "text-rose-600 dark:text-rose-400"
                       : "text-slate-500"
                   }`}
                   title={`${brief.length} of ${BRIEF_LIMIT} characters`}
@@ -728,7 +789,7 @@ export default function AnalyserClient() {
           </div>
 
           {error && (
-            <div className="rounded-md border border-rose-700/60 bg-rose-950/40 p-3 text-sm text-rose-200">
+            <div className="rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-700/60 dark:bg-rose-950/40 dark:text-rose-200">
               {error}
             </div>
           )}
@@ -771,8 +832,52 @@ export default function AnalyserClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="space-y-6"
         >
+          {(result.courseCode || result.assessmentNumber || result.weightingPercent != null || result.totalMarks != null) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+              {result.courseCode && (
+                <span><span className="text-slate-500 dark:text-slate-400">Course</span> <strong className="text-slate-900 dark:text-slate-100">{result.courseCode}</strong></span>
+              )}
+              {result.assessmentNumber && (
+                <span className="before:mx-2 before:text-slate-300 dark:before:text-slate-700 first:before:hidden before:content-['·']">
+                  <strong className="text-slate-900 dark:text-slate-100">{result.assessmentNumber}</strong>
+                </span>
+              )}
+              {result.weightingPercent != null && (
+                <span className="before:mx-2 before:text-slate-300 dark:before:text-slate-700 first:before:hidden before:content-['·']">
+                  <strong className="text-slate-900 dark:text-slate-100">{result.weightingPercent}%</strong> <span className="text-slate-500 dark:text-slate-400">weighting</span>
+                </span>
+              )}
+              {result.totalMarks != null && (
+                <span className="before:mx-2 before:text-slate-300 dark:before:text-slate-700 first:before:hidden before:content-['·']">
+                  <strong className="text-slate-900 dark:text-slate-100">{result.totalMarks}</strong> <span className="text-slate-500 dark:text-slate-400">marks total</span>
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold tracking-tight">Your plan</h2>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Your plan
+              {(iterating || mappingRubric) && (
+                <span
+                  role="status"
+                  aria-live="polite"
+                  className="ml-3 inline-flex items-center gap-1.5 align-middle text-xs font-normal text-sky-600 dark:text-sky-400"
+                >
+                  <svg
+                    className="h-3.5 w-3.5 animate-spin"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  {iterating ? "Refining…" : "Mapping rubric…"}
+                </span>
+              )}
+            </h2>
             <div className="flex flex-wrap gap-2">
               {currentAssignmentRefCount !== null && (
                 <Link
@@ -897,15 +1002,120 @@ export default function AnalyserClient() {
           </section>
 
           {result.warnings.length > 0 && (
-            <section className="rounded-2xl border border-amber-700/60 bg-amber-950/30 p-5">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-300">
+            <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-700/60 dark:bg-amber-950/30">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 Warnings
               </h3>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-100">
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">
                 {result.warnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
               </ul>
+            </section>
+          )}
+
+          {result.tasks && result.tasks.length > 0 && (
+            <section className={sectionCard}>
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Tasks
+                </h3>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {result.tasks.length} task{result.tasks.length === 1 ? "" : "s"} in this brief
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Each task is marked separately. Plan, draft and check them one by one.
+              </p>
+              <div className="mt-3 space-y-3">
+                {result.tasks.map((t, i) => {
+                  const open = openTasks[i] ?? true;
+                  const meta: string[] = [];
+                  if (t.marks != null) meta.push(`${t.marks} marks`);
+                  if (t.wordCountGuideline != null) meta.push(`${t.wordCountGuideline} words`);
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setOpenTasks((s) => ({ ...s, [i]: !open }))}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                      >
+                        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <strong className="text-sm text-slate-900 dark:text-slate-100">
+                            {t.taskNumber}
+                          </strong>
+                          {meta.length > 0 && (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              · {meta.join(" · ")}
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {open ? "Hide" : "Show"}
+                        </span>
+                      </button>
+                      {open && (
+                        <div className="space-y-3 px-4 pb-4 pt-0 text-sm">
+                          {t.scenario && (
+                            <p className="text-slate-700 dark:text-slate-300">
+                              <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Scenario · </span>
+                              {t.scenario}
+                            </p>
+                          )}
+                          {t.subQuestions && t.subQuestions.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Sub-questions</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-800 dark:text-slate-200">
+                                {t.subQuestions.map((q, j) => (
+                                  <li key={j}>{q}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {t.conceptsRequired && t.conceptsRequired.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Concepts you need</p>
+                              <div className="mt-1 flex flex-wrap gap-1.5">
+                                {t.conceptsRequired.map((c, j) => (
+                                  <span
+                                    key={j}
+                                    className="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs text-sky-800 ring-1 ring-sky-200 dark:bg-sky-900/40 dark:text-sky-200 dark:ring-sky-700/50"
+                                  >
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {t.outline && t.outline.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Outline</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-800 dark:text-slate-200">
+                                {t.outline.map((b, j) => (
+                                  <li key={j}>{b}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {t.suggestedSources && t.suggestedSources.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Suggested sources</p>
+                              <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">
+                                {t.suggestedSources.map((s, j) => (
+                                  <li key={j}>{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           )}
 
@@ -921,7 +1131,7 @@ export default function AnalyserClient() {
               <dl className="mt-3 space-y-3">
                 {result.taskVerbs.map((t, i) => (
                   <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3">
-                    <dt className="text-sm font-semibold text-sky-400">
+                    <dt className="text-sm font-semibold text-sky-700 dark:text-sky-300">
                       {t.verb}
                     </dt>
                     <dd className="mt-1 text-sm text-slate-800 dark:text-slate-200">{t.meaning}</dd>
@@ -1059,13 +1269,13 @@ export default function AnalyserClient() {
                       <th className="py-2">Focus</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                     {sortedRubric.map((c, i) => (
                       <tr key={i}>
                         <td className="py-2 pr-3 align-top font-medium text-slate-900 dark:text-slate-100">
                           {c.criterion}
                         </td>
-                        <td className="py-2 pr-3 align-top text-sky-400">
+                        <td className="py-2 pr-3 align-top text-sky-700 dark:text-sky-300">
                           {c.weightPercent}%
                         </td>
                         <td className="py-2 align-top text-slate-700 dark:text-slate-300">
@@ -1168,9 +1378,16 @@ export default function AnalyserClient() {
 
           <section className={sectionCard}>
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                Outline
-              </h3>
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Outline
+                </h3>
+                {result.tasks && result.tasks.length > 0 && (
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Synthesised plan across all tasks
+                  </p>
+                )}
+              </div>
               {analysisId && result.outline.length > 0 && (() => {
                 const total = result.outline.reduce((sum, o) => sum + o.bullets.length, 0);
                 const done = checkedBullets.size;

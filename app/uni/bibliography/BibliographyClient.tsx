@@ -71,6 +71,9 @@ export default function BibliographyClient() {
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
+  const [rowStatus, setRowStatus] = useState<
+    Record<number, { status: "pending" | "importing" | "done" | "failed"; error?: string }>
+  >({});
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -121,6 +124,7 @@ export default function BibliographyClient() {
         initial[i] = true;
       });
       setSelected(initial);
+      setRowStatus({});
       toast.success(
         `Parsed ${res.references.length} reference${res.references.length === 1 ? "" : "s"}`
       );
@@ -146,44 +150,83 @@ export default function BibliographyClient() {
 
   const handleImport = async () => {
     if (!result) return;
-    const toImport = result.references.filter((_, i) => selected[i]);
-    if (toImport.length === 0) {
+    const toImportIndices = result.references
+      .map((_, i) => i)
+      .filter((i) => selected[i]);
+    if (toImportIndices.length === 0) {
       toast.error("No references selected");
       return;
     }
     setImporting(true);
     setImportedCount(0);
+    // Mark all selected rows as pending up front
+    setRowStatus((prev) => {
+      const next = { ...prev };
+      for (const i of toImportIndices) {
+        next[i] = { status: "pending" };
+      }
+      return next;
+    });
     const toastId = toast.loading(
-      `Importing 0 of ${toImport.length} references…`
+      `Importing 0 of ${toImportIndices.length} references…`
     );
     let done = 0;
     let failed = 0;
-    for (const ref of toImport) {
-      try {
-        await createReference({
-          assignmentId:
-            assignmentId
-              ? (assignmentId as Id<"assignments">)
-              : undefined,
-          sourceType: ref.sourceType,
-          fields: ref.fields,
-          formatted: ref.formatted,
-          inTextShort: ref.inTextShort,
-          inTextNarrative: ref.inTextNarrative,
-          sortKey: ref.sortKey,
+    const BATCH_SIZE = 5;
+    for (let start = 0; start < toImportIndices.length; start += BATCH_SIZE) {
+      const batch = toImportIndices.slice(start, start + BATCH_SIZE);
+      // Mark the batch as importing
+      setRowStatus((prev) => {
+        const next = { ...prev };
+        for (const i of batch) {
+          next[i] = { status: "importing" };
+        }
+        return next;
+      });
+      const results = await Promise.allSettled(
+        batch.map((i) => {
+          const ref = result.references[i];
+          return createReference({
+            assignmentId:
+              assignmentId
+                ? (assignmentId as Id<"assignments">)
+                : undefined,
+            sourceType: ref.sourceType,
+            fields: ref.fields,
+            formatted: ref.formatted,
+            inTextShort: ref.inTextShort,
+            inTextNarrative: ref.inTextNarrative,
+            sortKey: ref.sortKey,
+          });
+        })
+      );
+      setRowStatus((prev) => {
+        const next = { ...prev };
+        results.forEach((r, k) => {
+          const i = batch[k];
+          if (r.status === "fulfilled") {
+            next[i] = { status: "done" };
+          } else {
+            const msg =
+              r.reason instanceof Error
+                ? r.reason.message
+                : "Import failed";
+            next[i] = { status: "failed", error: msg };
+            // eslint-disable-next-line no-console
+            console.error("Import failed", r.reason);
+          }
         });
-        done += 1;
-        setImportedCount(done);
-        toast.loading(
-          `Importing ${done} of ${toImport.length} references…`,
-          { id: toastId }
-        );
-      } catch (err) {
-        failed += 1;
-        // keep going — partial import is fine
-        // eslint-disable-next-line no-console
-        console.error("Import failed", err);
+        return next;
+      });
+      for (const r of results) {
+        if (r.status === "fulfilled") done += 1;
+        else failed += 1;
       }
+      setImportedCount(done);
+      toast.loading(
+        `Imported ${done} of ${toImportIndices.length}${failed > 0 ? ` (${failed} failed)` : ""}…`,
+        { id: toastId }
+      );
     }
     setImporting(false);
     if (failed === 0) {
@@ -200,8 +243,8 @@ export default function BibliographyClient() {
         }
       );
     } else {
-      toast.error(
-        `Imported ${done} — ${failed} failed`,
+      toast.success(
+        `Imported ${done} (${failed} failed)`,
         { id: toastId }
       );
     }
@@ -213,6 +256,7 @@ export default function BibliographyClient() {
     setError(null);
     setSelected({});
     setImportedCount(0);
+    setRowStatus({});
   };
 
   return (
@@ -297,7 +341,7 @@ export default function BibliographyClient() {
             />
           </div>
 
-          {error && <p className="text-sm text-rose-400">{error}</p>}
+          {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -363,8 +407,18 @@ export default function BibliographyClient() {
               </div>
 
               <ul className="divide-y divide-slate-200 dark:divide-slate-800">
-                {result.references.map((ref, i) => (
-                  <li key={i} className="flex gap-3 py-3">
+                {result.references.map((ref, i) => {
+                  const status = rowStatus[i];
+                  const tone =
+                    status?.status === "done"
+                      ? "bg-emerald-50 dark:bg-emerald-950/20"
+                      : status?.status === "failed"
+                        ? "bg-rose-50 dark:bg-rose-950/20"
+                        : status?.status === "importing"
+                          ? "bg-sky-50 dark:bg-sky-950/20"
+                          : "";
+                  return (
+                  <li key={i} className={`flex gap-3 py-3 px-2 ${tone}`}>
                     <div className="pt-1">
                       <input
                         type="checkbox"
@@ -384,10 +438,35 @@ export default function BibliographyClient() {
                         <span className="text-xs text-slate-500 dark:text-slate-400">
                           {ref.inTextShort}
                         </span>
+                        {status?.status === "done" && (
+                          <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
+                            ✓ Imported
+                          </span>
+                        )}
+                        {status?.status === "failed" && (
+                          <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs font-medium text-white">
+                            ✗ Failed
+                          </span>
+                        )}
+                        {status?.status === "importing" && (
+                          <span className="rounded-full bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
+                            Importing…
+                          </span>
+                        )}
+                        {status?.status === "pending" && (
+                          <span className="rounded-full bg-slate-400 px-2 py-0.5 text-xs font-medium text-white">
+                            Queued
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm leading-relaxed text-slate-900 dark:text-slate-100">
                         {renderFormatted(ref.formatted)}
                       </p>
+                      {status?.status === "failed" && status.error && (
+                        <p className="text-xs text-rose-600 dark:text-rose-400">
+                          {status.error}
+                        </p>
+                      )}
                       {ref.issues && ref.issues.length > 0 && (
                         <ul className="mt-1 space-y-0.5">
                           {ref.issues.map((issue, j) => (
@@ -402,7 +481,8 @@ export default function BibliographyClient() {
                       )}
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-800">
