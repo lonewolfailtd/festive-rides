@@ -663,6 +663,73 @@ export default function WorkspaceBar() {
         </div>
       )}
 
+      {/* Stage dots — compact 4-step progress for the active assignment.
+          Brief analysed → references gathered → submitted → graded.
+          Filled = done, hollow = not yet. The current focus is the first
+          unfilled dot, ringed in sky for emphasis. */}
+      {active && analyses && refs && (
+        <div className="mt-4">
+          {(() => {
+            const stages = [
+              { label: "Analysed", done: analyses.length > 0 },
+              { label: "Sourced", done: refs.length >= 5 },
+              { label: "Submitted", done: !!active.submittedAt },
+              { label: "Graded", done: active.grade !== undefined },
+            ];
+            // First unfilled stage is the "current focus"
+            const focusIdx = stages.findIndex((s) => !s.done);
+            return (
+              <ol className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {stages.map((s, i) => {
+                  const isFocus = i === focusIdx;
+                  return (
+                    <li key={s.label} className="flex items-center gap-1.5">
+                      <span
+                        className={`flex h-3 w-3 shrink-0 items-center justify-center rounded-full ${
+                          s.done
+                            ? "bg-emerald-500"
+                            : isFocus
+                              ? "bg-white ring-2 ring-sky-500 dark:bg-slate-900"
+                              : "bg-slate-200 dark:bg-slate-800"
+                        }`}
+                        aria-hidden
+                      >
+                        {s.done && (
+                          <svg viewBox="0 0 12 12" className="h-2 w-2 fill-white">
+                            <path d="M3 6l2 2 4-4" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </span>
+                      <span
+                        className={
+                          s.done
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : isFocus
+                              ? "text-sky-700 dark:text-sky-300"
+                              : ""
+                        }
+                      >
+                        {s.label}
+                      </span>
+                      {i < stages.length - 1 && (
+                        <span
+                          aria-hidden
+                          className={`mx-1 h-px w-4 ${
+                            stages[i + 1].done || s.done
+                              ? "bg-emerald-300 dark:bg-emerald-800"
+                              : "bg-slate-200 dark:bg-slate-800"
+                          }`}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            );
+          })()}
+        </div>
+      )}
+
       {/* What's next nudge */}
       {nudge && (
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-900/60 dark:bg-sky-950/30">

@@ -16,6 +16,7 @@ import {
   query,
 } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 
 // 32 bytes of entropy → 43-char base64url. Cryptographically random.
 function generateToken(): string {
@@ -58,6 +59,11 @@ export const ensureToken = mutation({
       token,
       createdAt: Date.now(),
     });
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "ical.ensureToken",
+      entityType: "icalToken",
+    });
     return { token };
   },
 });
@@ -80,6 +86,11 @@ export const rotateToken = mutation({
       token,
       createdAt: Date.now(),
     });
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "ical.rotateToken",
+      entityType: "icalToken",
+    });
     return { token };
   },
 });
@@ -93,7 +104,15 @@ export const revokeToken = mutation({
       .query("icalTokens")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
-    if (existing) await ctx.db.delete(existing._id);
+    if (existing) {
+      // Log BEFORE deletion.
+      await ctx.runMutation(internal.auditLog.record, {
+        userId,
+        action: "ical.revokeToken",
+        entityType: "icalToken",
+      });
+      await ctx.db.delete(existing._id);
+    }
     return { ok: true };
   },
 });

@@ -3,7 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { callOpenRouter, safeJsonParse } from "./openrouter";
+import { internal } from "./_generated/api";
+import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
 
 const SYSTEM_PROMPT = `You are an APA 7 reference parser for Open Polytechnic of New Zealand students. The student will paste a chunk of references in any format — Word doc reference list, EndNote export, mixed APA 6 + APA 7, poorly formatted bibliography, whatever. Your job is to extract every distinct reference and normalise it to strict APA 7.
 
@@ -71,7 +72,8 @@ export const parse = action({
       );
     }
 
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       // DeepSeek V4 Flash has a 1M-token context which matters for big
       // bibliographies — a 100k char paste plus the system prompt is fine.
       model: args.model ?? "deepseek/deepseek-v4-flash",
@@ -84,6 +86,14 @@ export const parse = action({
       ],
     });
 
-    return safeJsonParse(raw);
+    const parsed = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "bibliographyImport.parse",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+    return parsed;
   },
 });

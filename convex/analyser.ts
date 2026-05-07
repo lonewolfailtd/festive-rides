@@ -5,7 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { callOpenRouter, safeJsonParse } from "./openrouter";
+import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
 
 const SYSTEM_PROMPT = `You are an academic study coach for Open Polytechnic of New Zealand students working on assignments referenced in APA 7.
 
@@ -92,7 +92,8 @@ export const analyse = action({
     }
 
     const model = args.model ?? "deepseek/deepseek-v4-flash";
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       model,
       responseFormatJson: true,
       temperature: 0.2,
@@ -104,6 +105,13 @@ export const analyse = action({
     });
 
     const result = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "analyser.analyse",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
 
     // Persist alongside the assignment so the plan reloads on next visit.
     const id = await ctx.runMutation(internal.analysisStore._saveResult, {
@@ -113,7 +121,7 @@ export const analyse = action({
       rubric: args.rubric,
       wordCountTarget: args.wordCountTarget,
       result,
-      modelUsed: model,
+      modelUsed,
     });
 
     return { id, result };
@@ -157,7 +165,8 @@ ${JSON.stringify(existing.result, null, 2)}
 USER FEEDBACK:
 ${args.feedback.trim()}`;
 
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       model,
       responseFormatJson: true,
       temperature: 0.25,
@@ -168,11 +177,18 @@ ${args.feedback.trim()}`;
       ],
     });
     const result = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "analyser.iterate",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
     await ctx.runMutation(internal.analysisStore._patchResult, {
       id: args.id,
       userId,
       result,
-      modelUsed: model,
+      modelUsed,
     });
     return { result };
   },
@@ -223,7 +239,8 @@ export const mapRubric = action({
     if (!existing) throw new Error("Analysis not found");
 
     const model = args.model ?? "deepseek/deepseek-v4-flash";
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       model,
       responseFormatJson: true,
       temperature: 0.15,
@@ -237,6 +254,13 @@ export const mapRubric = action({
       ],
     });
     const mapping = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "analyser.mapRubric",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
     return { mapping };
   },
 });

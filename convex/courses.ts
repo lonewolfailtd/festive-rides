@@ -6,6 +6,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 
 async function requireUserId(ctx: Parameters<typeof getAuthUserId>[0]) {
   const userId = await getAuthUserId(ctx);
@@ -34,7 +35,15 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
-    return await ctx.db.insert("courses", { userId, ...args });
+    const id = await ctx.db.insert("courses", { userId, ...args });
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "course.create",
+      entityType: "course",
+      entityId: id.toString(),
+      details: JSON.stringify({ code: args.code, name: args.name }),
+    });
+    return id;
   },
 });
 
@@ -51,6 +60,12 @@ export const update = mutation({
     const existing = await ctx.db.get(id);
     if (!existing || existing.userId !== userId) throw new Error("Not found");
     await ctx.db.patch(id, patch);
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "course.update",
+      entityType: "course",
+      entityId: id.toString(),
+    });
   },
 });
 
@@ -60,6 +75,15 @@ export const remove = mutation({
     const userId = await requireUserId(ctx);
     const existing = await ctx.db.get(id);
     if (!existing || existing.userId !== userId) throw new Error("Not found");
+
+    // Log BEFORE deletion so we still have the data.
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "course.delete",
+      entityType: "course",
+      entityId: id.toString(),
+      details: JSON.stringify({ code: existing.code, name: existing.name }),
+    });
 
     // Detach from any assignments that referenced it before deleting.
     const linked = await ctx.db

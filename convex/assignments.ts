@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 
 async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<unknown> } } | Parameters<typeof getAuthUserId>[0]) {
   const userId = await getAuthUserId(ctx as Parameters<typeof getAuthUserId>[0]);
@@ -42,7 +43,15 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
-    return await ctx.db.insert("assignments", { userId, ...args });
+    const id = await ctx.db.insert("assignments", { userId, ...args });
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "assignment.create",
+      entityType: "assignment",
+      entityId: id.toString(),
+      details: JSON.stringify({ name: args.name }),
+    });
+    return id;
   },
 });
 
@@ -66,6 +75,12 @@ export const update = mutation({
     const existing = await ctx.db.get(id);
     if (!existing || existing.userId !== userId) throw new Error("Not found");
     await ctx.db.patch(id, patch);
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "assignment.update",
+      entityType: "assignment",
+      entityId: id.toString(),
+    });
   },
 });
 
@@ -78,6 +93,12 @@ export const markSubmitted = mutation({
     const existing = await ctx.db.get(id);
     if (!existing || existing.userId !== userId) throw new Error("Not found");
     await ctx.db.patch(id, { submittedAt: submittedAt ?? Date.now() });
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "assignment.markSubmitted",
+      entityType: "assignment",
+      entityId: id.toString(),
+    });
   },
 });
 
@@ -91,6 +112,12 @@ export const unmarkSubmitted = mutation({
       submittedAt: undefined,
       grade: undefined,
       gradeLetter: undefined,
+    });
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "assignment.unmarkSubmitted",
+      entityType: "assignment",
+      entityId: id.toString(),
     });
   },
 });
@@ -112,6 +139,16 @@ export const setGrade = mutation({
       throw new Error("Grade must be between 0 and 100");
     }
     await ctx.db.patch(id, patch);
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "assignment.setGrade",
+      entityType: "assignment",
+      entityId: id.toString(),
+      details: JSON.stringify({
+        grade: patch.grade,
+        gradeLetter: patch.gradeLetter,
+      }),
+    });
   },
 });
 
@@ -121,6 +158,13 @@ export const remove = mutation({
     const userId = await requireUserId(ctx);
     const existing = await ctx.db.get(id);
     if (!existing || existing.userId !== userId) throw new Error("Not found");
+    await ctx.runMutation(internal.auditLog.record, {
+      userId,
+      action: "assignment.delete",
+      entityType: "assignment",
+      entityId: id.toString(),
+      details: JSON.stringify({ name: existing.name }),
+    });
     await ctx.db.delete(id);
   },
 });

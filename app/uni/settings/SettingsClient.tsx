@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
@@ -30,10 +31,13 @@ function formatDateForFilename(d: Date): string {
 
 export default function SettingsClient() {
   const me = useQuery(api.userSettings.me);
+  const usage = useQuery(api.usage.myUsage);
   const exportData = useQuery(api.dataExport.exportAll);
   const changePassword = useMutation(api.userSettings.changePassword);
   const signOutEverywhere = useMutation(api.userSettings.signOutEverywhere);
+  const deleteMyAccount = useMutation(api.userSettings.deleteMyAccount);
   const { signOut } = useAuthActions();
+  const router = useRouter();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -41,6 +45,9 @@ export default function SettingsClient() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [signingOutAll, setSigningOutAll] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -123,6 +130,32 @@ export default function SettingsClient() {
       setExporting(false);
     }
   };
+
+  const handleDeleteAccount = async () => {
+    if (!me?.email) {
+      toast.error("Couldn't read your account email — try refreshing.");
+      return;
+    }
+    setDeletingAccount(true);
+    try {
+      await deleteMyAccount({ confirmEmail: deleteConfirmEmail });
+      toast.success("Account deleted");
+      // Sign out client-side too in case the auth row hasn't propagated.
+      void signOut();
+      router.push("/uni/login");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not delete account."
+      );
+      setDeletingAccount(false);
+    }
+  };
+
+  const deleteEmailMatches =
+    me?.email !== undefined &&
+    me?.email !== null &&
+    deleteConfirmEmail.trim().toLowerCase() ===
+      (me?.email ?? "").trim().toLowerCase();
 
   const exportCounts = exportData
     ? {
@@ -218,6 +251,74 @@ export default function SettingsClient() {
           </form>
         </section>
 
+        {/* AI usage — daily call count + monthly spend, with progress bars */}
+        {usage && (
+          <section className={sectionCard}>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+              AI usage this month
+            </h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Caps protect you (and me) from a runaway loop burning through OpenRouter credits.
+              Resets on the 1st of each month.
+            </p>
+            <div className="mt-4 space-y-4">
+              {(() => {
+                const dailyPct = Math.min(100, Math.round((usage.todayCalls / usage.dailyCap) * 100));
+                const dailyTone = dailyPct >= 80 ? "bg-rose-500" : dailyPct >= 50 ? "bg-amber-500" : "bg-emerald-500";
+                const spentUsd = usage.monthSpentMicrocents / 1_000_000;
+                const spentPct = Math.min(100, Math.round((usage.monthSpentMicrocents / usage.monthCapMicrocents) * 100));
+                const spendTone = spentPct >= 80 ? "bg-rose-500" : spentPct >= 50 ? "bg-amber-500" : "bg-emerald-500";
+                return (
+                  <>
+                    <div>
+                      <div className="flex items-baseline justify-between text-xs text-slate-700 dark:text-slate-300">
+                        <span className="font-medium">Today</span>
+                        <span>
+                          <span className="font-mono">{usage.todayCalls}</span> of {usage.dailyCap} calls
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                        <div className={`h-full ${dailyTone} transition-all`} style={{ width: `${dailyPct}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-baseline justify-between text-xs text-slate-700 dark:text-slate-300">
+                        <span className="font-medium">This month spend</span>
+                        <span>
+                          ~<span className="font-mono">${spentUsd.toFixed(3)}</span> of ${usage.monthCapUsd} cap (
+                          <span className="font-mono">{usage.monthCalls}</span> calls)
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                        <div className={`h-full ${spendTone} transition-all`} style={{ width: `${spentPct}%` }} />
+                      </div>
+                    </div>
+                    {usage.byAction.length > 0 && (
+                      <details className="text-xs text-slate-700 dark:text-slate-300">
+                        <summary className="cursor-pointer hover:text-sky-700 dark:hover:text-sky-300">
+                          By tool ({usage.byAction.length})
+                        </summary>
+                        <ul className="mt-2 space-y-1">
+                          {[...usage.byAction]
+                            .sort((a, b) => b.microcents - a.microcents)
+                            .map((row) => (
+                              <li key={row.action} className="flex items-baseline justify-between gap-3 font-mono">
+                                <span>{row.action}</span>
+                                <span>
+                                  {row.calls} calls · ~${(row.microcents / 1_000_000).toFixed(4)}
+                                </span>
+                              </li>
+                            ))}
+                        </ul>
+                      </details>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </section>
+        )}
+
         <section className={sectionCard}>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
             Calendar subscription
@@ -286,6 +387,76 @@ export default function SettingsClient() {
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Wipes every active session including this one.
             </p>
+          </div>
+
+          <div className="mt-5 border-t border-rose-200 pt-4 dark:border-rose-900/60">
+            {!showDeleteConfirm ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="rounded-md border border-rose-400 bg-white px-2 py-1 text-xs text-rose-800 hover:bg-rose-50 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-200 dark:hover:bg-rose-900/30"
+                >
+                  Delete account
+                </button>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Permanently removes your login and every assignment, course, reference and analysis. This cannot be undone.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-rose-800 dark:text-rose-200">
+                  Are you sure?
+                </h3>
+                <p className="text-xs text-slate-700 dark:text-slate-300">
+                  This will permanently delete your login and all of your data — assignments, courses, references, analyses, calendar tokens and AI usage history. There is no recovery.
+                </p>
+                <div>
+                  <span className={labelStyle}>Your email</span>
+                  <input
+                    type="email"
+                    readOnly
+                    value={me?.email ?? ""}
+                    className={`${inputStyle} cursor-not-allowed opacity-70`}
+                  />
+                </div>
+                <div>
+                  <span className={labelStyle}>
+                    Type your email to confirm
+                  </span>
+                  <input
+                    type="email"
+                    value={deleteConfirmEmail}
+                    onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                    autoComplete="off"
+                    className={inputStyle}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleDeleteAccount}
+                    disabled={!deleteEmailMatches || deletingAccount}
+                    className="inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-rose-500 to-rose-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-px hover:from-rose-400 hover:to-rose-500 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  >
+                    {deletingAccount
+                      ? "Deleting…"
+                      : "Permanently delete my account"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteConfirmEmail("");
+                    }}
+                    disabled={deletingAccount}
+                    className={buttonSecondary}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

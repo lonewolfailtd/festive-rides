@@ -3,7 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { callOpenRouter, safeJsonParse } from "./openrouter";
+import { internal } from "./_generated/api";
+import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
 
 const SYSTEM_PROMPT = `You are an academic writing coach for Open Polytechnic of New Zealand students. The student will paste a draft (or part of one) and optionally the assignment brief it relates to.
 
@@ -64,7 +65,8 @@ export const coach = action({
       throw new Error("Draft is very long — please trim to under 30000 characters or split into sections.");
     }
 
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       model: args.model,
       responseFormatJson: true,
       temperature: 0.3,
@@ -75,6 +77,14 @@ export const coach = action({
       ],
     });
 
-    return safeJsonParse(raw);
+    const parsed = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "coach.coach",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+    return parsed;
   },
 });

@@ -106,6 +106,41 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_token", ["token"]),
 
+  // Per-user AI usage tracking. One row per AI action call. Used for
+  // rate-limiting (count today's rows for a user) and monthly spend caps
+  // (sum costMicrocents for the current month). Rows older than 90 days
+  // can be safely pruned by a cron — the dashboard only ever shows the
+  // current month.
+  aiUsage: defineTable({
+    userId: v.id("users"),
+    // Action name e.g. "analyser.analyse", "coach.coach". Free-form so
+    // we can add new tools without a migration.
+    action: v.string(),
+    model: v.string(),
+    // OpenRouter token counts (best-effort — falls back to estimates).
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    // Estimated cost in micro-cents (1/10000 of a cent) for high-precision
+    // small numbers. e.g. $0.0042 → 4200 microcents. Prevents float drift.
+    costMicrocents: v.optional(v.number()),
+    // For cheap rate-limiting without aggregating: yyyy-mm-dd in NZ time.
+    dayKey: v.string(),
+    monthKey: v.string(), // yyyy-mm
+  })
+    .index("by_user_day", ["userId", "dayKey"])
+    .index("by_user_month", ["userId", "monthKey"]),
+
+  // Append-only audit log of state-changing actions. Useful if anything
+  // ever looks weird ("did I delete that, or did it disappear?"). Free-
+  // form details are stringified so the schema stays tiny.
+  auditLog: defineTable({
+    userId: v.id("users"),
+    action: v.string(), // e.g. "reference.delete", "assignment.markSubmitted"
+    entityType: v.optional(v.string()),
+    entityId: v.optional(v.string()),
+    details: v.optional(v.string()), // JSON-stringified blob, capped to ~1KB
+  }).index("by_user", ["userId"]),
+
   // Festive Rides bookings
   bookings: defineTable({
     passengerName: v.string(),

@@ -13,6 +13,7 @@ import type * as aiChecker from "../aiChecker.js";
 import type * as analyser from "../analyser.js";
 import type * as analysisStore from "../analysisStore.js";
 import type * as assignments from "../assignments.js";
+import type * as auditLog from "../auditLog.js";
 import type * as auth from "../auth.js";
 import type * as bibliographyImport from "../bibliographyImport.js";
 import type * as bookings from "../bookings.js";
@@ -30,6 +31,7 @@ import type * as plagiarism from "../plagiarism.js";
 import type * as references from "../references.js";
 import type * as reverseLookup from "../reverseLookup.js";
 import type * as sources from "../sources.js";
+import type * as usage from "../usage.js";
 import type * as userSettings from "../userSettings.js";
 
 import type {
@@ -44,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   analyser: typeof analyser;
   analysisStore: typeof analysisStore;
   assignments: typeof assignments;
+  auditLog: typeof auditLog;
   auth: typeof auth;
   bibliographyImport: typeof bibliographyImport;
   bookings: typeof bookings;
@@ -61,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   references: typeof references;
   reverseLookup: typeof reverseLookup;
   sources: typeof sources;
+  usage: typeof usage;
   userSettings: typeof userSettings;
 }>;
 

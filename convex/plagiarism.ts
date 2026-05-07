@@ -3,7 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { callOpenRouter, safeJsonParse } from "./openrouter";
+import { internal } from "./_generated/api";
+import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
 
 // Plagiarism Self-Check. NOT a real plagiarism checker — we cannot query
 // Turnitin's database. This flags 6-12 word phrases that LOOK plagiarised
@@ -60,7 +61,8 @@ export const selfCheck = action({
     if (trimmed.length > 50000) {
       throw new Error("Text too long — trim to 50000 characters or fewer.");
     }
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       model: args.model ?? "deepseek/deepseek-v4-flash",
       responseFormatJson: true,
       temperature: 0.2,
@@ -70,6 +72,14 @@ export const selfCheck = action({
         { role: "user", content: trimmed },
       ],
     });
-    return safeJsonParse(raw);
+    const parsed = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "plagiarism.selfCheck",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+    return parsed;
   },
 });

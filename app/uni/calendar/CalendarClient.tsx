@@ -710,9 +710,25 @@ export default function CalendarClient() {
                 </details>
 
                 <div className="flex flex-wrap items-center gap-3 border-t border-emerald-200 pt-3 dark:border-emerald-900/40">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Anyone with this URL can read your calendar. Created {new Date(myToken.createdAt).toLocaleDateString("en-NZ")}.
-                  </span>
+                  {(() => {
+                    const ageMs = Date.now() - myToken.createdAt;
+                    const ageDays = Math.floor(ageMs / 86_400_000);
+                    const stale = ageDays >= 180;
+                    return (
+                      <span
+                        className={`text-xs ${
+                          stale
+                            ? "text-amber-700 dark:text-amber-300"
+                            : "text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        Anyone with this URL can read your calendar. Created {new Date(myToken.createdAt).toLocaleDateString("en-NZ")}
+                        {ageDays > 0 && ` (${ageDays} day${ageDays === 1 ? "" : "s"} ago)`}
+                        .
+                        {stale && " It's been over 6 months — consider rotating to limit exposure."}
+                      </span>
+                    );
+                  })()}
                   <button
                     type="button"
                     onClick={async () => {

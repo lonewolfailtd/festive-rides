@@ -3,7 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { callOpenRouter, safeJsonParse } from "./openrouter";
+import { internal } from "./_generated/api";
+import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
 
 // Calibrated AI-text detection. The prompt asks the model to evaluate whether
 // the draft was likely written by a human or by a large language model
@@ -70,7 +71,8 @@ export const check = action({
     if (trimmed.length > 50000) {
       throw new Error("Text too long — trim to 50000 characters or fewer.");
     }
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       // Use DeepSeek V4 Pro for detection — 1.6T MoE, strong on voice/style
       // analysis, ~1/7 the price of Claude Sonnet 4.6 for comparable quality.
       model: args.model ?? "deepseek/deepseek-v4-pro",
@@ -82,7 +84,15 @@ export const check = action({
         { role: "user", content: trimmed },
       ],
     });
-    return safeJsonParse(raw);
+    const parsed = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "aiChecker.check",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+    return parsed;
   },
 });
 
@@ -119,7 +129,8 @@ export const humanise = action({
     if (trimmed.length > 8000) {
       throw new Error("Passage is too long — trim to 8000 characters or fewer.");
     }
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       model: args.model ?? "deepseek/deepseek-v4-pro",
       responseFormatJson: true,
       temperature: 0.6,
@@ -129,6 +140,14 @@ export const humanise = action({
         { role: "user", content: trimmed },
       ],
     });
-    return safeJsonParse(raw);
+    const parsed = safeJsonParse(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "aiChecker.humanise",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+    return parsed;
   },
 });

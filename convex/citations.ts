@@ -3,8 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { callOpenRouter, safeJsonParse } from "./openrouter";
-import { api } from "./_generated/api";
+import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { api, internal } from "./_generated/api";
 
 // Citation Extractor — pulls every in-text citation out of a draft, then
 // cross-checks them against the student's saved references list.
@@ -134,7 +134,8 @@ export const extract = action({
       throw new Error("Draft is too long — please trim to under 50000 characters or split into sections.");
     }
 
-    const raw = await callOpenRouter({
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
       model: args.model ?? "deepseek/deepseek-v4-flash",
       responseFormatJson: true,
       temperature: 0.1,
@@ -146,6 +147,13 @@ export const extract = action({
     });
 
     const parsed = safeJsonParse<AIOutput>(raw);
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "citations.extract",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
     const citations = Array.isArray(parsed.citations) ? parsed.citations : [];
     const paragraphsWithNoCitations = Array.isArray(parsed.paragraphsWithNoCitations)
       ? parsed.paragraphsWithNoCitations
