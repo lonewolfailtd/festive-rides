@@ -3,12 +3,16 @@ import { Mountains_of_Christmas, Poppins } from 'next/font/google'
 import { Toaster } from 'sonner'
 import './globals.css'
 
-// Configure Google Fonts
+// Configure Google Fonts. adjustFontFallback: false suppresses Next's
+// "Failed to find font override values" warning — Mountains of Christmas
+// isn't in Next's font-metrics database so the auto-fallback can't be
+// computed. We don't need it.
 const mountainsOfChristmas = Mountains_of_Christmas({
   weight: ['400', '700'],
   subsets: ['latin'],
   variable: '--font-mountains',
   display: 'swap',
+  adjustFontFallback: false,
 })
 
 const poppins = Poppins({

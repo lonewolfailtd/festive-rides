@@ -722,24 +722,33 @@ export default function ReferencesManager() {
     }
   };
 
-  const handleDeleteAssignment = async () => {
+  const handleDeleteAssignment = () => {
     if (selectedAssignment === "all") return;
     const current = assignments?.find((a) => a._id === selectedAssignment);
     if (!current) return;
-    const ok = window.confirm(
-      `Delete the list "${current.name}"? Any references attached to it will become unassigned (they're not deleted).`
-    );
-    if (!ok) return;
-    try {
-      await removeAssignment({ id: selectedAssignment });
-      toast.success(`Deleted list "${current.name}"`);
-      setEditingAssignment(false);
-      setSelectedAssignment("all");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not delete list"
-      );
-    }
+    const idToDelete = selectedAssignment;
+    const nameToDelete = current.name;
+    toast(`Delete list "${nameToDelete}"?`, {
+      description:
+        "References attached to this list will become unassigned (they're not deleted).",
+      duration: 8000,
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          try {
+            await removeAssignment({ id: idToDelete });
+            toast.success(`Deleted list "${nameToDelete}"`);
+            setEditingAssignment(false);
+            setSelectedAssignment("all");
+          } catch (err) {
+            toast.error(
+              err instanceof Error ? err.message : "Could not delete list"
+            );
+          }
+        },
+      },
+      cancel: { label: "Cancel", onClick: () => {} },
+    });
   };
 
   const handleNewAssignment = async () => {
