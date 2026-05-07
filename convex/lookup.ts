@@ -668,6 +668,63 @@ export const isbn = action({
   },
 });
 
+interface OpenAlexSource {
+  display_name?: string;
+  type?: string;
+  publisher?: string;
+  host_organization_name?: string;
+  issn_l?: string;
+  issn?: string[];
+}
+
+export const issn = action({
+  args: { issn: v.string() },
+  handler: async (ctx, { issn }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    // Accept either "0028-0836" or "00280836".
+    const cleaned = issn.trim().replace(/\s+/g, "");
+    const formatted = /^\d{4}-\d{3}[\dXx]$/.test(cleaned)
+      ? cleaned.toUpperCase()
+      : /^\d{7}[\dXx]$/.test(cleaned)
+        ? `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`.toUpperCase()
+        : null;
+    if (!formatted) {
+      throw new Error("ISSN must be 8 digits (e.g. 0028-0836 or 00280836)");
+    }
+
+    const res = await fetch(
+      `https://api.openalex.org/sources/issn:${formatted}`,
+      {
+        headers: {
+          "User-Agent": "UniCitationTool/1.0 (mailto:contact@lonewolfaisolutions.com)",
+        },
+      }
+    );
+    if (!res.ok) {
+      throw new Error(`No journal found for ISSN ${formatted}`);
+    }
+    const s = (await res.json()) as OpenAlexSource;
+    const fields: NormalisedFields = {
+      journal: s.display_name ?? "",
+      publisher: s.publisher ?? s.host_organization_name ?? "",
+    };
+    const result: PublicResult = {
+      sourceType: "journalArticle",
+      fields,
+      fieldSources: {
+        journal: SOURCE_LABELS.openalex,
+        publisher: SOURCE_LABELS.openalex,
+      },
+      warnings: [
+        "ISSN identifies the journal only — please add the article's authors, year, title, volume, issue and pages manually (or use DOI / URL lookup).",
+      ],
+      sourcesQueried: [SOURCE_LABELS.openalex],
+    };
+    return result;
+  },
+});
+
 export const url = action({
   args: { url: v.string() },
   handler: async (ctx, { url }) => {

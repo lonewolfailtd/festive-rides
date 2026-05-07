@@ -397,6 +397,7 @@ export default function ReferencesManager() {
   const updateRef = useMutation(api.references.update);
   const lookupDoi = useAction(api.lookup.doi);
   const lookupIsbn = useAction(api.lookup.isbn);
+  const lookupIssn = useAction(api.lookup.issn);
   const lookupUrl = useAction(api.lookup.url);
 
   const [selectedAssignment, setSelectedAssignment] = useState<
@@ -412,8 +413,9 @@ export default function ReferencesManager() {
   // Lookup state
   const [doiInput, setDoiInput] = useState("");
   const [isbnInput, setIsbnInput] = useState("");
+  const [issnInput, setIssnInput] = useState("");
   const [urlInput, setUrlInput] = useState("");
-  const [lookupBusy, setLookupBusy] = useState<null | "doi" | "isbn" | "url">(
+  const [lookupBusy, setLookupBusy] = useState<null | "doi" | "isbn" | "issn" | "url">(
     null
   );
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -517,10 +519,18 @@ export default function ReferencesManager() {
     }
   };
 
-  const handleLookup = async (kind: "doi" | "isbn" | "url") => {
+  const handleLookup = async (kind: "doi" | "isbn" | "issn" | "url") => {
     setLookupError(null);
     setLookupInfo(null);
-    const value = (kind === "doi" ? doiInput : kind === "isbn" ? isbnInput : urlInput).trim();
+    const value = (
+      kind === "doi"
+        ? doiInput
+        : kind === "isbn"
+          ? isbnInput
+          : kind === "issn"
+            ? issnInput
+            : urlInput
+    ).trim();
     if (!value) {
       setLookupError(`Please enter a ${kind.toUpperCase()}.`);
       return;
@@ -532,14 +542,18 @@ export default function ReferencesManager() {
           ? await lookupDoi({ doi: value })
           : kind === "isbn"
             ? await lookupIsbn({ isbn: value })
-            : await lookupUrl({ url: value });
+            : kind === "issn"
+              ? await lookupIssn({ issn: value })
+              : await lookupUrl({ url: value });
       if (!result || !result.fields) {
         setLookupError(
           kind === "doi"
             ? "Could not find that DOI."
             : kind === "isbn"
               ? "Could not find that ISBN."
-              : "Could not parse metadata from that URL.",
+              : kind === "issn"
+                ? "Could not find that ISSN."
+                : "Could not parse metadata from that URL.",
         );
         return;
       }
@@ -727,28 +741,40 @@ ${items}
           {editingId ? "Edit reference" : "Add a reference"}
         </h2>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          {(["doi", "isbn", "url"] as const).map((kind) => {
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(["doi", "isbn", "issn", "url"] as const).map((kind) => {
             const label =
               kind === "doi"
                 ? "Look up by DOI"
                 : kind === "isbn"
                   ? "Look up by ISBN"
-                  : "Look up by URL";
+                  : kind === "issn"
+                    ? "Look up by ISSN"
+                    : "Look up by URL";
             const placeholder =
               kind === "doi"
                 ? "10.1000/xyz123"
                 : kind === "isbn"
                   ? "9780000000000"
-                  : "https://…";
+                  : kind === "issn"
+                    ? "0028-0836"
+                    : "https://…";
             const value =
-              kind === "doi" ? doiInput : kind === "isbn" ? isbnInput : urlInput;
+              kind === "doi"
+                ? doiInput
+                : kind === "isbn"
+                  ? isbnInput
+                  : kind === "issn"
+                    ? issnInput
+                    : urlInput;
             const setValue =
               kind === "doi"
                 ? setDoiInput
                 : kind === "isbn"
                   ? setIsbnInput
-                  : setUrlInput;
+                  : kind === "issn"
+                    ? setIssnInput
+                    : setUrlInput;
             return (
               <div key={kind}>
                 <span className={labelStyle}>{label}</span>
