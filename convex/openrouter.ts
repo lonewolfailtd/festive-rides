@@ -27,9 +27,11 @@ export async function callOpenRouter(args: CallOpenRouterArgs): Promise<string> 
   }
 
   const body: Record<string, unknown> = {
-    // Default model: DeepSeek V3.1 (via OpenRouter alias). Cheap, strong on
-    // structured-output academic tasks, NZ English-friendly when prompted.
-    model: args.model ?? "deepseek/deepseek-chat",
+    // Default model: DeepSeek V4 Flash (released 24 April 2026). 1M-token
+    // context, ~$0.14/$0.28 per million tokens — cheaper than V3.1 and
+    // dramatically smarter. The old deepseek/deepseek-chat alias retires
+    // 24 July 2026 so we're migrated ahead of the deadline.
+    model: args.model ?? "deepseek/deepseek-v4-flash",
     messages: args.messages,
     temperature: args.temperature ?? 0.3,
     max_tokens: args.maxTokens ?? 2000,

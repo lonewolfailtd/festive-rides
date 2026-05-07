@@ -70,7 +70,7 @@ export const analyse = action({
       throw new Error("Brief is very long — please trim to under 12000 characters.");
     }
 
-    const model = args.model ?? "deepseek/deepseek-chat";
+    const model = args.model ?? "deepseek/deepseek-v4-flash";
     const raw = await callOpenRouter({
       model,
       responseFormatJson: true,
@@ -127,7 +127,7 @@ export const iterate = action({
       | null;
     if (!existing) throw new Error("Analysis not found");
 
-    const model = args.model ?? "deepseek/deepseek-chat";
+    const model = args.model ?? "deepseek/deepseek-v4-flash";
     const userPrompt = `${buildPrompt(existing.brief, existing.rubric, existing.wordCountTarget)}
 
 PREVIOUS ANALYSIS (refine this — don't start from scratch):
@@ -154,5 +154,68 @@ ${args.feedback.trim()}`;
       modelUsed: model,
     });
     return { result };
+  },
+});
+
+// Rubric mapper — takes an existing analysis and produces a mapping from
+// each rubric criterion to the specific outline sections that earn those
+// marks. Helps the student see which paragraphs are doing the work for
+// which marks (and which criteria are at risk of being underserved).
+const RUBRIC_MAPPER_PROMPT = `You are an academic study coach. You have already analysed an assignment brief and produced an outline + rubric breakdown. Now map each rubric criterion to the specific outline sections that earn those marks.
+
+Output ONLY valid JSON matching this schema:
+{
+  "mappings": [
+    {
+      "criterion": "string — the rubric criterion name",
+      "weightPercent": number,
+      "earnsMarksIn": ["string — outline section names that earn marks for this criterion"],
+      "atRisk": boolean — true if no outline section meaningfully covers this criterion,
+      "advice": "string — what the student should add or strengthen to lock in these marks"
+    }
+  ],
+  "sectionLoad": [
+    { "section": "string — outline section name", "criteriaCovered": ["string — criterion names"], "marksAvailable": number }
+  ],
+  "overallNotes": "string — 2-3 sentences on whether the outline is well-balanced or skewed"
+}
+
+Hard rules:
+- Use NZ English (organise, behaviour, analyse, colour).
+- Do NOT use the Oxford comma.
+- Use the EXACT criterion names and section names from the analysis JSON — don't paraphrase them.
+- "atRisk" should be true if a criterion has no clearly mapped section, OR if the section that maps to it isn't given enough word-count to do the criterion justice.
+- "marksAvailable" sums weightPercent of every criterion that section covers.`;
+
+export const mapRubric = action({
+  args: {
+    id: v.id("analyses"),
+    model: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ mapping: unknown }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    const existing = (await ctx.runQuery(internal.analysisStore._getInternal, {
+      id: args.id,
+      userId,
+    })) as { result: unknown } | null;
+    if (!existing) throw new Error("Analysis not found");
+
+    const model = args.model ?? "deepseek/deepseek-v4-flash";
+    const raw = await callOpenRouter({
+      model,
+      responseFormatJson: true,
+      temperature: 0.15,
+      maxTokens: 2000,
+      messages: [
+        { role: "system", content: RUBRIC_MAPPER_PROMPT },
+        {
+          role: "user",
+          content: `EXISTING ANALYSIS:\n${JSON.stringify(existing.result, null, 2)}`,
+        },
+      ],
+    });
+    const mapping = safeJsonParse(raw);
+    return { mapping };
   },
 });

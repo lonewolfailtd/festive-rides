@@ -85,6 +85,7 @@ function buildMarkdown(r: AnalysisResult): string {
 export default function AnalyserClient() {
   const analyse = useAction(api.analyser.analyse);
   const iterate = useAction(api.analyser.iterate);
+  const mapRubric = useAction(api.analyser.mapRubric);
   const toggleBulletMutation = useMutation(api.analysisStore.toggleBullet);
   const removeAnalysis = useMutation(api.analysisStore.remove);
 
@@ -105,6 +106,23 @@ export default function AnalyserClient() {
   const [editingField, setEditingField] = useState<null | "summary" | "keyQuestion">(null);
   const [editDraft, setEditDraft] = useState("");
   const [sectionDrafts, setSectionDrafts] = useState<Record<number, string>>({});
+
+  // Rubric-mapper state. Lazy-loaded — only fetched when the student asks
+  // for it because it's a second AI call. Maps each rubric criterion to the
+  // outline sections that earn those marks.
+  type RubricMapping = {
+    mappings: {
+      criterion: string;
+      weightPercent: number;
+      earnsMarksIn: string[];
+      atRisk: boolean;
+      advice: string;
+    }[];
+    sectionLoad: { section: string; criteriaCovered: string[]; marksAvailable: number }[];
+    overallNotes: string;
+  };
+  const [rubricMapping, setRubricMapping] = useState<RubricMapping | null>(null);
+  const [mappingRubric, setMappingRubric] = useState(false);
 
   useEffect(() => {
     try {
@@ -919,15 +937,80 @@ export default function AnalyserClient() {
                 Marking criteria
               </h3>
               {sortedRubric.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowMarkerChecklist((s) => !s)}
-                  className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
-                >
-                  {showMarkerChecklist ? "Hide" : "Open"} marker checklist
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!analysisId) return;
+                      setMappingRubric(true);
+                      try {
+                        const r = (await mapRubric({ id: analysisId })) as { mapping: RubricMapping };
+                        setRubricMapping(r.mapping);
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Mapping failed");
+                      } finally {
+                        setMappingRubric(false);
+                      }
+                    }}
+                    disabled={mappingRubric || !analysisId}
+                    className="text-xs text-sky-600 hover:text-sky-500 disabled:opacity-50 dark:text-sky-400 dark:hover:text-sky-300"
+                  >
+                    {mappingRubric ? "Mapping…" : rubricMapping ? "Re-map to outline" : "Map to outline →"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowMarkerChecklist((s) => !s)}
+                    className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                  >
+                    {showMarkerChecklist ? "Hide" : "Open"} marker checklist
+                  </button>
+                </div>
               )}
             </div>
+
+            {rubricMapping && (
+              <div className="mt-3 space-y-3 rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-900/50 dark:bg-sky-950/20">
+                <p className="text-xs text-slate-700 dark:text-slate-300">
+                  {rubricMapping.overallNotes}
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {rubricMapping.mappings.map((m, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-md border p-2.5 text-xs ${
+                        m.atRisk
+                          ? "border-rose-300 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/30"
+                          : "border-emerald-300 bg-emerald-50 dark:border-emerald-800/60 dark:bg-emerald-950/30"
+                      }`}
+                    >
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">
+                        {m.criterion} <span className="font-normal text-slate-500 dark:text-slate-400">({m.weightPercent}%)</span>
+                        {m.atRisk && <span className="ml-1.5 rounded-full bg-rose-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-900 dark:bg-rose-900/60 dark:text-rose-200">at risk</span>}
+                      </p>
+                      <p className="mt-1 text-slate-700 dark:text-slate-300">
+                        <span className="font-medium">Earns marks in:</span>{" "}
+                        {m.earnsMarksIn.length > 0 ? m.earnsMarksIn.join("; ") : <em className="text-rose-600 dark:text-rose-400">no outline section maps to this</em>}
+                      </p>
+                      <p className="mt-1 text-slate-600 dark:text-slate-400">{m.advice}</p>
+                    </div>
+                  ))}
+                </div>
+                {rubricMapping.sectionLoad.length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-slate-600 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400">
+                      Show marks-per-section load ({rubricMapping.sectionLoad.length} sections)
+                    </summary>
+                    <ul className="mt-2 space-y-1">
+                      {rubricMapping.sectionLoad.map((s, i) => (
+                        <li key={i} className="text-slate-700 dark:text-slate-300">
+                          <strong>{s.section}</strong> — {s.marksAvailable}% available · covers: {s.criteriaCovered.join(", ") || "—"}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            )}
 
             {showMarkerChecklist && sortedRubric.length > 0 && (
               <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800/50 dark:bg-emerald-950/20">

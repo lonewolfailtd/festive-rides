@@ -88,6 +88,20 @@ export default function CheckerClient() {
   const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // Model picker — V4 Pro is default (cheaper than Claude, comparable quality
+  // on voice analysis). V4 Flash is the budget option, Claude is the premium
+  // pick if the V4 Pro verdict feels off.
+  const [model, setModel] = useState<string>("deepseek/deepseek-v4-pro");
+
+  // Calibration sub-tool — runs three known samples through the checker
+  // back-to-back so the student can sanity-check the model's calibration.
+  const [calibrating, setCalibrating] = useState<null | "human" | "ai" | "mixed">(null);
+  const [calibrationResults, setCalibrationResults] = useState<{
+    human?: CheckResult;
+    ai?: CheckResult;
+    mixed?: CheckResult;
+  }>({});
+
   // Humanise sub-feature state
   const [humanisePassage, setHumanisePassage] = useState("");
   const [humanising, setHumanising] = useState(false);
@@ -198,13 +212,42 @@ export default function CheckerClient() {
     }
     setRunning(true);
     try {
-      const res = (await check({ text })) as CheckResult;
+      const res = (await check({ text, model })) as CheckResult;
       setResult(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Check failed.");
     } finally {
       setRunning(false);
     }
+  };
+
+  // Three calibration samples. Human one is messy / personal-voice; AI one is
+  // raw ChatGPT-style filler; mixed is a sandwich. Lets the student see at a
+  // glance whether the current model is calibrated correctly.
+  const SAMPLES = {
+    human: `okay so I've been thinking about this for a while and I'm not really sure if Bowlby's attachment thing actually fits what I've seen with my own kids. like, my eldest was the textbook secure-attached baby — clung to me for about six months, then started doing his own thing. but my second? totally different. she barely cared if I left the room from about four months on, which Ainsworth's framework would call avoidant or whatever. Bowlby would probably say I screwed something up but honestly I think she just has a different temperament. the strange situation test always rubbed me the wrong way too — twenty minutes in a weird room with a stranger isn't exactly representative of a kid's actual home life. I get why it became the gold standard, it's reproducible, but reproducible isn't the same as valid. anyway that's my two cents.`,
+    ai: `Attachment theory, originally proposed by John Bowlby and further developed through the seminal work of Mary Ainsworth, represents a multifaceted framework for understanding the nuanced dynamics of early caregiver-infant relationships. It is important to note that this theory underscores the comprehensive nature of attachment as a foundational element of human development. Furthermore, the strange situation paradigm has been instrumental in delineating distinct attachment styles. Moreover, contemporary research continues to navigate the complexities of these multifaceted developmental trajectories. Additionally, the implications of attachment theory extend across diverse cultural contexts, illuminating the tapestry of human bonding. In conclusion, Bowlby's foundational contributions, alongside Ainsworth's empirical extensions, have profoundly shaped our holistic understanding of socio-emotional development in today's rapidly evolving psychological landscape.`,
+    mixed: `Bowlby's attachment theory has been hugely influential — there's no real argument about that. The Strange Situation gave the field a way to actually measure something that had been fuzzy. But it's important to note that the theory operates within a multifaceted framework, and contemporary research continues to navigate the complexities of cross-cultural application. Honestly though, when I read Rothbaum's 2000 critique of how poorly attachment categories transfer to Japanese samples, it knocked some of the wind out of the universalist claims for me. Furthermore, the strange situation paradigm presents methodological limitations that warrant comprehensive examination. I think the framework still has legs, just narrower legs than the textbooks make out.`,
+  } as const;
+
+  const runCalibration = async (which: "human" | "ai" | "mixed") => {
+    setCalibrating(which);
+    setError(null);
+    try {
+      const res = (await check({ text: SAMPLES[which], model })) as CheckResult;
+      setCalibrationResults((prev) => ({ ...prev, [which]: res }));
+      toast.success(`${which === "ai" ? "AI" : which === "human" ? "Human" : "Mixed"} sample scored ${Math.round(res.overallScore)}/100`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Calibration run failed.");
+    } finally {
+      setCalibrating(null);
+    }
+  };
+
+  const runAllCalibrations = async () => {
+    await runCalibration("human");
+    await runCalibration("ai");
+    await runCalibration("mixed");
   };
 
   const onHumanise = async () => {
@@ -215,7 +258,7 @@ export default function CheckerClient() {
     setHumanising(true);
     setHumaniseResult(null);
     try {
-      const res = (await humanise({ text: humanisePassage })) as HumaniseResult;
+      const res = (await humanise({ text: humanisePassage, model })) as HumaniseResult;
       setHumaniseResult(res);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Rewrite failed.");
@@ -351,11 +394,99 @@ export default function CheckerClient() {
             >
               Clear
             </button>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              Powered by Claude Sonnet 4.6 — your text is sent to OpenRouter and discarded.
-            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <label className="text-xs text-slate-500 dark:text-slate-400" htmlFor="model-picker">
+                Model:
+              </label>
+              <select
+                id="model-picker"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                disabled={running || calibrating !== null}
+                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro (default)</option>
+                <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (fastest)</option>
+                <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6 (premium)</option>
+              </select>
+            </div>
           </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Your text is sent to OpenRouter and discarded after the response. Different models score the same text slightly differently — flip between them if a verdict feels off.
+          </p>
         </form>
+      </section>
+
+      {/* Calibration sub-tool */}
+      <section className={`${sectionCard} mb-6`}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+              Sanity-check the model
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Three known samples — a human-written, an obviously-AI, and a mixed paragraph. Run them to see if the model is calibrated correctly today before you trust its verdict on your own draft.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={runAllCalibrations}
+            disabled={running || calibrating !== null}
+            className={buttonSecondary}
+          >
+            {calibrating ? `Running ${calibrating}…` : "Run all three"}
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {(["human", "ai", "mixed"] as const).map((which) => {
+            const r = calibrationResults[which];
+            const c = r ? scoreColour(r.overallScore) : null;
+            const expected = which === "human" ? "low" : which === "ai" ? "high" : "mid";
+            return (
+              <div
+                key={which}
+                className={`rounded-lg border p-3 ${
+                  r && c ? `${c.border} ${c.bg}` : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
+                }`}
+              >
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    {which === "human" ? "Human" : which === "ai" ? "AI" : "Mixed"} sample
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    expected: {expected}
+                  </span>
+                </div>
+                {r && c ? (
+                  <>
+                    <p className={`mt-1 text-2xl font-bold ${c.text}`}>
+                      {Math.round(r.overallScore)}
+                      <span className="text-xs text-slate-500 dark:text-slate-400">/100</span>
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">{r.verdict}</p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Not run yet
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => runCalibration(which)}
+                  disabled={running || calibrating !== null}
+                  className="mt-2 inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                >
+                  {calibrating === which ? "Running…" : r ? "Re-run" : "Run"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        {(calibrationResults.human || calibrationResults.ai || calibrationResults.mixed) && (
+          <p className="mt-3 text-xs italic text-slate-600 dark:text-slate-400">
+            Healthy calibration: human under 30, AI over 70, mixed somewhere between 40–60. If the human sample scores high or the AI sample scores low, switch models.
+          </p>
+        )}
       </section>
 
       {result && (

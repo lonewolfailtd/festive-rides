@@ -536,7 +536,7 @@ Example shape (omit any field you can't determine):
         "X-Title": "Uni Citation Tool",
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-chat",
+        model: "deepseek/deepseek-v4-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -770,7 +770,7 @@ Return JSON of shape:
         "X-Title": "Uni Citation Tool",
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-chat",
+        model: "deepseek/deepseek-v4-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

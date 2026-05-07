@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SignOutButton from "./SignOutButton";
 import { ThemeToggle } from "./ThemeProvider";
+import PomodoroTimer from "./PomodoroTimer";
 
 const cards = [
   {
@@ -33,6 +34,24 @@ const cards = [
     blurb:
       "Paste your draft (or upload PDF / Word doc) to see what a Turnitin / GPTZero-style detector would flag. Per-paragraph scores, AI tells, and a 'humanise this passage' rewrite tool.",
   },
+  {
+    href: "/uni/citations",
+    title: "Citation Extractor",
+    blurb:
+      "Paste your draft. We pull out every in-text citation, cross-check them against your references list, and flag what's missing or unused before your marker does.",
+  },
+  {
+    href: "/uni/plagiarism",
+    title: "Plagiarism Self-Check",
+    blurb:
+      "Scan your draft for phrases that look templated, too distinctive, or copy-paste-flavoured. Get a Google search link for each one so you can verify before submission.",
+  },
+  {
+    href: "/uni/bibliography",
+    title: "Bibliography Importer",
+    blurb:
+      "Paste a chunk of references in any format and we'll parse each one to APA 7, then bulk-import them to your references list. Saves an hour of typing if you're moving from Word.",
+  },
 ];
 
 export default function UniHomePage() {
@@ -51,6 +70,10 @@ export default function UniHomePage() {
           into your assignment.
         </p>
       </header>
+
+      <section className="mb-8">
+        <PomodoroTimer />
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
         {cards.map((c) => (

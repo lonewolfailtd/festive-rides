@@ -71,9 +71,9 @@ export const check = action({
       throw new Error("Text too long — trim to 50000 characters or fewer.");
     }
     const raw = await callOpenRouter({
-      // Use Claude Sonnet for the highest-quality detection (cheaper DeepSeek
-      // is fine for plan-style outputs but trips on subtle voice analysis).
-      model: args.model ?? "anthropic/claude-sonnet-4.6",
+      // Use DeepSeek V4 Pro for detection — 1.6T MoE, strong on voice/style
+      // analysis, ~1/7 the price of Claude Sonnet 4.6 for comparable quality.
+      model: args.model ?? "deepseek/deepseek-v4-pro",
       responseFormatJson: true,
       temperature: 0.2,
       maxTokens: 3500,
@@ -120,7 +120,7 @@ export const humanise = action({
       throw new Error("Passage is too long — trim to 8000 characters or fewer.");
     }
     const raw = await callOpenRouter({
-      model: args.model ?? "anthropic/claude-sonnet-4.6",
+      model: args.model ?? "deepseek/deepseek-v4-pro",
       responseFormatJson: true,
       temperature: 0.6,
       maxTokens: 2500,
