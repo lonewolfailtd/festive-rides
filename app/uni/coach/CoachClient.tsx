@@ -14,7 +14,7 @@ const labelStyle =
 const inputStyle =
   "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/10 transition-all hover:-translate-y-px hover:bg-sky-500 hover:shadow-md hover:shadow-sky-900/20 active:translate-y-0 active:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
 const buttonSecondary =
   "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
 
@@ -235,7 +235,7 @@ export default function CoachClient() {
         description="Paste your draft and the assignment brief. The coach scores structure, argument, evidence, citation density and tone, then suggests specific improvements."
       />
 
-      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -322,7 +322,7 @@ export default function CoachClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="space-y-6"
         >
-          <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Overall summary
             </h2>
@@ -356,7 +356,7 @@ export default function CoachClient() {
           )}
 
           {result.specificImprovements.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Specific improvements
               </h2>
@@ -388,7 +388,7 @@ export default function CoachClient() {
           )}
 
           {result.nzEnglishFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 NZ English flags
               </h2>
@@ -406,7 +406,7 @@ export default function CoachClient() {
           )}
 
           {result.oxfordCommaFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Oxford comma flags
               </h2>
