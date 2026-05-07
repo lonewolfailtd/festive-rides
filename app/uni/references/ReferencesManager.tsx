@@ -582,6 +582,30 @@ export default function ReferencesManager() {
     total: 0,
     failed: 0,
   });
+
+  // Reverse lookup (paste a draft, find citations, pick candidates)
+  const reverseLookupAction = useAction(api.reverseLookup.findInText);
+  const [draftText, setDraftText] = useState("");
+  const [reverseLookupRunning, setReverseLookupRunning] = useState(false);
+  type RevRow = {
+    citation: { raw: string; surname: string; year: string; isNarrative: boolean; position: number };
+    candidates: {
+      id?: string;
+      title: string;
+      authorsRaw: { kind: "person"; surname: string; given: string }[];
+      year: string;
+      journal?: string;
+      publisher?: string;
+      type?: string;
+      doi?: string;
+      url?: string;
+      abstract?: string;
+      citedByCount?: number;
+    }[];
+  };
+  const [reverseRows, setReverseRows] = useState<RevRow[] | null>(null);
+  const [revSelections, setRevSelections] = useState<Record<number, number>>({});
+  const [revImporting, setRevImporting] = useState(false);
   const [openNotes, setOpenNotes] = useState<Record<string, boolean>>({});
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [annotationDraft, setAnnotationDraft] = useState<Record<string, string>>({});
@@ -823,6 +847,104 @@ export default function ReferencesManager() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFindCitations = async () => {
+    if (draftText.trim().length < 10) {
+      toast.error("Paste a sentence or paragraph that contains citations.");
+      return;
+    }
+    setReverseLookupRunning(true);
+    setReverseRows(null);
+    setRevSelections({});
+    try {
+      const res = (await reverseLookupAction({ text: draftText })) as {
+        rows: RevRow[];
+        totalCitations: number;
+      };
+      if (!res.rows || res.rows.length === 0) {
+        toast("No citations detected", {
+          description:
+            "We look for patterns like (Smith, 2020), Smith et al. (2022) or (Smith & Jones, 2024).",
+        });
+      } else {
+        toast.success(
+          `Found ${res.rows.length} unique citation${res.rows.length === 1 ? "" : "s"}`
+        );
+      }
+      setReverseRows(res.rows);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lookup failed.");
+    } finally {
+      setReverseLookupRunning(false);
+    }
+  };
+
+  const handleImportReverseSelections = async () => {
+    if (!reverseRows) return;
+    const picks = Object.entries(revSelections);
+    if (picks.length === 0) {
+      toast.error("Pick at least one candidate first.");
+      return;
+    }
+    setRevImporting(true);
+    let added = 0;
+    let failed = 0;
+    for (const [rowIdxStr, candIdx] of picks) {
+      const row = reverseRows[Number(rowIdxStr)];
+      if (!row) continue;
+      const cand = row.candidates[candIdx];
+      if (!cand) continue;
+      try {
+        // Build a journal article reference from the candidate (most are
+        // journal articles; fall back to website if type doesn't match).
+        const isJournal =
+          cand.type === "journal-article" || cand.type === "article" || !!cand.journal;
+        const sourceType: SourceType = isJournal ? "journalArticle" : "website";
+        const fields: Record<string, unknown> = {
+          authors: cand.authorsRaw,
+          year: cand.year,
+          title: cand.title,
+          journal: cand.journal ?? "",
+          doi: cand.doi ?? "",
+          url: cand.url ?? "",
+          siteName: cand.publisher,
+        };
+        const built = buildSourceFields(
+          sourceType,
+          applyFieldsToForm(emptyForm(), fields)
+        );
+        if (!built) {
+          failed++;
+          continue;
+        }
+        const formatted = formatReference(built);
+        await createRef({
+          assignmentId:
+            selectedAssignment === "all" ? undefined : selectedAssignment,
+          sourceType: built.sourceType,
+          fields: built.fields,
+          formatted: formatted.formattedHtml,
+          inTextShort: formatted.inTextShort,
+          inTextNarrative: formatted.inTextNarrative,
+          sortKey: formatted.sortKey,
+        });
+        added++;
+      } catch {
+        failed++;
+      }
+    }
+    setRevImporting(false);
+    if (failed === 0) {
+      toast.success(`Imported ${added} reference${added === 1 ? "" : "s"}`);
+    } else {
+      toast.success(
+        `Imported ${added}; ${failed} failed (open them manually if needed)`
+      );
+    }
+    setReverseRows(null);
+    setRevSelections({});
+    setDraftText("");
   };
 
   const handleBulkImport = async () => {
@@ -1407,6 +1529,131 @@ i { font-style:italic; font-weight:normal; }
         </aside>
 
         <div className="min-w-0 flex-1 space-y-6">
+
+      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+        <details>
+          <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300 hover:text-sky-300">
+            Reverse-lookup citations from a draft paragraph
+          </summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Paste a paragraph or page of your draft. We&apos;ll extract every (Author, Year) and look up candidate references on OpenAlex.
+            </p>
+            <textarea
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              rows={6}
+              placeholder={`e.g.\nPiaget's stage theory has been challenged in recent reviews (Bebane, 2021), with Grigoryevich (2025) arguing that constructivism… Recent meta-analyses also suggest (Smith & Jones, 2022; Lee et al., 2023) that…`}
+              className={`${inputStyle} text-sm`}
+              disabled={reverseLookupRunning}
+            />
+            <button
+              type="button"
+              onClick={() => void handleFindCitations()}
+              disabled={reverseLookupRunning || !draftText.trim()}
+              className={buttonPrimary}
+            >
+              {reverseLookupRunning ? "Finding citations…" : "Find citations"}
+            </button>
+
+            {reverseRows && reverseRows.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {reverseRows.map((row, rowIdx) => (
+                  <div
+                    key={`${row.citation.surname}-${row.citation.year}-${rowIdx}`}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"
+                  >
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                        {row.citation.raw}
+                      </code>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        ({row.candidates.length} candidate{row.candidates.length === 1 ? "" : "s"})
+                      </span>
+                    </div>
+                    {row.candidates.length === 0 ? (
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        No matches on OpenAlex. Try the manual form or a different search term.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-1.5">
+                        {row.candidates.map((c, ci) => {
+                          const picked = revSelections[rowIdx] === ci;
+                          const authorList = c.authorsRaw
+                            .slice(0, 3)
+                            .map((a) => a.surname)
+                            .join(", ");
+                          const more = c.authorsRaw.length > 3 ? " et al." : "";
+                          return (
+                            <li key={ci}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setRevSelections((s) =>
+                                    s[rowIdx] === ci
+                                      ? Object.fromEntries(
+                                          Object.entries(s).filter(([k]) => k !== String(rowIdx))
+                                        )
+                                      : { ...s, [rowIdx]: ci }
+                                  )
+                                }
+                                className={`block w-full rounded-lg border p-2 text-left text-xs transition-colors ${
+                                  picked
+                                    ? "border-sky-500 bg-sky-50 dark:border-sky-500 dark:bg-sky-900/30"
+                                    : "border-slate-200 bg-white hover:border-sky-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-700"
+                                }`}
+                              >
+                                <p className="font-medium text-slate-900 dark:text-slate-100">
+                                  {c.title}
+                                </p>
+                                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                                  {authorList}{more}
+                                  {c.year ? ` · ${c.year}` : ""}
+                                  {c.journal ? ` · ${c.journal}` : ""}
+                                  {c.citedByCount && c.citedByCount > 0
+                                    ? ` · cited ${c.citedByCount}×`
+                                    : ""}
+                                </p>
+                                {c.abstract && (
+                                  <p className="mt-1 line-clamp-2 text-slate-500 dark:text-slate-400">
+                                    {c.abstract}
+                                  </p>
+                                )}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleImportReverseSelections()}
+                    disabled={revImporting || Object.keys(revSelections).length === 0}
+                    className={buttonPrimary}
+                  >
+                    {revImporting
+                      ? "Importing…"
+                      : `Import ${Object.keys(revSelections).length} selected`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReverseRows(null);
+                      setRevSelections({});
+                    }}
+                    className={buttonSecondary}
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </details>
+      </section>
 
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         <details>

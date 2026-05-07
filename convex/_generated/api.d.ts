@@ -18,6 +18,7 @@ import type * as http from "../http.js";
 import type * as lookup from "../lookup.js";
 import type * as openrouter from "../openrouter.js";
 import type * as references from "../references.js";
+import type * as reverseLookup from "../reverseLookup.js";
 import type * as sources from "../sources.js";
 
 import type {
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   lookup: typeof lookup;
   openrouter: typeof openrouter;
   references: typeof references;
+  reverseLookup: typeof reverseLookup;
   sources: typeof sources;
 }>;
 
