@@ -27,7 +27,9 @@ export async function callOpenRouter(args: CallOpenRouterArgs): Promise<string> 
   }
 
   const body: Record<string, unknown> = {
-    model: args.model ?? "anthropic/claude-sonnet-4.6",
+    // Default model: DeepSeek V3.1 (via OpenRouter alias). Cheap, strong on
+    // structured-output academic tasks, NZ English-friendly when prompted.
+    model: args.model ?? "deepseek/deepseek-chat",
     messages: args.messages,
     temperature: args.temperature ?? 0.3,
     max_tokens: args.maxTokens ?? 2000,

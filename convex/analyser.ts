@@ -70,7 +70,7 @@ export const analyse = action({
       throw new Error("Brief is very long — please trim to under 12000 characters.");
     }
 
-    const model = args.model ?? "anthropic/claude-sonnet-4.6";
+    const model = args.model ?? "deepseek/deepseek-chat";
     const raw = await callOpenRouter({
       model,
       responseFormatJson: true,
@@ -127,7 +127,7 @@ export const iterate = action({
       | null;
     if (!existing) throw new Error("Analysis not found");
 
-    const model = args.model ?? "anthropic/claude-sonnet-4.6";
+    const model = args.model ?? "deepseek/deepseek-chat";
     const userPrompt = `${buildPrompt(existing.brief, existing.rubric, existing.wordCountTarget)}
 
 PREVIOUS ANALYSIS (refine this — don't start from scratch):

@@ -90,9 +90,33 @@ export default function AnalyserClient() {
 
   const assignments = useQuery(api.assignments.list);
   const savedAnalyses = useQuery(api.analysisStore.list, {});
+  const updateAnalysis = useMutation(api.analysisStore.update);
+
+  // Refs count for the assignment of the currently loaded analysis (lets us
+  // show "12 references already" badge linking back to /uni/references).
+  // Pull ALL refs (cheap), filter client-side to the current assignment.
+  const allRefs = useQuery(api.references.listForAssignment, { assignmentId: undefined });
 
   const [assignmentId, setAssignmentId] = useState<Id<"assignments"> | "">("");
   const [analysisId, setAnalysisId] = useState<Id<"analyses"> | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showMarkerChecklist, setShowMarkerChecklist] = useState(false);
+  const [checkedRubricCriteria, setCheckedRubricCriteria] = useState<Set<number>>(new Set());
+  const [editingField, setEditingField] = useState<null | "summary" | "keyQuestion">(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [sectionDrafts, setSectionDrafts] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    try {
+      const seen = window.localStorage.getItem("uni-tool-onboarded-analyser");
+      if (!seen) setShowOnboarding(true);
+    } catch {}
+  }, []);
+
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    try { window.localStorage.setItem("uni-tool-onboarded-analyser", "1"); } catch {}
+  };
   const [extractingPdf, setExtractingPdf] = useState<null | "brief" | "rubric">(null);
   const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
   const [brief, setBrief] = useState("");
@@ -108,6 +132,111 @@ export default function AnalyserClient() {
   const [openSections, setOpenSections] = useState<Record<number, boolean>>({});
   const [copiedKeywords, setCopiedKeywords] = useState(false);
   const [copiedPlan, setCopiedPlan] = useState(false);
+
+  // Compute current assignment id from active analysis, then reference count.
+  const currentAssignment = useMemo(() => {
+    if (!analysisId || !savedAnalyses) return null;
+    const cur = savedAnalyses.find((a) => a._id === analysisId);
+    return cur?.assignmentId ?? null;
+  }, [analysisId, savedAnalyses]);
+
+  const currentAssignmentRefCount = useMemo(() => {
+    if (!allRefs || !currentAssignment) return null;
+    return allRefs.filter((r) => r.assignmentId === currentAssignment).length;
+  }, [allRefs, currentAssignment]);
+
+  // Inline-edit any text field on the analysis result. Patches both local
+  // result state AND the persisted analysis row.
+  const saveFieldEdit = async (field: "summary" | "keyQuestion") => {
+    if (!analysisId || !result) return;
+    const value = editDraft.trim();
+    if (!value) {
+      toast.error("Field can't be empty.");
+      return;
+    }
+    const next = { ...result, [field]: value };
+    setResult(next);
+    setEditingField(null);
+    try {
+      await updateAnalysis({ id: analysisId, result: next });
+      toast.success("Saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save");
+    }
+  };
+
+  // Word-count helper for outline section text
+  const wordCount = (s: string): number => {
+    const t = s.trim();
+    if (!t) return 0;
+    return t.split(/\s+/).filter(Boolean).length;
+  };
+
+  // .docx export (Word-compatible HTML doc with mso namespaces).
+  const escapeForHtml = (s: string): string =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const downloadPlanDocx = () => {
+    if (!result) return;
+    const r = result;
+    const sections: string[] = [];
+    const h2 = (text: string) =>
+      `<h2 style="font-family:'Times New Roman',serif;font-size:14pt;font-weight:bold;margin:18pt 0 6pt;">${escapeForHtml(text)}</h2>`;
+    const p = (text: string) =>
+      `<p style="font-family:'Times New Roman',serif;font-size:12pt;line-height:1.6;margin:0 0 6pt;">${escapeForHtml(text)}</p>`;
+
+    sections.push(`<h1 style="font-family:'Times New Roman',serif;font-size:18pt;font-weight:bold;text-align:center;margin:0 0 18pt;">Assignment Plan</h1>`);
+
+    sections.push(h2("Summary"));
+    sections.push(p(r.summary));
+
+    sections.push(h2("Key question"));
+    sections.push(p(r.keyQuestion));
+
+    if (r.warnings.length > 0) {
+      sections.push(h2("Warnings"));
+      sections.push("<ul>" + r.warnings.map((w) => `<li>${escapeForHtml(w)}</li>`).join("") + "</ul>");
+    }
+
+    sections.push(h2("Task verbs"));
+    sections.push("<ul>" + r.taskVerbs.map((t) => `<li><strong>${escapeForHtml(t.verb)}</strong> — ${escapeForHtml(t.meaning)}</li>`).join("") + "</ul>");
+
+    sections.push(h2("Marking criteria"));
+    sections.push("<ul>" + r.rubricBreakdown.map((c) => `<li><strong>${escapeForHtml(c.criterion)}</strong> (${c.weightPercent}%) — ${escapeForHtml(c.focus)}</li>`).join("") + "</ul>");
+
+    sections.push(h2("Word-count split"));
+    sections.push("<ul>" + r.wordCountSplit.map((s) => `<li><strong>${escapeForHtml(s.section)}</strong> — ${s.words} words. ${escapeForHtml(s.purpose)}</li>`).join("") + "</ul>");
+
+    sections.push(h2("Outline"));
+    for (const o of r.outline) {
+      sections.push(`<h3 style="font-family:'Times New Roman',serif;font-size:13pt;font-weight:bold;margin:12pt 0 6pt;">${escapeForHtml(o.section)}</h3>`);
+      sections.push("<ul>" + o.bullets.map((b) => `<li>${escapeForHtml(b)}</li>`).join("") + "</ul>");
+    }
+
+    sections.push(h2("Source types needed"));
+    sections.push("<ul>" + r.sourceTypesNeeded.map((s) => `<li>${escapeForHtml(s)}</li>`).join("") + "</ul>");
+
+    sections.push(h2("Research keywords"));
+    sections.push(p(r.researchKeywords.join(", ")));
+
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Assignment plan</title></head>
+<body>${sections.join("\n")}</body></html>`;
+    const blob = new Blob(["﻿", html], { type: "application/msword" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "assignment-plan.doc";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast.success("Downloaded assignment-plan.doc");
+  };
 
   // Reactively sync local state when the saved analysis updates (e.g. after
   // a checkbox toggle saves to Convex). We track the current analysisId and
@@ -367,6 +496,34 @@ export default function AnalyserClient() {
         description="Paste your brief and (optionally) the rubric and word-count target. You'll get the actual question, task verbs, suggested outline, word-count split, and source types to look for."
       />
 
+      {showOnboarding && (
+        <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-5 dark:border-sky-900/60 dark:bg-sky-950/30">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
+              <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                <li>Pick which assignment you&apos;re planning (or leave unassigned).</li>
+                <li>Either paste the brief into the box, or click 📄 Upload PDF to extract it from a file.</li>
+                <li>Optionally paste/upload the marking rubric, and pick a word-count target.</li>
+                <li>Click <em>Analyse</em> — get the actual question, task verbs, an outline you can tick off, and research keywords.</li>
+                <li>Click a keyword chip to jump to Source Finder pre-loaded with that term.</li>
+                <li>Click <em>Send brief to Draft Coach</em> when you&apos;re ready to write.</li>
+              </ol>
+            </div>
+            <button
+              type="button"
+              onClick={dismissOnboarding}
+              aria-label="Dismiss"
+              className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {savedAnalyses && savedAnalyses.length > 0 && (
         <section className={`${sectionCard} mb-6`}>
           <details>
@@ -598,27 +755,127 @@ export default function AnalyserClient() {
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold tracking-tight">Your plan</h2>
-            <button onClick={copyPlan} className={buttonSecondary}>
-              {copiedPlan ? "Copied" : "Copy plan as markdown"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {currentAssignmentRefCount !== null && (
+                <Link
+                  href={`/uni/references`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                  title="Open References list for this assignment"
+                >
+                  📚 {currentAssignmentRefCount} reference{currentAssignmentRefCount === 1 ? "" : "s"}
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => downloadPlanDocx()}
+                className={buttonSecondary}
+              >
+                Download .docx
+              </button>
+              <button onClick={copyPlan} className={buttonSecondary}>
+                {copiedPlan ? "Copied" : "Copy as markdown"}
+              </button>
+            </div>
           </div>
 
           <section className={sectionCard}>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Summary
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-900 dark:text-slate-100">
-              {result.summary}
-            </p>
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Summary
+              </h3>
+              {analysisId && editingField !== "summary" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditDraft(result.summary);
+                    setEditingField("summary");
+                  }}
+                  className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {editingField === "summary" ? (
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  rows={4}
+                  className={`${inputStyle} text-sm`}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void saveFieldEdit("summary")}
+                    className={buttonPrimary}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingField(null)}
+                    className={buttonSecondary}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm leading-relaxed text-slate-900 dark:text-slate-100">
+                {result.summary}
+              </p>
+            )}
           </section>
 
           <section className={sectionCard}>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              The actual question
-            </h3>
-            <blockquote className="mt-3 border-l-4 border-sky-500 bg-white dark:bg-slate-950 px-4 py-3 text-sm italic text-slate-900 dark:text-slate-100">
-              {result.keyQuestion}
-            </blockquote>
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                The actual question
+              </h3>
+              {analysisId && editingField !== "keyQuestion" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditDraft(result.keyQuestion);
+                    setEditingField("keyQuestion");
+                  }}
+                  className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {editingField === "keyQuestion" ? (
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  rows={3}
+                  className={`${inputStyle} text-sm`}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void saveFieldEdit("keyQuestion")}
+                    className={buttonPrimary}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingField(null)}
+                    className={buttonSecondary}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <blockquote className="mt-3 border-l-4 border-sky-500 bg-white dark:bg-slate-950 px-4 py-3 text-sm italic text-slate-900 dark:text-slate-100">
+                {result.keyQuestion}
+              </blockquote>
+            )}
           </section>
 
           {result.warnings.length > 0 && (
@@ -657,9 +914,54 @@ export default function AnalyserClient() {
           </section>
 
           <section className={sectionCard}>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Marking criteria
-            </h3>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Marking criteria
+              </h3>
+              {sortedRubric.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowMarkerChecklist((s) => !s)}
+                  className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                >
+                  {showMarkerChecklist ? "Hide" : "Open"} marker checklist
+                </button>
+              )}
+            </div>
+
+            {showMarkerChecklist && sortedRubric.length > 0 && (
+              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800/50 dark:bg-emerald-950/20">
+                <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
+                  Tick each criterion before submitting — { checkedRubricCriteria.size }/{ sortedRubric.length } done
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {sortedRubric.map((c, i) => {
+                    const checked = checkedRubricCriteria.has(i);
+                    return (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setCheckedRubricCriteria((s) => {
+                              const next = new Set(s);
+                              if (next.has(i)) next.delete(i);
+                              else next.add(i);
+                              return next;
+                            })
+                          }
+                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600"
+                        />
+                        <span className={checked ? "text-slate-500 line-through dark:text-slate-500" : "text-slate-800 dark:text-slate-200"}>
+                          <strong>{c.criterion}</strong> ({c.weightPercent}%) — {c.focus}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
             {sortedRubric.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 No rubric breakdown provided.
@@ -710,29 +1012,70 @@ export default function AnalyserClient() {
                 No split suggested.
               </p>
             ) : (
-              <ul className="mt-3 space-y-3">
+              <ul className="mt-3 space-y-4">
                 {result.wordCountSplit.map((s, i) => {
                   const pct =
                     totalSplitWords > 0
                       ? Math.round((s.words / totalSplitWords) * 100)
                       : 0;
+                  const draft = sectionDrafts[i] ?? "";
+                  const wc = wordCount(draft);
+                  const tol = s.words * 0.1;
+                  const status =
+                    wc === 0
+                      ? "none"
+                      : wc < s.words - tol
+                        ? "under"
+                        : wc > s.words + tol
+                          ? "over"
+                          : "ok";
                   return (
-                    <li key={i}>
+                    <li key={i} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                           {s.section}
                         </span>
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {s.words} words ({pct}%)
+                          target {s.words} words ({pct}% of total)
                         </span>
                       </div>
-                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-100 dark:bg-slate-800">
-                        <div
-                          className="h-full bg-sky-600"
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className="h-full bg-sky-600" style={{ width: `${pct}%` }} />
                       </div>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{s.purpose}</p>
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs text-slate-600 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300">
+                          Track your draft for this section
+                        </summary>
+                        <div className="mt-2 space-y-1">
+                          <textarea
+                            value={draft}
+                            onChange={(e) =>
+                              setSectionDrafts((sd) => ({ ...sd, [i]: e.target.value }))
+                            }
+                            rows={4}
+                            placeholder={`Paste your "${s.section}" draft text here…`}
+                            className={`${inputStyle} text-sm`}
+                          />
+                          <p
+                            className={`text-xs ${
+                              status === "ok"
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : status === "under"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : status === "over"
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : "text-slate-500 dark:text-slate-400"
+                            }`}
+                          >
+                            {wc.toLocaleString("en-NZ")} words
+                            {status === "ok" && ` ✓ on target (within ±10%)`}
+                            {status === "under" && ` — need ~${Math.max(0, Math.round(s.words - tol) - wc)} more`}
+                            {status === "over" && ` — over by ~${wc - Math.round(s.words + tol)}`}
+                            {status === "none" && " — paste your draft above to track"}
+                          </p>
+                        </div>
+                      </details>
                     </li>
                   );
                 })}

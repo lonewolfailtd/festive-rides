@@ -143,6 +143,19 @@ export default function SourcesClient() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [added, setAdded] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState<Record<string, boolean>>({});
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    try {
+      const seen = window.localStorage.getItem("uni-tool-onboarded-sources");
+      if (!seen) setShowOnboarding(true);
+    } catch {}
+  }, []);
+
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    try { window.localStorage.setItem("uni-tool-onboarded-sources", "1"); } catch {}
+  };
 
   // Prefill from ?q=... URL param so the Analyser can hand off keywords.
   useEffect(() => {
@@ -217,6 +230,26 @@ export default function SourcesClient() {
         title="Search 250M+ scholarly works"
         description="Powered by OpenAlex (free, no key). Filter by peer-reviewed and year. One-click import as a properly formatted APA 7 reference."
       />
+
+      {showOnboarding && (
+        <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-5 dark:border-sky-900/60 dark:bg-sky-950/30">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
+              <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                <li>Type a topic, author, or set of keywords into the search box.</li>
+                <li>Optionally tick &ldquo;peer-reviewed only&rdquo; or set a &ldquo;from year&rdquo; filter.</li>
+                <li>Click Search — you&rsquo;ll get up to 25 results from OpenAlex (250M+ scholarly works).</li>
+                <li>Click &ldquo;View&rdquo; on any result to see it on the publisher&rsquo;s page.</li>
+                <li>Click &ldquo;Add as reference&rdquo; to import it as a properly formatted APA 7 reference.</li>
+              </ol>
+            </div>
+            <button type="button" onClick={dismissOnboarding} aria-label="Dismiss" className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       <section className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">

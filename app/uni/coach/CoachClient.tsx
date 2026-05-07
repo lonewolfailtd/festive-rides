@@ -166,6 +166,19 @@ export default function CoachClient() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CoachResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    try {
+      const seen = window.localStorage.getItem("uni-tool-onboarded-coach");
+      if (!seen) setShowOnboarding(true);
+    } catch {}
+  }, []);
+
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    try { window.localStorage.setItem("uni-tool-onboarded-coach", "1"); } catch {}
+  };
 
   const draftWords = countWords(draft);
   const target = Number(wordTarget) || 0;
@@ -267,6 +280,26 @@ export default function CoachClient() {
         title="Get scored feedback on your draft"
         description="Paste your draft and the assignment brief. The coach scores structure, argument, evidence, citation density and tone, then suggests specific improvements."
       />
+
+      {showOnboarding && (
+        <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-5 dark:border-sky-900/60 dark:bg-sky-950/30">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
+              <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                <li>Paste the assignment brief in the optional brief box, OR open the Analyser to send one over.</li>
+                <li>Paste your draft into the big text area.</li>
+                <li>Pick the word-count target that matches your assignment level.</li>
+                <li>Click Get feedback — you&rsquo;ll get scored ratings on structure, argument, evidence, citation density and tone.</li>
+                <li>Specific improvements quote your own text and tell you what to change.</li>
+              </ol>
+            </div>
+            <button type="button" onClick={dismissOnboarding} aria-label="Dismiss" className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       <section className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
         <form onSubmit={handleSubmit} className="space-y-4">
