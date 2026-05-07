@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -677,6 +678,10 @@ ${items}
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    const count = sortedRefs.length;
+    toast.success(
+      `Downloaded references.doc with ${count} reference${count === 1 ? "" : "s"}`
+    );
   };
 
   const runStyleCheck = () => {
@@ -741,6 +746,8 @@ i { font-style:italic; font-weight:normal; }
     if (sortedRefs.length === 0) return;
     const html = buildBulkHtml();
     const plain = buildBulkPlain();
+    const count = sortedRefs.length;
+    const successMessage = `Copied ${count} reference${count === 1 ? "" : "s"} — paste straight into Word`;
     if (
       typeof window !== "undefined" &&
       "ClipboardItem" in window &&
@@ -753,12 +760,18 @@ i { font-style:italic; font-weight:normal; }
             "text/plain": new Blob([plain], { type: "text/plain" }),
           }),
         ]);
+        toast.success(successMessage);
         return;
       } catch {
         // fall through to plain
       }
     }
-    await navigator.clipboard.writeText(plain);
+    try {
+      await navigator.clipboard.writeText(plain);
+      toast.success(successMessage);
+    } catch {
+      toast.error("Could not copy to clipboard");
+    }
   };
 
 
