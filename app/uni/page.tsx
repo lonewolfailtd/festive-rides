@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SignOutButton from "./SignOutButton";
 import { ThemeToggle } from "./ThemeProvider";
 
 const cards = [
@@ -31,8 +32,9 @@ const cards = [
 export default function UniHomePage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex items-center justify-end gap-2">
         <ThemeToggle />
+        <SignOutButton />
       </div>
       <header className="mb-10">
         <p className="text-sm font-medium text-sky-600 dark:text-sky-400">Open Polytechnic NZ · APA 7</p>
