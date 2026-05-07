@@ -1,22 +1,31 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useState } from "react";
 import { ThemeToggle } from "../ThemeProvider";
 
-type Mode = "signIn" | "signUp";
+type Mode = "signIn" | "signUp" | "reset";
 
 export default function UniLoginPage() {
   const { signIn } = useAuthActions();
+  const requestReset = useMutation(api.passwordReset.requestReset);
+
   const [mode, setMode] = useState<Mode>("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const inputCx =
+    "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
+
+  const onSignInOrUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setResetMessage(null);
     if (!email.trim() || !password) {
       setError("Please enter your email and password.");
       return;
@@ -32,11 +41,10 @@ export default function UniLoginPage() {
       formData.set("password", password);
       formData.set("flow", mode);
       await signIn("password", formData);
-      // Successful sign-in / sign-up triggers a redirect via middleware.
+      // Redirect handled by middleware on success.
     } catch (err) {
       setSubmitting(false);
       const msg = err instanceof Error ? err.message : "Could not sign in.";
-      // Convex Auth surfaces InvalidAccountId / InvalidSecret etc.
       if (msg.includes("InvalidAccountId") || msg.includes("InvalidSecret")) {
         setError(
           mode === "signIn"
@@ -51,6 +59,42 @@ export default function UniLoginPage() {
     }
   };
 
+  const onResetSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setResetMessage(null);
+    const cleaned = email.trim().toLowerCase();
+    if (!cleaned) {
+      setError("Enter your email.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await requestReset({ email: cleaned });
+      // Always show the same friendly message regardless of allow-list /
+      // account state — avoids enumeration. Then switch to sign-up so the
+      // user can immediately set a new password.
+      setResetMessage(
+        "If your email is registered, the password has been cleared. Set a new one below to finish."
+      );
+      setMode("signUp");
+      setPassword("");
+      // res.action used internally only, never surfaced.
+      void res;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Reset failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const headingCopy =
+    mode === "signIn"
+      ? "Sign in with your email and password."
+      : mode === "signUp"
+        ? "First time? Choose a password (at least 8 characters)."
+        : "Forgot your password? Enter your email and we'll clear it so you can set a new one.";
+
   return (
     <main className="relative flex min-h-screen items-center justify-center px-4 py-12">
       <div className="absolute right-4 top-4">
@@ -60,90 +104,157 @@ export default function UniLoginPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           Uni Citation Tool
         </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {mode === "signIn"
-            ? "Sign in with your email and password."
-            : "First time? Choose a password (at least 8 characters)."}
-        </p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{headingCopy}</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <label className="block">
-            <span className="text-sm text-slate-700 dark:text-slate-300">Email</span>
-            <input
-              type="email"
-              required
-              autoFocus
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none"
-              placeholder="you@example.com"
+        {resetMessage && (
+          <div className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-900/30 dark:text-emerald-200">
+            {resetMessage}
+          </div>
+        )}
+
+        {mode === "reset" ? (
+          <form onSubmit={onResetSubmit} className="mt-6 space-y-4">
+            <label className="block">
+              <span className="text-sm text-slate-700 dark:text-slate-300">Email</span>
+              <input
+                type="email"
+                required
+                autoFocus
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputCx}
+                placeholder="you@example.com"
+                disabled={submitting}
+              />
+            </label>
+
+            {error ? (
+              <p className="text-sm text-rose-500 dark:text-rose-400">{error}</p>
+            ) : null}
+
+            <button
+              type="submit"
               disabled={submitting}
-            />
-          </label>
+              className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            >
+              {submitting ? "Clearing…" : "Clear my password"}
+            </button>
 
-          <label className="block">
-            <span className="text-sm text-slate-700 dark:text-slate-300">Password</span>
-            <input
-              type="password"
-              required
-              autoComplete={mode === "signIn" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none"
-              placeholder={mode === "signIn" ? "your password" : "at least 8 characters"}
+            <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signIn");
+                  setError(null);
+                  setResetMessage(null);
+                }}
+                className="font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+              >
+                Back to sign in
+              </button>
+            </p>
+          </form>
+        ) : (
+          <form onSubmit={onSignInOrUp} className="mt-6 space-y-4">
+            <label className="block">
+              <span className="text-sm text-slate-700 dark:text-slate-300">Email</span>
+              <input
+                type="email"
+                required
+                autoFocus
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputCx}
+                placeholder="you@example.com"
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm text-slate-700 dark:text-slate-300">Password</span>
+              <input
+                type="password"
+                required
+                autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputCx}
+                placeholder={mode === "signIn" ? "your password" : "at least 8 characters"}
+                disabled={submitting}
+              />
+            </label>
+
+            {error ? (
+              <p className="text-sm text-rose-500 dark:text-rose-400">{error}</p>
+            ) : null}
+
+            <button
+              type="submit"
               disabled={submitting}
-            />
-          </label>
+              className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            >
+              {submitting
+                ? mode === "signIn"
+                  ? "Signing in…"
+                  : "Creating account…"
+                : mode === "signIn"
+                  ? "Sign in"
+                  : "Sign up"}
+            </button>
 
-          {error ? <p className="text-sm text-rose-500 dark:text-rose-400">{error}</p> : null}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-          >
-            {submitting
-              ? mode === "signIn"
-                ? "Signing in…"
-                : "Creating account…"
-              : mode === "signIn"
-                ? "Sign in"
-                : "Sign up"}
-          </button>
-
-          <p className="text-center text-xs text-slate-500 dark:text-slate-400">
-            {mode === "signIn" ? (
-              <>
-                First time?{" "}
+            <div className="space-y-1.5 text-center text-xs text-slate-500 dark:text-slate-400">
+              <p>
+                {mode === "signIn" ? (
+                  <>
+                    First time?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("signUp");
+                        setError(null);
+                        setResetMessage(null);
+                      }}
+                      className="font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                    >
+                      Create an account
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("signIn");
+                        setError(null);
+                        setResetMessage(null);
+                      }}
+                      className="font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                    >
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </p>
+              <p>
                 <button
                   type="button"
                   onClick={() => {
-                    setMode("signUp");
+                    setMode("reset");
                     setError(null);
+                    setResetMessage(null);
+                    setPassword("");
                   }}
-                  className="font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                  className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 >
-                  Create an account
+                  Forgot password?
                 </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("signIn");
-                    setError(null);
-                  }}
-                  className="font-medium text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </p>
-        </form>
+              </p>
+            </div>
+          </form>
+        )}
       </div>
     </main>
   );

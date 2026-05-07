@@ -18,6 +18,7 @@ import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lookup from "../lookup.js";
 import type * as openrouter from "../openrouter.js";
+import type * as passwordReset from "../passwordReset.js";
 import type * as references from "../references.js";
 import type * as reverseLookup from "../reverseLookup.js";
 import type * as sources from "../sources.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   lookup: typeof lookup;
   openrouter: typeof openrouter;
+  passwordReset: typeof passwordReset;
   references: typeof references;
   reverseLookup: typeof reverseLookup;
   sources: typeof sources;
