@@ -8,6 +8,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useMemo } from "react";
+import EmptyState from "./EmptyState";
 
 const W = 600;
 const H = 140;
@@ -33,16 +34,16 @@ export default function GradesChart() {
     // Placeholder so the 2-col dashboard layout doesn't collapse to one
     // empty column when the student hasn't graded enough assignments yet.
     return (
-      <div className="flex h-full flex-col justify-center rounded-2xl border border-dashed border-slate-300 bg-white/50 p-5 text-center dark:border-slate-800 dark:bg-slate-950/50">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Grades over time
-        </p>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-          {points.length === 0
+      <EmptyState
+        icon="📊"
+        title="No grades yet"
+        body={
+          points.length === 0
             ? "Mark assignments as graded to see your trend here."
-            : "One grade in. Add another to see the line."}
-        </p>
-      </div>
+            : "One grade in. Add another to see the line."
+        }
+        variant="default"
+      />
     );
   }
 

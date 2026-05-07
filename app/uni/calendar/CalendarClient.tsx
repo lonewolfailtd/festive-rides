@@ -13,6 +13,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import EmptyState from "../EmptyState";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { NZ_HOLIDAYS, type NzHoliday, toIsoDay, buildIcs } from "@/lib/nzHolidays";
@@ -826,8 +827,14 @@ export default function CalendarClient() {
             }
             if (items.length === 0) {
               return (
-                <li className="text-sm text-slate-500 dark:text-slate-400">
-                  Nothing in the next 30 days. Add a due date to an assignment to see it here.
+                <li className="list-none">
+                  <EmptyState
+                    icon="🗓️"
+                    title="Nothing in the next 30 days"
+                    body="Add a due date to one of your assignments and it'll show up here."
+                    cta={{ label: "Set a due date", href: "/uni" }}
+                    variant="soft"
+                  />
                 </li>
               );
             }

@@ -16,11 +16,11 @@ const labelStyle =
 const inputStyle =
   "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_4px_8px_rgba(2,132,199,0.22),0_12px_24px_-6px_rgba(2,132,199,0.32)] active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)]";
 const buttonSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-50/50 hover:text-sky-700 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300";
 const sectionCard =
-  "rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none";
+  "rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]";
 
 type Citation = {
   text: string;
@@ -77,7 +77,7 @@ export default function CitationsClient() {
       return;
     }
     if (textLen > MAX_TEXT) {
-      toast.error(`Draft is too long — trim to ${MAX_TEXT} characters or fewer.`);
+      toast.error(`Draft is too long â€” trim to ${MAX_TEXT} characters or fewer.`);
       return;
     }
     setRunning(true);
@@ -132,7 +132,7 @@ export default function CitationsClient() {
                 <li>Pick the assignment your draft belongs to so we can match against the right references list.</li>
                 <li>Paste your draft into the big text area.</li>
                 <li>
-                  Click Extract — every parenthetical and narrative citation is pulled out
+                  Click Extract â€” every parenthetical and narrative citation is pulled out
                   and cross-checked against your saved references.
                 </li>
                 <li>
@@ -177,7 +177,7 @@ export default function CitationsClient() {
               {assignments?.map((a) => (
                 <option key={a._id} value={a._id}>
                   {a.name}
-                  {a.courseCode ? ` — ${a.courseCode}` : ""}
+                  {a.courseCode ? ` â€” ${a.courseCode}` : ""}
                 </option>
               ))}
             </select>
@@ -217,7 +217,7 @@ export default function CitationsClient() {
               disabled={running || tooShort || tooLong || textLen === 0}
               className={buttonPrimary}
             >
-              {running ? "Extracting…" : "Extract citations"}
+              {running ? "Extractingâ€¦" : "Extract citations"}
             </button>
             <button
               type="button"
@@ -307,9 +307,9 @@ export default function CitationsClient() {
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(m);
-                          toast.success("Copied — paste into the References add form", {
+                          toast.success("Copied â€” paste into the References add form", {
                             action: {
-                              label: "Open References →",
+                              label: "Open References â†’",
                               onClick: () => {
                                 window.location.href =
                                   assignmentId === ""
@@ -338,7 +338,7 @@ export default function CitationsClient() {
                 Unused references
               </h2>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
-                These are in your references list but never cited in the draft. Either cite them or remove them — markers penalise dead weight.
+                These are in your references list but never cited in the draft. Either cite them or remove them â€” markers penalise dead weight.
               </p>
               <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-900 dark:text-slate-100">
                 {result.unusedRefs.map((r) => (
@@ -383,7 +383,7 @@ export default function CitationsClient() {
                       <th className="py-2 pr-3 font-medium">Author</th>
                       <th className="py-2 pr-3 font-medium">Year</th>
                       <th className="py-2 pr-3 font-medium">Page</th>
-                      <th className="py-2 pr-3 font-medium">¶</th>
+                      <th className="py-2 pr-3 font-medium">Â¶</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -405,7 +405,7 @@ export default function CitationsClient() {
                           {c.year}
                         </td>
                         <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-                          {c.page ?? "—"}
+                          {c.page ?? "â€”"}
                         </td>
                         <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
                           {c.paragraphIndex + 1}

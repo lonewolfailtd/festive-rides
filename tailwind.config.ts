@@ -38,6 +38,7 @@ const config: Config = {
       fontFamily: {
         festive: ['"Mountains of Christmas"', 'cursive'],
         body: ['Poppins', 'sans-serif'],
+        display: ['var(--font-display)', 'Georgia', 'serif'],
       },
     },
   },

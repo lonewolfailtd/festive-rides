@@ -60,7 +60,7 @@ export default function PageHeader({
       </div>
       <header>
         <p className="text-sm font-medium text-sky-600 dark:text-sky-400">{eyebrow}</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="mt-1 text-3xl font-display font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           {title}
         </h1>
         {description && (

@@ -17,9 +17,9 @@ const labelStyle =
 const inputStyle =
   "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_4px_8px_rgba(2,132,199,0.22),0_12px_24px_-6px_rgba(2,132,199,0.32)] active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)]";
 const buttonSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-50/50 hover:text-sky-700 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300";
 
 type ParsedReference = {
   sourceType: string;
@@ -110,7 +110,7 @@ export default function BibliographyClient() {
     }
     if (textLen > MAX_TEXT) {
       setError(
-        `Too long — please trim to ${MAX_TEXT.toLocaleString("en-NZ")} characters or split into chunks.`
+        `Too long â€” please trim to ${MAX_TEXT.toLocaleString("en-NZ")} characters or split into chunks.`
       );
       return;
     }
@@ -168,7 +168,7 @@ export default function BibliographyClient() {
       return next;
     });
     const toastId = toast.loading(
-      `Importing 0 of ${toImportIndices.length} references…`
+      `Importing 0 of ${toImportIndices.length} referencesâ€¦`
     );
     let done = 0;
     let failed = 0;
@@ -224,7 +224,7 @@ export default function BibliographyClient() {
       }
       setImportedCount(done);
       toast.loading(
-        `Imported ${done} of ${toImportIndices.length}${failed > 0 ? ` (${failed} failed)` : ""}…`,
+        `Imported ${done} of ${toImportIndices.length}${failed > 0 ? ` (${failed} failed)` : ""}â€¦`,
         { id: toastId }
       );
     }
@@ -263,7 +263,7 @@ export default function BibliographyClient() {
     <main className="mx-auto max-w-4xl px-4 py-10">
       <PageHeader
         eyebrow="Bibliography Importer"
-        title="Paste a reference list — get APA 7 entries"
+        title="Paste a reference list â€” get APA 7 entries"
         description="Drop in any reference list (Word doc, EndNote export, mixed APA 6 and APA 7, whatever). We parse each entry, normalise it to APA 7 and bulk-import the ones you want."
       />
 
@@ -277,9 +277,9 @@ export default function BibliographyClient() {
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Paste a chunk of references in any format into the big text area.</li>
                 <li>Optional: pick the assignment you want them attached to.</li>
-                <li>Click Parse — each reference is normalised to strict APA 7.</li>
+                <li>Click Parse â€” each reference is normalised to strict APA 7.</li>
                 <li>Review the table. Untick any you don&rsquo;t want. Watch the amber notes for missing data.</li>
-                <li>Click Import — selected entries land in your references list, ready to copy into Word.</li>
+                <li>Click Import â€” selected entries land in your references list, ready to copy into Word.</li>
               </ol>
             </div>
             <button
@@ -308,7 +308,7 @@ export default function BibliographyClient() {
               <option value="">No assignment</option>
               {(assignments ?? []).map((a) => (
                 <option key={a._id} value={a._id}>
-                  {a.courseCode ? `${a.courseCode} · ` : ""}
+                  {a.courseCode ? `${a.courseCode} Â· ` : ""}
                   {a.name}
                 </option>
               ))}
@@ -336,7 +336,7 @@ export default function BibliographyClient() {
               onChange={(e) => setText(e.target.value)}
               rows={14}
               required
-              placeholder="Paste your reference list here. Any format is fine — we&rsquo;ll sort it out."
+              placeholder="Paste your reference list here. Any format is fine â€” we&rsquo;ll sort it out."
               className={`${inputStyle} resize-y font-mono`}
             />
           </div>
@@ -349,7 +349,7 @@ export default function BibliographyClient() {
               disabled={running || tooShort || tooLong || textLen === 0}
               className={buttonPrimary}
             >
-              {running ? "Parsing…" : "Parse"}
+              {running ? "Parsingâ€¦" : "Parse"}
             </button>
             <button
               type="button"
@@ -381,7 +381,7 @@ export default function BibliographyClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="space-y-6"
         >
-          <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
+          <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Parse summary
             </h2>
@@ -440,17 +440,17 @@ export default function BibliographyClient() {
                         </span>
                         {status?.status === "done" && (
                           <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
-                            ✓ Imported
+                            âœ“ Imported
                           </span>
                         )}
                         {status?.status === "failed" && (
                           <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs font-medium text-white">
-                            ✗ Failed
+                            âœ— Failed
                           </span>
                         )}
                         {status?.status === "importing" && (
                           <span className="rounded-full bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
-                            Importing…
+                            Importingâ€¦
                           </span>
                         )}
                         {status?.status === "pending" && (
@@ -488,7 +488,7 @@ export default function BibliographyClient() {
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-800">
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   {selectedCount} of {result.references.length} selected
-                  {importedCount > 0 && ` · ${importedCount} imported`}
+                  {importedCount > 0 && ` Â· ${importedCount} imported`}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   {importedCount > 0 && (
@@ -503,7 +503,7 @@ export default function BibliographyClient() {
                     className={buttonPrimary}
                   >
                     {importing
-                      ? `Importing… (${importedCount}/${selectedCount})`
+                      ? `Importingâ€¦ (${importedCount}/${selectedCount})`
                       : `Import ${selectedCount} selected reference${selectedCount === 1 ? "" : "s"}`}
                   </button>
                 </div>

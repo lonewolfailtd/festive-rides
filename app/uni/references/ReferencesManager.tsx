@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/convex/_generated/api";
 import PageHeader from "../PageHeader";
+import EmptyState from "../EmptyState";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -96,9 +97,9 @@ const labelStyle =
 const inputStyle =
   "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_4px_8px_rgba(2,132,199,0.22),0_12px_24px_-6px_rgba(2,132,199,0.32)] active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)]";
 const buttonSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-50/50 hover:text-sky-700 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300";
 const buttonGhost =
   "text-xs text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100";
 
@@ -330,7 +331,7 @@ function AuthorsEditor({
               className={`${buttonGhost} mb-2`}
               aria-label="Remove"
             >
-              ×
+              Ã—
             </button>
           </div>
         ))}
@@ -368,7 +369,7 @@ function CopyChip({ text, label }: { text: string; label: string }) {
         copied ? "ring-1 ring-emerald-500/60 text-emerald-700 dark:text-emerald-200" : ""
       }`}
     >
-      {copied ? "✓ Copied" : text}
+      {copied ? "âœ“ Copied" : text}
     </button>
   );
 }
@@ -477,11 +478,11 @@ function checkNzStyle(text: string): StyleFlag[] {
         kind: "us-spelling",
         match: m[0],
         suggestion,
-        snippet: `…${text.slice(start, end)}…`,
+        snippet: `â€¦${text.slice(start, end)}â€¦`,
       });
     }
   }
-  // Oxford comma: ", word(s), and " — comma immediately before "and" in a
+  // Oxford comma: ", word(s), and " â€” comma immediately before "and" in a
   // prose list. We deliberately do NOT match "&" (APA author lists use
   // "Surname, A., & Surname, B." which is APA style, not an Oxford comma).
   const oxford = /,\s+[^,]+?,\s+and\s+/g;
@@ -493,7 +494,7 @@ function checkNzStyle(text: string): StyleFlag[] {
       kind: "oxford-comma",
       match: m[0].trim(),
       suggestion: "remove the comma before 'and'",
-      snippet: `…${text.slice(start, end)}…`,
+      snippet: `â€¦${text.slice(start, end)}â€¦`,
     });
   }
   return flags;
@@ -543,7 +544,7 @@ export default function ReferencesManager() {
   // Style checker state
   const [styleFlags, setStyleFlags] = useState<StyleFlag[] | null>(null);
 
-  // Always fetch all user references in one query — we filter client-side
+  // Always fetch all user references in one query â€” we filter client-side
   // by selected assignment so per-list counts come for free in the sidebar.
   const allRefs = useQuery(api.references.listForAssignment, {
     assignmentId: undefined,
@@ -554,7 +555,7 @@ export default function ReferencesManager() {
     return allRefs.filter((r) => r.assignmentId === selectedAssignment);
   }, [allRefs, selectedAssignment]);
 
-  // Counts for the sidebar — { "all": N, [assignmentId]: N }
+  // Counts for the sidebar â€” { "all": N, [assignmentId]: N }
   const assignmentCounts = useMemo(() => {
     const counts: Record<string, number> = { all: 0 };
     if (!allRefs) return counts;
@@ -881,7 +882,7 @@ export default function ReferencesManager() {
   };
 
   // Add a single candidate immediately (used by the "Add now" button on
-  // each candidate card — bypasses the batch select-and-import flow).
+  // each candidate card â€” bypasses the batch select-and-import flow).
   const handleAddSingleCandidate = async (
     cand: RevRow["candidates"][number]
   ) => {
@@ -917,7 +918,7 @@ export default function ReferencesManager() {
         inTextNarrative: formatted.inTextNarrative,
         sortKey: formatted.sortKey,
       });
-      toast.success(`Added "${cand.title.slice(0, 50)}${cand.title.length > 50 ? "…" : ""}"`);
+      toast.success(`Added "${cand.title.slice(0, 50)}${cand.title.length > 50 ? "â€¦" : ""}"`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't add reference");
     }
@@ -1094,7 +1095,7 @@ export default function ReferencesManager() {
     return () => window.removeEventListener("keydown", handler);
   }, [selectMode]);
 
-  // Onboarding banner — shown once on first visit, dismissed via localStorage.
+  // Onboarding banner â€” shown once on first visit, dismissed via localStorage.
   const [showOnboarding, setShowOnboarding] = useState(false);
   useEffect(() => {
     try {
@@ -1251,7 +1252,7 @@ i { font-style: italic; font-weight: normal; }
 ${items}
 </div></body>
 </html>`;
-    const blob = new Blob(["﻿", html], {
+    const blob = new Blob(["ï»¿", html], {
       type: "application/msword",
     });
     const a = document.createElement("a");
@@ -1301,7 +1302,7 @@ ${items}
       toast.success(`Refreshed formatting on ${updated} reference${updated === 1 ? "" : "s"}`);
     } else {
       toast.success(
-        `Refreshed ${updated} reference${updated === 1 ? "" : "s"}; ${failed} could not be re-formatted (probably missing required fields — Edit them manually).`
+        `Refreshed ${updated} reference${updated === 1 ? "" : "s"}; ${failed} could not be re-formatted (probably missing required fields â€” Edit them manually).`
       );
     }
   };
@@ -1373,7 +1374,7 @@ i { font-style:italic; font-weight:normal; }
     const html = buildBulkHtml();
     const plain = buildBulkPlain();
     const count = sortedRefs.length;
-    const successMessage = `Copied ${count} reference${count === 1 ? "" : "s"} — paste straight into Word`;
+    const successMessage = `Copied ${count} reference${count === 1 ? "" : "s"} â€” paste straight into Word`;
     if (
       typeof window !== "undefined" &&
       "ClipboardItem" in window &&
@@ -1406,7 +1407,7 @@ i { font-style:italic; font-weight:normal; }
       <PageHeader
         eyebrow="References"
         title="APA 7 reference list"
-        description="Build, edit and export properly formatted references — copy them straight into Word."
+        description="Build, edit and export properly formatted references â€” copy them straight into Word."
       />
 
       {showOnboarding && (
@@ -1417,10 +1418,10 @@ i { font-style:italic; font-weight:normal; }
                 Quick start
               </p>
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                <li>Make a list for each assignment in the sidebar (e.g. <em>PSYC101 — Essay 2</em>).</li>
-                <li>Paste a URL or DOI into the lookup field — the form auto-fills.</li>
+                <li>Make a list for each assignment in the sidebar (e.g. <em>PSYC101 â€” Essay 2</em>).</li>
+                <li>Paste a URL or DOI into the lookup field â€” the form auto-fills.</li>
                 <li>Open <em>Notes</em> on any reference to jot quotes / page numbers as you read.</li>
-                <li>When you&apos;re done, hit <em>Copy for Word</em> or <em>Download .docx</em> — italics + hanging indent included.</li>
+                <li>When you&apos;re done, hit <em>Copy for Word</em> or <em>Download .docx</em> â€” italics + hanging indent included.</li>
               </ol>
             </div>
             <button
@@ -1466,7 +1467,7 @@ i { font-style:italic; font-weight:normal; }
               </li>
               {assignments?.map((a) => {
                 const isActive = selectedAssignment === a._id;
-                const label = a.courseCode ? `${a.courseCode} — ${a.name}` : a.name;
+                const label = a.courseCode ? `${a.courseCode} â€” ${a.name}` : a.name;
                 return (
                   <li key={a._id}>
                     <button
@@ -1586,7 +1587,7 @@ i { font-style:italic; font-weight:normal; }
               value={draftText}
               onChange={(e) => setDraftText(e.target.value)}
               rows={6}
-              placeholder={`e.g.\nPiaget's stage theory has been challenged in recent reviews (Bebane, 2021), with Grigoryevich (2025) arguing that constructivism… Recent meta-analyses also suggest (Smith & Jones, 2022; Lee et al., 2023) that…`}
+              placeholder={`e.g.\nPiaget's stage theory has been challenged in recent reviews (Bebane, 2021), with Grigoryevich (2025) arguing that constructivismâ€¦ Recent meta-analyses also suggest (Smith & Jones, 2022; Lee et al., 2023) thatâ€¦`}
               className={`${inputStyle} text-sm`}
               disabled={reverseLookupRunning}
             />
@@ -1596,7 +1597,7 @@ i { font-style:italic; font-weight:normal; }
               disabled={reverseLookupRunning || !draftText.trim()}
               className={buttonPrimary}
             >
-              {reverseLookupRunning ? "Finding citations…" : "Find citations"}
+              {reverseLookupRunning ? "Finding citationsâ€¦" : "Find citations"}
             </button>
 
             {reverseRows && reverseRows.length > 0 && (
@@ -1667,10 +1668,10 @@ i { font-style:italic; font-weight:normal; }
                                   </p>
                                   <p className="mt-0.5 text-slate-500 dark:text-slate-400">
                                     {authorList}{more}
-                                    {c.year ? ` · ${c.year}` : ""}
-                                    {c.journal ? ` · ${c.journal}` : ""}
+                                    {c.year ? ` Â· ${c.year}` : ""}
+                                    {c.journal ? ` Â· ${c.journal}` : ""}
                                     {c.citedByCount && c.citedByCount > 0
-                                      ? ` · cited ${c.citedByCount}×`
+                                      ? ` Â· cited ${c.citedByCount}Ã—`
                                       : ""}
                                   </p>
                                   {c.abstract && (
@@ -1687,7 +1688,7 @@ i { font-style:italic; font-weight:normal; }
                                         onClick={(e) => e.stopPropagation()}
                                         className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
                                       >
-                                        <span>↗</span>
+                                        <span>â†—</span>
                                         <span>View</span>
                                       </a>
                                     )}
@@ -1721,7 +1722,7 @@ i { font-style:italic; font-weight:normal; }
                     className={buttonPrimary}
                   >
                     {revImporting
-                      ? "Importing…"
+                      ? "Importingâ€¦"
                       : `Import ${Object.keys(revSelections).length} selected`}
                   </button>
                   <button
@@ -1744,7 +1745,7 @@ i { font-style:italic; font-weight:normal; }
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         <details>
           <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300 hover:text-sky-300">
-            Bulk import — paste a list of DOIs or URLs
+            Bulk import â€” paste a list of DOIs or URLs
           </summary>
           <div className="mt-3 space-y-3">
             <textarea
@@ -1763,7 +1764,7 @@ i { font-style:italic; font-weight:normal; }
                 className={buttonPrimary}
               >
                 {bulkImportRunning
-                  ? `Importing ${bulkProgress.done}/${bulkProgress.total}…`
+                  ? `Importing ${bulkProgress.done}/${bulkProgress.total}â€¦`
                   : "Look up and import all"}
               </button>
               {bulkImportRunning && bulkProgress.failed > 0 && (
@@ -1781,7 +1782,7 @@ i { font-style:italic; font-weight:normal; }
           {editingId ? "Edit reference" : "Add a reference"}
         </h2>
 
-        {/* URL is the primary lookup — full width, large input. */}
+        {/* URL is the primary lookup â€” full width, large input. */}
         <div className="mt-3">
           <span className={labelStyle}>Paste a URL</span>
           <div className="mt-1 flex gap-2">
@@ -1789,7 +1790,7 @@ i { font-style:italic; font-weight:normal; }
               ref={urlInputRef}
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="https://doi.org/10.1234/abcd  •  https://openstax.org/...  •  any article URL"
+              placeholder="https://doi.org/10.1234/abcd  â€¢  https://openstax.org/...  â€¢  any article URL"
               className={`${inputStyle} text-base`}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -1804,7 +1805,7 @@ i { font-style:italic; font-weight:normal; }
               disabled={lookupBusy !== null || !urlInput.trim()}
               className={buttonPrimary}
             >
-              {lookupBusy === "url" ? "Looking up…" : "Look up"}
+              {lookupBusy === "url" ? "Looking upâ€¦" : "Look up"}
             </button>
           </div>
         </div>
@@ -1838,7 +1839,7 @@ i { font-style:italic; font-weight:normal; }
                     disabled={lookupBusy !== null || !value.trim()}
                     className={buttonSecondary}
                   >
-                    {lookupBusy === kind ? "…" : "Go"}
+                    {lookupBusy === kind ? "â€¦" : "Go"}
                   </button>
                 </div>
               </div>
@@ -1846,7 +1847,7 @@ i { font-style:italic; font-weight:normal; }
           })}
         </div>
 
-        {/* ISBN — rarely used, tucked into a collapsible. */}
+        {/* ISBN â€” rarely used, tucked into a collapsible. */}
         <details className="mt-3 group">
           <summary className="cursor-pointer text-xs text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300">
             More: look up by ISBN
@@ -1871,7 +1872,7 @@ i { font-style:italic; font-weight:normal; }
                 disabled={lookupBusy !== null || !isbnInput.trim()}
                 className={buttonSecondary}
               >
-                {lookupBusy === "isbn" ? "…" : "Go"}
+                {lookupBusy === "isbn" ? "â€¦" : "Go"}
               </button>
             </div>
           </div>
@@ -1884,7 +1885,7 @@ i { font-style:italic; font-weight:normal; }
           <div className="mt-3 space-y-2">
             {lookupInfo.warnings.length > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
-                <p className="font-medium">Sources disagreed on some fields — please double-check before saving:</p>
+                <p className="font-medium">Sources disagreed on some fields â€” please double-check before saving:</p>
                 <ul className="mt-1.5 list-disc space-y-1 pl-4">
                   {lookupInfo.warnings.map((w, i) => (
                     <li key={i}>{w}</li>
@@ -1902,7 +1903,7 @@ i { font-style:italic; font-weight:normal; }
                 Queried: {lookupInfo.sourcesQueried.join(", ")}
                 {Object.keys(lookupInfo.fieldSources).length > 0 && (
                   <>
-                    {" · "}
+                    {" Â· "}
                     <details className="inline">
                       <summary className="cursor-pointer text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200">
                         per-field sources
@@ -2298,7 +2299,7 @@ i { font-style:italic; font-weight:normal; }
                 <input
                   value={form.platform}
                   onChange={(e) => update("platform", e.target.value)}
-                  placeholder="YouTube, Vimeo, TikTok…"
+                  placeholder="YouTube, Vimeo, TikTokâ€¦"
                   className={inputStyle}
                 />
               </div>
@@ -2361,7 +2362,7 @@ i { font-style:italic; font-weight:normal; }
           <div className="flex items-center gap-3">
             <button type="submit" disabled={submitting} className={buttonPrimary}>
               {submitting
-                ? "Saving…"
+                ? "Savingâ€¦"
                 : editingId
                   ? "Save changes"
                   : "Add to list"}
@@ -2388,7 +2389,7 @@ i { font-style:italic; font-weight:normal; }
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
-        {/* Sticky toolbar — search + count + actions stay reachable on scroll. */}
+        {/* Sticky toolbar â€” search + count + actions stay reachable on scroll. */}
         <div className="sticky top-0 -mx-5 -mt-5 mb-4 rounded-t-2xl border-b border-slate-200 bg-white/90 px-5 py-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 dark:shadow-none">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
@@ -2407,7 +2408,7 @@ i { font-style:italic; font-weight:normal; }
                 type="text"
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                placeholder="Search author, title, year, notes…  ( / )"
+                placeholder="Search author, title, year, notesâ€¦  ( / )"
                 className={`${inputStyle} pl-9 mt-0`}
               />
             </div>
@@ -2431,9 +2432,9 @@ i { font-style:italic; font-weight:normal; }
                   ? "border-sky-500 bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200"
                   : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
               }`}
-              title="Toggle select mode (s) — pick refs and quick-cite them as a group"
+              title="Toggle select mode (s) â€” pick refs and quick-cite them as a group"
             >
-              {selectMode ? "✕ Exit select" : "Multi-cite"}
+              {selectMode ? "âœ• Exit select" : "Multi-cite"}
             </button>
           </div>
 
@@ -2498,7 +2499,7 @@ i { font-style:italic; font-weight:normal; }
               className={buttonSecondary}
               title="Re-runs the APA formatter on every reference. Use after the formatter has been updated."
             >
-              {refreshingFormatting ? "Refreshing…" : "Refresh formatting"}
+              {refreshingFormatting ? "Refreshingâ€¦" : "Refresh formatting"}
             </button>
           </div>
         </div>
@@ -2529,7 +2530,7 @@ i { font-style:italic; font-weight:normal; }
                     <span className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
                       {f.kind === "us-spelling" ? "US spelling" : "Oxford comma"}
                     </span>{" "}
-                    <code className="text-slate-900 dark:text-slate-100">{f.match}</code> →{" "}
+                    <code className="text-slate-900 dark:text-slate-100">{f.match}</code> â†’{" "}
                     <span className="text-emerald-700 dark:text-emerald-300">{f.suggestion}</span>
                     <div className="mt-0.5 text-xs text-slate-500">
                       {f.snippet}
@@ -2560,21 +2561,22 @@ i { font-style:italic; font-weight:normal; }
             ))}
           </ul>
         ) : sortedRefs.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </div>
-            <p className="mt-3 font-medium text-slate-800 dark:text-slate-200">
-              {filterText ? "Nothing matches your search" : "No references yet"}
-            </p>
-            <p className="mt-1">
-              {filterText
-                ? "Try a different search term, or clear it to see everything."
-                : "Paste a URL above to look one up, or open the bulk-import panel to add a list at once."}
-            </p>
-          </div>
+          filterText ? (
+            <EmptyState
+              icon="📚"
+              title="Nothing matches your search"
+              body="Try a different keyword or clear the search to see your full list."
+              variant="default"
+            />
+          ) : (
+            <EmptyState
+              icon="📚"
+              title="No references in this assignment yet"
+              body="Build your reference list by pasting a DOI, ISBN or article URL above. Or use the Source Finder to search 250 million peer-reviewed papers."
+              cta={{ label: "Open Source Finder", href: "/uni/sources" }}
+              variant="default"
+            />
+          )
         ) : (
           <ul className="space-y-3">
             <AnimatePresence initial={false}>
@@ -2628,7 +2630,7 @@ i { font-style:italic; font-weight:normal; }
                           aria-label={`Remove tag ${tag}`}
                           className="text-slate-400 hover:text-rose-500"
                         >
-                          ×
+                          Ã—
                         </button>
                       </span>
                     ))}
@@ -2667,7 +2669,7 @@ i { font-style:italic; font-weight:normal; }
                             return next;
                           });
                         }}
-                        placeholder="tag…"
+                        placeholder="tagâ€¦"
                         className="w-24 rounded-full border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                       />
                     ) : (
@@ -2718,7 +2720,7 @@ i { font-style:italic; font-weight:normal; }
                     {openNotes[r._id]
                       ? "Hide notes"
                       : (r.notes && r.notes.trim()) || (r.annotation && r.annotation.trim())
-                        ? "Notes ●"
+                        ? "Notes â—"
                         : "+ Notes"}
                   </button>
                   <button
@@ -2768,7 +2770,7 @@ i { font-style:italic; font-weight:normal; }
                   >
                     {r.annotation?.trim() || (
                       <span className="text-slate-500">
-                        (No annotation yet — open notes to add one)
+                        (No annotation yet â€” open notes to add one)
                       </span>
                     )}
                   </p>
@@ -2777,7 +2779,7 @@ i { font-style:italic; font-weight:normal; }
                 {openNotes[r._id] && (
                   <div className="mt-3 space-y-3 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-3">
                     <div>
-                      <span className={labelStyle}>Quick notes (private — not exported)</span>
+                      <span className={labelStyle}>Quick notes (private â€” not exported)</span>
                       <textarea
                         rows={3}
                         value={notesDraft[r._id] ?? r.notes ?? ""}
@@ -2788,13 +2790,13 @@ i { font-style:italic; font-weight:normal; }
                           }))
                         }
                         onBlur={() => void autoSaveNotes(r._id, r.notes, r.annotation)}
-                        placeholder="Quotes, page numbers, ideas to use…"
+                        placeholder="Quotes, page numbers, ideas to useâ€¦"
                         className={`${inputStyle} text-sm`}
                       />
                     </div>
                     <div>
                       <span className={labelStyle}>
-                        Annotation (50–150 words, exported in annotated bibliography mode)
+                        Annotation (50â€“150 words, exported in annotated bibliography mode)
                       </span>
                       <textarea
                         rows={4}
@@ -2806,14 +2808,14 @@ i { font-style:italic; font-weight:normal; }
                           }))
                         }
                         onBlur={() => void autoSaveNotes(r._id, r.notes, r.annotation)}
-                        placeholder="Brief summary + relevance to your assignment…"
+                        placeholder="Brief summary + relevance to your assignmentâ€¦"
                         className={`${inputStyle} text-sm`}
                       />
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-slate-500 dark:text-slate-400">
                         {savedFlash[r._id] ? (
-                          <span className="text-emerald-600 dark:text-emerald-400">✓ Saved</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">âœ“ Saved</span>
                         ) : (
                           "Saves automatically when you click out of the box"
                         )}
@@ -2838,7 +2840,7 @@ i { font-style:italic; font-weight:normal; }
         </div>
       </div>
 
-      {/* Floating quick-cite bar — appears in select mode with at least 1 ref. */}
+      {/* Floating quick-cite bar â€” appears in select mode with at least 1 ref. */}
       {selectMode && selectedRefIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-slate-300 bg-white px-4 py-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
           <span className="text-sm text-slate-700 dark:text-slate-200">

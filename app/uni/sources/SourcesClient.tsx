@@ -35,9 +35,9 @@ const inputStyle =
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_4px_8px_rgba(2,132,199,0.22),0_12px_24px_-6px_rgba(2,132,199,0.32)] active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)]";
 const buttonSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-50/50 hover:text-sky-700 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300";
 
 function authorLabel(a: Author): string {
   if (a.kind === "group") return a.name;
@@ -240,7 +240,7 @@ export default function SourcesClient() {
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Type a topic, author, or set of keywords into the search box.</li>
                 <li>Optionally tick &ldquo;peer-reviewed only&rdquo; or set a &ldquo;from year&rdquo; filter.</li>
-                <li>Click Search — you&rsquo;ll get up to 25 results from OpenAlex (250M+ scholarly works).</li>
+                <li>Click Search â€” you&rsquo;ll get up to 25 results from OpenAlex (250M+ scholarly works).</li>
                 <li>Click &ldquo;View&rdquo; on any result to see it on the publisher&rsquo;s page.</li>
                 <li>Click &ldquo;Add as reference&rdquo; to import it as a properly formatted APA 7 reference.</li>
               </ol>
@@ -271,7 +271,7 @@ export default function SourcesClient() {
             <option value="all">All references (no assignment filter)</option>
             {assignments?.map((a) => (
               <option key={a._id} value={a._id}>
-                {a.courseCode ? `${a.courseCode} — ${a.name}` : a.name}
+                {a.courseCode ? `${a.courseCode} â€” ${a.name}` : a.name}
               </option>
             ))}
           </select>
@@ -317,7 +317,7 @@ export default function SourcesClient() {
           {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
           <div>
             <button type="submit" disabled={searching} className={buttonPrimary}>
-              {searching ? "Searching…" : "Search"}
+              {searching ? "Searchingâ€¦" : "Search"}
             </button>
           </div>
         </form>
@@ -359,7 +359,7 @@ export default function SourcesClient() {
                 const abstract = r.abstract ?? "";
                 const truncatedAbstract =
                   abstract.length > 280
-                    ? `${abstract.slice(0, 280)}…`
+                    ? `${abstract.slice(0, 280)}â€¦`
                     : abstract;
                 return (
                   <li
@@ -374,8 +374,8 @@ export default function SourcesClient() {
                     </p>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {r.year ?? "n.d."}
-                      {r.journal ? ` · ${r.journal}` : ""}
-                      {!r.journal && r.publisher ? ` · ${r.publisher}` : ""}
+                      {r.journal ? ` Â· ${r.journal}` : ""}
+                      {!r.journal && r.publisher ? ` Â· ${r.publisher}` : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-300">
@@ -433,9 +433,9 @@ export default function SourcesClient() {
                         className={`${buttonPrimary} ml-auto`}
                       >
                         {isAdded
-                          ? "Added ✓"
+                          ? "Added âœ“"
                           : isAdding
-                            ? "Adding…"
+                            ? "Addingâ€¦"
                             : "Add to references"}
                       </button>
                     </div>

@@ -76,7 +76,7 @@ export default function DashboardCards({ cards }: { cards: Card[] }) {
       <Link
         key={c.href}
         href={href}
-        className="block rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-sky-400 hover:shadow-lg hover:shadow-sky-100 dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none dark:hover:border-sky-700 dark:hover:bg-slate-900/80 dark:hover:shadow-none"
+        className="group block rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_4px_8px_rgba(2,132,199,0.08),0_16px_40px_-12px_rgba(2,132,199,0.18)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)] dark:hover:border-sky-700 dark:hover:bg-slate-900/80 dark:hover:shadow-[0_4px_8px_rgba(56,189,248,0.06),0_16px_40px_-12px_rgba(56,189,248,0.12)]"
       >
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
           {c.title}
@@ -84,7 +84,7 @@ export default function DashboardCards({ cards }: { cards: Card[] }) {
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {c.blurb}
         </p>
-        <span className="mt-3 inline-block text-xs font-medium text-sky-600 dark:text-sky-400">
+        <span className="mt-3 inline-block text-xs font-medium text-sky-600 transition-transform group-hover:translate-x-0.5 dark:text-sky-400">
           Open →
         </span>
       </Link>

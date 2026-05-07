@@ -21,9 +21,9 @@ const labelStyle =
 const inputStyle =
   "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_4px_8px_rgba(2,132,199,0.22),0_12px_24px_-6px_rgba(2,132,199,0.32)] active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)]";
 const buttonSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-50/50 hover:text-sky-700 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300";
 
 type ScoreEntry = { score: number; feedback: string };
 
@@ -183,7 +183,7 @@ export default function CoachClient() {
 
   const draftWords = countWords(draft);
   const target = Number(wordTarget) || 0;
-  const targetTolerance = target * 0.1; // ±10% per most NZ uni style guides
+  const targetTolerance = target * 0.1; // Â±10% per most NZ uni style guides
   const wordStatus: "ok" | "under" | "over" | "none" =
     target === 0
       ? "none"
@@ -227,7 +227,7 @@ export default function CoachClient() {
     setResult(null);
     if (draftLen < MIN_DRAFT) {
       setError(
-        `Your draft is a bit short — please paste at least ${MIN_DRAFT} characters.`
+        `Your draft is a bit short â€” please paste at least ${MIN_DRAFT} characters.`
       );
       return;
     }
@@ -291,7 +291,7 @@ export default function CoachClient() {
                 <li>Paste the assignment brief in the optional brief box, OR open the Analyser to send one over.</li>
                 <li>Paste your draft into the big text area.</li>
                 <li>Pick the word-count target that matches your assignment level.</li>
-                <li>Click Get feedback — you&rsquo;ll get scored ratings on structure, argument, evidence, citation density and tone.</li>
+                <li>Click Get feedback â€” you&rsquo;ll get scored ratings on structure, argument, evidence, citation density and tone.</li>
                 <li>Specific improvements quote your own text and tell you what to change.</li>
               </ol>
             </div>
@@ -324,7 +324,7 @@ export default function CoachClient() {
               </select>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              NZ uni style guides usually allow ±10% around the target.
+              NZ uni style guides usually allow Â±10% around the target.
             </p>
           </div>
 
@@ -350,7 +350,7 @@ export default function CoachClient() {
                   <>
                     {" / "}
                     {target.toLocaleString("en-NZ")} words
-                    {wordStatus === "ok" && " ✓"}
+                    {wordStatus === "ok" && " âœ“"}
                     {wordStatus === "under" && ` (need ~${Math.max(0, Math.round(target - targetTolerance) - draftWords)} more)`}
                     {wordStatus === "over" && ` (over by ~${draftWords - Math.round(target + targetTolerance)})`}
                   </>
@@ -387,7 +387,7 @@ export default function CoachClient() {
               disabled={running || tooShort || tooLong || draftLen === 0}
               className={buttonPrimary}
             >
-              {running ? "Reviewing…" : "Get feedback"}
+              {running ? "Reviewingâ€¦" : "Get feedback"}
             </button>
             <button
               type="button"
@@ -428,7 +428,7 @@ export default function CoachClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="space-y-6"
         >
-          <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
+          <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Overall summary
             </h2>
@@ -462,7 +462,7 @@ export default function CoachClient() {
           )}
 
           {result.specificImprovements.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
+            <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Specific improvements
               </h2>
@@ -494,7 +494,7 @@ export default function CoachClient() {
           )}
 
           {result.nzEnglishFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
+            <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 NZ English flags
               </h2>
@@ -512,7 +512,7 @@ export default function CoachClient() {
           )}
 
           {result.oxfordCommaFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
+            <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Oxford comma flags
               </h2>

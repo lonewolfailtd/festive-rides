@@ -15,11 +15,11 @@ const labelStyle =
 const inputStyle =
   "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_4px_8px_rgba(2,132,199,0.22),0_12px_24px_-6px_rgba(2,132,199,0.32)] active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)]";
 const buttonSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-50/50 hover:text-sky-700 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300";
 const sectionCard =
-  "rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none";
+  "rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]";
 
 const MIN_PASSWORD_LEN = 8;
 
@@ -92,7 +92,7 @@ export default function SettingsClient() {
     try {
       await changePassword({ currentPassword, newPassword });
       toast.success(
-        "Password reset. You'll be signed out — sign in again with your new password."
+        "Password reset. You'll be signed out â€” sign in again with your new password."
       );
       setCurrentPassword("");
       setNewPassword("");
@@ -131,7 +131,7 @@ export default function SettingsClient() {
 
   const handleExport = () => {
     if (!exportData) {
-      toast.error("Export is still loading — please try again in a moment.");
+      toast.error("Export is still loading â€” please try again in a moment.");
       return;
     }
     setExporting(true);
@@ -158,7 +158,7 @@ export default function SettingsClient() {
 
   const handleDeleteAccount = async () => {
     if (!me?.email) {
-      toast.error("Couldn't read your account email — try refreshing.");
+      toast.error("Couldn't read your account email â€” try refreshing.");
       return;
     }
     setDeletingAccount(true);
@@ -207,11 +207,11 @@ export default function SettingsClient() {
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Signed in as{" "}
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {me?.email ?? "…"}
+              {me?.email ?? "â€¦"}
             </span>
           </p>
 
-          {/* Display name — used to greet you on the dashboard. */}
+          {/* Display name â€” used to greet you on the dashboard. */}
           <div className="mt-4">
             <span className={labelStyle}>Display name</span>
             {editingName === null ? (
@@ -219,7 +219,7 @@ export default function SettingsClient() {
                 <span className="text-sm text-slate-900 dark:text-slate-100">
                   {me?.displayName ?? (
                     <em className="text-slate-500 dark:text-slate-400">
-                      Not set — pick something on the dashboard or here.
+                      Not set â€” pick something on the dashboard or here.
                     </em>
                   )}
                 </span>
@@ -252,7 +252,7 @@ export default function SettingsClient() {
                   disabled={savingName}
                   className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-60"
                 >
-                  {savingName ? "Saving…" : "Save"}
+                  {savingName ? "Savingâ€¦" : "Save"}
                 </button>
                 <button
                   type="button"
@@ -273,7 +273,7 @@ export default function SettingsClient() {
               Change password
             </h2>
             <p className="-mt-2 text-xs text-slate-500 dark:text-slate-400">
-              For safety this will sign you out — sign back in with your new
+              For safety this will sign you out â€” sign back in with your new
               password.
             </p>
 
@@ -326,12 +326,12 @@ export default function SettingsClient() {
               disabled={changingPassword}
               className={buttonPrimary}
             >
-              {changingPassword ? "Updating…" : "Change password"}
+              {changingPassword ? "Updatingâ€¦" : "Change password"}
             </button>
           </form>
         </section>
 
-        {/* AI usage — daily call count + monthly spend, with progress bars */}
+        {/* AI usage â€” daily call count + monthly spend, with progress bars */}
         {usage && (
           <section className={sectionCard}>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
@@ -385,7 +385,7 @@ export default function SettingsClient() {
                               <li key={row.action} className="flex items-baseline justify-between gap-3 font-mono">
                                 <span>{row.action}</span>
                                 <span>
-                                  {row.calls} calls · ~${(row.microcents / 1_000_000).toFixed(4)}
+                                  {row.calls} calls Â· ~${(row.microcents / 1_000_000).toFixed(4)}
                                 </span>
                               </li>
                             ))}
@@ -399,7 +399,7 @@ export default function SettingsClient() {
           </section>
         )}
 
-        {/* Appearance / theme picker — show all 5 palettes with names + blurbs */}
+        {/* Appearance / theme picker â€” show all 5 palettes with names + blurbs */}
         <ThemeSection />
 
         <section className={sectionCard}>
@@ -415,7 +415,7 @@ export default function SettingsClient() {
               href="/uni/calendar"
               className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
             >
-              Manage on the calendar page →
+              Manage on the calendar page â†’
             </Link>
           </div>
         </section>
@@ -427,14 +427,14 @@ export default function SettingsClient() {
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Download a complete JSON dump of every assignment, course,
             reference, analysis and your calendar token. Keep the file
-            private — it contains everything you've stored in the tool.
+            private â€” it contains everything you've stored in the tool.
           </p>
 
           {exportCounts && (
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-              Currently: {exportCounts.assignments} assignments ·{" "}
-              {exportCounts.courses} courses · {exportCounts.references}{" "}
-              references · {exportCounts.analyses} analyses
+              Currently: {exportCounts.assignments} assignments Â·{" "}
+              {exportCounts.courses} courses Â· {exportCounts.references}{" "}
+              references Â· {exportCounts.analyses} analyses
             </p>
           )}
 
@@ -446,10 +446,10 @@ export default function SettingsClient() {
               className={buttonPrimary}
             >
               {exporting
-                ? "Building file…"
+                ? "Building fileâ€¦"
                 : exportData
                   ? "Export my data"
-                  : "Loading…"}
+                  : "Loadingâ€¦"}
             </button>
           </div>
         </section>
@@ -465,7 +465,7 @@ export default function SettingsClient() {
               disabled={signingOutAll}
               className="rounded-md border border-rose-400 bg-white px-2 py-1 text-xs text-rose-800 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-200 dark:hover:bg-rose-900/30"
             >
-              {signingOutAll ? "Signing out…" : "Sign out everywhere"}
+              {signingOutAll ? "Signing outâ€¦" : "Sign out everywhere"}
             </button>
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Wipes every active session including this one.
@@ -492,7 +492,7 @@ export default function SettingsClient() {
                   Are you sure?
                 </h3>
                 <p className="text-xs text-slate-700 dark:text-slate-300">
-                  This will permanently delete your login and all of your data — assignments, courses, references, analyses, calendar tokens and AI usage history. There is no recovery.
+                  This will permanently delete your login and all of your data â€” assignments, courses, references, analyses, calendar tokens and AI usage history. There is no recovery.
                 </p>
                 <div>
                   <span className={labelStyle}>Your email</span>
@@ -523,7 +523,7 @@ export default function SettingsClient() {
                     className="inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-rose-500 to-rose-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-px hover:from-rose-400 hover:to-rose-500 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                   >
                     {deletingAccount
-                      ? "Deleting…"
+                      ? "Deletingâ€¦"
                       : "Permanently delete my account"}
                   </button>
                   <button
@@ -548,8 +548,8 @@ export default function SettingsClient() {
             About
           </h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Uni Citation Tool · powered by DeepSeek V4 via OpenRouter · NZ
-            English · APA 7
+            Uni Citation Tool Â· powered by DeepSeek V4 via OpenRouter Â· NZ
+            English Â· APA 7
           </p>
         </section>
       </div>
@@ -557,7 +557,7 @@ export default function SettingsClient() {
   );
 }
 
-// Rich theme picker on Settings — shows all five palettes with names,
+// Rich theme picker on Settings â€” shows all five palettes with names,
 // blurbs and a generous swatch row preview. The compact dot picker on
 // the dashboard is for quick switching once a student knows what they
 // like; this one is for the first choice.
@@ -565,13 +565,13 @@ function ThemeSection() {
   const { palette, setPalette } = useTheme();
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none"
+      className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]"
     >
       <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
         Appearance
       </h2>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-        Pick a colour palette. The whole app — buttons, links, focus rings, progress bars, the active-assignment highlights — switches instantly. Your choice persists across devices in your browser.
+        Pick a colour palette. The whole app â€” buttons, links, focus rings, progress bars, the active-assignment highlights â€” switches instantly. Your choice persists across devices in your browser.
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -595,14 +595,14 @@ function ThemeSection() {
                 </span>
                 {selected && (
                   <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    ✓ Active
+                    âœ“ Active
                   </span>
                 )}
               </div>
               <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                 {p.blurb}
               </p>
-              {/* Swatch preview — five tints of the palette */}
+              {/* Swatch preview â€” five tints of the palette */}
               <div className="mt-3 flex h-6 overflow-hidden rounded-full">
                 {[0.4, 0.6, 1.0, 0.8, 0.55].map((opacity, i) => (
                   <span

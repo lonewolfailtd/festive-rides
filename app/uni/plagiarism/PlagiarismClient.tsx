@@ -31,11 +31,11 @@ const labelStyle =
 const inputStyle =
   "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:border-sky-500 focus:outline-none focus:ring-4 focus:ring-sky-500/15 focus:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none dark:focus:shadow-none";
 const buttonPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-900/20 transition-all hover:-translate-y-px hover:from-sky-400 hover:to-sky-500 hover:shadow-md hover:shadow-sky-900/30 active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-sky-500 to-sky-600 px-4 py-2 text-sm font-medium text-white shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-sky-400 hover:to-sky-500 hover:shadow-[0_4px_8px_rgba(2,132,199,0.22),0_12px_24px_-6px_rgba(2,132,199,0.32)] active:translate-y-0 active:from-sky-600 active:to-sky-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_2px_4px_rgba(2,132,199,0.18),0_8px_16px_-4px_rgba(2,132,199,0.25)]";
 const buttonSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 transition-all hover:-translate-y-px hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-50/50 hover:text-sky-700 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300";
 const sectionCard =
-  "rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none";
+  "rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]";
 
 const CATEGORY_LABEL: Record<FlaggedPhrase["category"], string> = {
   templated: "Templated phrasing",
@@ -150,12 +150,12 @@ export default function PlagiarismClient() {
               <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Paste your draft (at least 200 characters).</li>
-                <li>Click <em>Run self-check</em> — get an overall risk level and a list of flagged phrases.</li>
+                <li>Click <em>Run self-check</em> â€” get an overall risk level and a list of flagged phrases.</li>
                 <li>For each flag, click <em>Search Google</em> to see if the phrase appears verbatim online.</li>
                 <li>If it does, rewrite in your own words or add a proper citation before submission.</li>
               </ol>
               <p className="mt-2 text-xs text-sky-900/80 dark:text-sky-300/80">
-                ⚠ This is a self-check, not a real plagiarism checker. It can&apos;t query Turnitin&apos;s database — it flags phrasing that LOOKS plagiarised so you can verify manually.
+                âš  This is a self-check, not a real plagiarism checker. It can&apos;t query Turnitin&apos;s database â€” it flags phrasing that LOOKS plagiarised so you can verify manually.
               </p>
             </div>
             <button
@@ -195,7 +195,7 @@ export default function PlagiarismClient() {
 
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" disabled={running} className={buttonPrimary}>
-              {running ? "Scanning…" : "Run self-check"}
+              {running ? "Scanningâ€¦" : "Run self-check"}
             </button>
             <button
               type="button"
@@ -209,7 +209,7 @@ export default function PlagiarismClient() {
               Clear
             </button>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              Powered by DeepSeek V4 Flash — your text is sent to OpenRouter and discarded.
+              Powered by DeepSeek V4 Flash â€” your text is sent to OpenRouter and discarded.
             </span>
           </div>
         </form>
@@ -224,7 +224,7 @@ export default function PlagiarismClient() {
         >
           <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-200">
             <p>
-              <strong>Honest disclaimer:</strong> This isn&apos;t a real plagiarism checker — it can&apos;t query Turnitin&apos;s database. It flags phrasing that LOOKS plagiarised so you can manually verify with Google.
+              <strong>Honest disclaimer:</strong> This isn&apos;t a real plagiarism checker â€” it can&apos;t query Turnitin&apos;s database. It flags phrasing that LOOKS plagiarised so you can manually verify with Google.
             </p>
           </div>
 
@@ -245,7 +245,7 @@ export default function PlagiarismClient() {
           {result.phrases.length === 0 ? (
             <section className={sectionCard}>
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                Nothing distinctive enough to flag. That&apos;s a good sign — but still spot-check anything you remember pulling from a source.
+                Nothing distinctive enough to flag. That&apos;s a good sign â€” but still spot-check anything you remember pulling from a source.
               </p>
             </section>
           ) : (
@@ -262,7 +262,7 @@ export default function PlagiarismClient() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                        #{i + 1} · {CATEGORY_LABEL[p.category] ?? "Other"}
+                        #{i + 1} Â· {CATEGORY_LABEL[p.category] ?? "Other"}
                       </span>
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.pill}`}>
                         {RISK_LABEL[p.risk]}

@@ -97,11 +97,20 @@ export default function UniLoginPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      {/* Decorative gradient orbs that subtly tint the login viewport. Pure CSS, no images. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -top-32 -left-32 -z-10 h-96 w-96 rounded-full bg-gradient-to-br from-sky-200/40 via-sky-100/20 to-transparent blur-3xl dark:from-sky-900/30 dark:via-sky-950/15"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -bottom-32 -right-32 -z-10 h-96 w-96 rounded-full bg-gradient-to-tl from-sky-200/30 via-sky-100/15 to-transparent blur-3xl dark:from-sky-900/25 dark:via-sky-950/10"
+      />
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-8 shadow-xl dark:border-slate-800 dark:from-slate-950 dark:to-slate-950">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-display font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           Uni Citation Tool
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{headingCopy}</p>

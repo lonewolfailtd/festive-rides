@@ -1,6 +1,6 @@
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Fraunces } from "next/font/google";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
 import PomodoroTimer from "./PomodoroTimer";
@@ -11,6 +11,15 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+});
+
+// Fraunces is the display serif for h1 page titles — warm, classy, pairs
+// with the Rose Quartz theme. Scoped to /uni only.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+  axes: ["opsz"],
 });
 
 export const metadata: Metadata = {
@@ -34,7 +43,7 @@ export default function UniLayout({ children }: { children: React.ReactNode }) {
       <ConvexClientProvider>
         <ThemeProvider>
           <div
-            className={`${inter.className} ${inter.variable} relative min-h-screen overflow-hidden bg-gradient-to-b from-white via-slate-50 to-slate-100 text-slate-900 antialiased transition-colors dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:text-slate-100`}
+            className={`${inter.className} ${inter.variable} ${fraunces.variable} relative min-h-screen overflow-hidden bg-gradient-to-b from-white via-slate-50 to-slate-100 text-slate-900 antialiased transition-colors dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:text-slate-100`}
           >
             {/* Subtle decorative aura — light only, soft sky/indigo glows. */}
             <div

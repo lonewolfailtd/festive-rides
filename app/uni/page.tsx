@@ -61,11 +61,20 @@ const cards = [
 export default function UniHomePage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
+      {/* Decorative gradient orb that subtly tints the top-left of the dashboard. Pure CSS, no images. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -top-32 -left-32 -z-10 h-96 w-96 rounded-full bg-gradient-to-br from-sky-200/40 via-sky-100/20 to-transparent blur-3xl dark:from-sky-900/30 dark:via-sky-950/15"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -bottom-32 -right-32 -z-10 h-96 w-96 rounded-full bg-gradient-to-tl from-sky-200/30 via-sky-100/15 to-transparent blur-3xl dark:from-sky-900/25 dark:via-sky-950/10"
+      />
       {/* Compact header — one row, top toolbar pulled into the same line so
           the workspace bar sits in the first viewport on mobile too. */}
       <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-display font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             Uni Citation Tool
             <span className="ml-2 text-xs font-normal text-sky-600 dark:text-sky-400">
               · Open Polytechnic NZ · APA 7
