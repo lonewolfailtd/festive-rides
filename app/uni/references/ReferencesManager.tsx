@@ -672,15 +672,26 @@ ${items}
   };
 
   const buildBulkHtml = (): string => {
-    // Explicit normal weight on each <p> so Word doesn't inherit bold from
-    // the destination cursor's paragraph style.
+    // Office-HTML format matching the .docx download. The MsoNormal class +
+    // mso-style-name='Normal' tells Word "use the Normal paragraph style"
+    // instead of inheriting whatever style the destination cursor sits in,
+    // which is what was making everything come through as bold.
     const items = sortedRefs
       .map(
         (r) =>
-          `<p style="margin:0 0 0.5em 0;text-indent:-2em;padding-left:2em;line-height:2;font-family:'Times New Roman',serif;font-size:12pt;font-weight:normal;font-style:normal;color:#000;">${r.formatted ?? ""}</p>`
+          `<p class=MsoNormal style='mso-style-name:"Normal";margin:0 0 6.0pt 0;text-indent:-36.0pt;margin-left:36.0pt;line-height:200%;font-family:"Times New Roman",serif;font-size:12.0pt;font-weight:normal;font-style:normal;color:black;'><span style='font-weight:normal;font-style:normal;'>${r.formatted ?? ""}</span></p>`
       )
       .join("");
-    return `<div style="font-weight:normal;font-style:normal;">${items}</div>`;
+    return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style>
+p.MsoNormal { mso-style-name:"Normal"; font-weight:normal; font-style:normal; }
+i { font-style:italic; font-weight:normal; }
+</style>
+</head>
+<body>${items}</body>
+</html>`;
   };
 
   const buildBulkPlain = (): string => {
