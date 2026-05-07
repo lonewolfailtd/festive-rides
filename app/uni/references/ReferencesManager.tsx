@@ -626,28 +626,46 @@ export default function ReferencesManager() {
 
   const downloadDocx = () => {
     if (sortedRefs.length === 0) return;
+    // APA 7 (Open Polytech 2024): double line spacing within AND between
+    // entries; 0.5 inch (36pt / 1.27 cm) hanging indent on second+ lines;
+    // 12pt Times New Roman.
+    const paragraphStyle =
+      "margin:0;mso-line-spacing:'Multiple 2';line-height:200%;mso-line-height-rule:exactly;mso-pagination:widow-orphan;text-indent:-36.0pt;margin-left:36.0pt;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;";
     const items = sortedRefs
       .map(
         (r) =>
-          `<p class=MsoNormal style='margin-bottom:.0001pt;text-indent:-36.0pt;margin-left:36.0pt;line-height:200%;font-family:"Times New Roman",serif;font-size:12.0pt;'>${r.formatted ?? ""}</p>`,
+          `<p class=MsoNormal style='${paragraphStyle}'>${r.formatted ?? ""}</p>`,
       )
       .join("");
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8">
 <title>References</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotPromoteQF/></w:WordDocument></xml><![endif]-->
 <style>
-@page { margin: 2.54cm; }
+@page WordSection1 { size:21.0cm 29.7cm; margin:2.54cm 2.54cm 2.54cm 2.54cm; mso-paper-source:0; }
+div.WordSection1 { page:WordSection1; }
 body { font-family: "Times New Roman", serif; font-size: 12pt; }
-h1 { font-family: "Times New Roman", serif; font-size: 12pt; font-weight: bold; text-align: center; }
-p { margin: 0; }
+h1 { font-family: "Times New Roman", serif; font-size: 12pt; font-weight: bold; text-align: center; line-height: 200%; margin: 0 0 12pt 0; }
+p.MsoNormal {
+  mso-style-name:"Normal";
+  margin: 0;
+  margin-left: 36.0pt;
+  text-indent: -36.0pt;
+  line-height: 200%;
+  mso-line-height-rule: exactly;
+  font-family: "Times New Roman", serif;
+  font-size: 12.0pt;
+  font-weight: normal;
+  font-style: normal;
+}
+i { font-style: italic; font-weight: normal; }
 </style>
 </head>
-<body>
+<body><div class=WordSection1>
 <h1>References</h1>
 ${items}
-</body>
+</div></body>
 </html>`;
     const blob = new Blob(["﻿", html], {
       type: "application/msword",
@@ -672,21 +690,32 @@ ${items}
   };
 
   const buildBulkHtml = (): string => {
-    // Office-HTML format matching the .docx download. The MsoNormal class +
-    // mso-style-name='Normal' tells Word "use the Normal paragraph style"
-    // instead of inheriting whatever style the destination cursor sits in,
-    // which is what was making everything come through as bold.
+    // APA 7: double line spacing within AND between entries; 0.5 inch
+    // (36pt / 1.27 cm) hanging indent on second+ lines; 12pt Times New Roman.
+    const paragraphStyle =
+      "mso-style-name:\"Normal\";margin:0;margin-left:36.0pt;text-indent:-36.0pt;line-height:200%;mso-line-height-rule:exactly;mso-pagination:widow-orphan;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;color:black;";
     const items = sortedRefs
       .map(
         (r) =>
-          `<p class=MsoNormal style='mso-style-name:"Normal";margin:0 0 6.0pt 0;text-indent:-36.0pt;margin-left:36.0pt;line-height:200%;font-family:"Times New Roman",serif;font-size:12.0pt;font-weight:normal;font-style:normal;color:black;'><span style='font-weight:normal;font-style:normal;'>${r.formatted ?? ""}</span></p>`
+          `<p class=MsoNormal style='${paragraphStyle}'><span style='font-weight:normal;font-style:normal;'>${r.formatted ?? ""}</span></p>`
       )
       .join("");
     return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <style>
-p.MsoNormal { mso-style-name:"Normal"; font-weight:normal; font-style:normal; }
+p.MsoNormal {
+  mso-style-name:"Normal";
+  margin:0;
+  margin-left:36.0pt;
+  text-indent:-36.0pt;
+  line-height:200%;
+  mso-line-height-rule:exactly;
+  font-family:"Times New Roman", serif;
+  font-size:12.0pt;
+  font-weight:normal;
+  font-style:normal;
+}
 i { font-style:italic; font-weight:normal; }
 </style>
 </head>
@@ -1321,9 +1350,9 @@ i { font-style:italic; font-weight:normal; }
                 <p
                   className="text-sm text-slate-100"
                   style={{
-                    textIndent: "-2em",
-                    paddingLeft: "2em",
-                    lineHeight: 1.8,
+                    textIndent: "-1.27cm",
+                    marginLeft: "1.27cm",
+                    lineHeight: 2,
                   }}
                   dangerouslySetInnerHTML={{ __html: r.formatted ?? "" }}
                 />
