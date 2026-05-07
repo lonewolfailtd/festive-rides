@@ -52,6 +52,12 @@ const cards = [
     blurb:
       "Paste a chunk of references in any format and we'll parse each one to APA 7, then bulk-import them to your references list. Saves an hour of typing if you're moving from Word.",
   },
+  {
+    href: "/uni/calendar",
+    title: "Calendar",
+    blurb:
+      "Month view of every assignment due date overlaid with NZ public holidays and regional anniversaries. Drag an assignment to reschedule it.",
+  },
 ];
 
 export default function UniHomePage() {
