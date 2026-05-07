@@ -60,14 +60,22 @@ const formatMs = (ms: number): string => {
 export default function PomodoroTimer() {
   const [state, setState] = useState<SavedState>(defaultState);
   const tickRef = useRef<number | null>(null);
+  // Hydration guard. Without this, the persist effect fires on first render
+  // with the placeholder defaultState, OVERWRITING the real saved state in
+  // localStorage before the load effect can read it. This was the bug that
+  // made the timer reset every time you switched tabs.
+  const hydrated = useRef(false);
 
   // Hydrate from localStorage after mount (avoids SSR mismatch)
   useEffect(() => {
     setState(loadState());
+    hydrated.current = true;
   }, []);
 
-  // Persist on every state change
+  // Persist on every state change — but ONLY after hydration, so we never
+  // clobber saved state with the placeholder defaultState.
   useEffect(() => {
+    if (!hydrated.current) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {}

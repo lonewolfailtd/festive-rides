@@ -1,7 +1,8 @@
-import Link from "next/link";
 import SignOutButton from "./SignOutButton";
 import { ThemeToggle } from "./ThemeProvider";
 import PomodoroTimer from "./PomodoroTimer";
+import WorkspaceBar from "./WorkspaceBar";
+import DashboardCards from "./DashboardCards";
 
 const cards = [
   {
@@ -71,23 +72,15 @@ export default function UniHomePage() {
         </p>
       </header>
 
+      <section className="mb-6">
+        <WorkspaceBar />
+      </section>
+
       <section className="mb-8">
         <PomodoroTimer />
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        {cards.map((c) => (
-          <Link
-            key={c.href}
-            href={c.href}
-            className="block rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-sky-400 hover:shadow-lg hover:shadow-sky-100 dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none dark:hover:border-sky-700 dark:hover:bg-slate-900/80 dark:hover:shadow-none"
-          >
-            <h2 className="text-lg font-semibold">{c.title}</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{c.blurb}</p>
-            <span className="mt-3 inline-block text-sm text-sky-400">Open →</span>
-          </Link>
-        ))}
-      </section>
+      <DashboardCards cards={cards} />
     </main>
   );
 }
