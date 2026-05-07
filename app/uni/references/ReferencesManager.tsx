@@ -880,6 +880,49 @@ export default function ReferencesManager() {
     }
   };
 
+  // Add a single candidate immediately (used by the "Add now" button on
+  // each candidate card — bypasses the batch select-and-import flow).
+  const handleAddSingleCandidate = async (
+    cand: RevRow["candidates"][number]
+  ) => {
+    try {
+      const isJournal =
+        cand.type === "journal-article" || cand.type === "article" || !!cand.journal;
+      const sourceType: SourceType = isJournal ? "journalArticle" : "website";
+      const fields: Record<string, unknown> = {
+        authors: cand.authorsRaw,
+        year: cand.year,
+        title: cand.title,
+        journal: cand.journal ?? "",
+        doi: cand.doi ?? "",
+        url: cand.url ?? "",
+        siteName: cand.publisher,
+      };
+      const built = buildSourceFields(
+        sourceType,
+        applyFieldsToForm(emptyForm(), fields)
+      );
+      if (!built) {
+        toast.error("Couldn't build that reference");
+        return;
+      }
+      const formatted = formatReference(built);
+      await createRef({
+        assignmentId:
+          selectedAssignment === "all" ? undefined : selectedAssignment,
+        sourceType: built.sourceType,
+        fields: built.fields,
+        formatted: formatted.formattedHtml,
+        inTextShort: formatted.inTextShort,
+        inTextNarrative: formatted.inTextNarrative,
+        sortKey: formatted.sortKey,
+      });
+      toast.success(`Added "${cand.title.slice(0, 50)}${cand.title.length > 50 ? "…" : ""}"`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't add reference");
+    }
+  };
+
   const handleImportReverseSelections = async () => {
     if (!reverseRows) return;
     const picks = Object.entries(revSelections);
@@ -1584,44 +1627,87 @@ i { font-style:italic; font-weight:normal; }
                             .map((a) => a.surname)
                             .join(", ");
                           const more = c.authorsRaw.length > 3 ? " et al." : "";
+                          const viewUrl = c.doi
+                            ? `https://doi.org/${c.doi}`
+                            : c.url;
                           return (
-                            <li key={ci}>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setRevSelections((s) =>
-                                    s[rowIdx] === ci
-                                      ? Object.fromEntries(
-                                          Object.entries(s).filter(([k]) => k !== String(rowIdx))
-                                        )
-                                      : { ...s, [rowIdx]: ci }
-                                  )
-                                }
-                                className={`block w-full rounded-lg border p-2 text-left text-xs transition-colors ${
-                                  picked
-                                    ? "border-sky-500 bg-sky-50 dark:border-sky-500 dark:bg-sky-900/30"
-                                    : "border-slate-200 bg-white hover:border-sky-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-700"
-                                }`}
-                              >
-                                <p className="font-medium text-slate-900 dark:text-slate-100">
-                                  {c.title}
-                                </p>
-                                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                                  {authorList}{more}
-                                  {c.year ? ` · ${c.year}` : ""}
-                                  {c.journal ? ` · ${c.journal}` : ""}
-                                  {c.citedByCount && c.citedByCount > 0
-                                    ? ` · cited ${c.citedByCount}×`
-                                    : ""}
-                                </p>
-                                {c.abstract && (
-                                  <p className="mt-1 line-clamp-2 text-slate-500 dark:text-slate-400">
-                                    {c.abstract}
+                              <li key={ci}>
+                                <div
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() =>
+                                    setRevSelections((s) =>
+                                      s[rowIdx] === ci
+                                        ? Object.fromEntries(
+                                            Object.entries(s).filter(([k]) => k !== String(rowIdx))
+                                          )
+                                        : { ...s, [rowIdx]: ci }
+                                    )
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      setRevSelections((s) =>
+                                        s[rowIdx] === ci
+                                          ? Object.fromEntries(
+                                              Object.entries(s).filter(([k]) => k !== String(rowIdx))
+                                            )
+                                          : { ...s, [rowIdx]: ci }
+                                      );
+                                    }
+                                  }}
+                                  className={`group block w-full cursor-pointer rounded-lg border p-2 text-left text-xs transition-colors ${
+                                    picked
+                                      ? "border-sky-500 bg-sky-50 dark:border-sky-500 dark:bg-sky-900/30"
+                                      : "border-slate-200 bg-white hover:border-sky-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-700"
+                                  }`}
+                                >
+                                  <p className="font-medium text-slate-900 dark:text-slate-100">
+                                    {c.title}
                                   </p>
-                                )}
-                              </button>
-                            </li>
-                          );
+                                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                                    {authorList}{more}
+                                    {c.year ? ` · ${c.year}` : ""}
+                                    {c.journal ? ` · ${c.journal}` : ""}
+                                    {c.citedByCount && c.citedByCount > 0
+                                      ? ` · cited ${c.citedByCount}×`
+                                      : ""}
+                                  </p>
+                                  {c.abstract && (
+                                    <p className="mt-1 line-clamp-2 text-slate-500 dark:text-slate-400">
+                                      {c.abstract}
+                                    </p>
+                                  )}
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    {viewUrl && (
+                                      <a
+                                        href={viewUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                                      >
+                                        <span>↗</span>
+                                        <span>View</span>
+                                      </a>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleAddSingleCandidate(c);
+                                      }}
+                                      className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-sky-500 active:bg-sky-700"
+                                    >
+                                      + Add now
+                                    </button>
+                                    <span className="ml-auto text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                      {picked ? "Picked for batch" : "Click row to pick"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </li>
+                            );
                         })}
                       </ul>
                     )}
