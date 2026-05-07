@@ -25,7 +25,12 @@ type SavedState = {
   focusMins: number;
   breakMins: number;
   notificationsEnabled: boolean;
+  // 0–1 multiplier on the chime peak gain. 0 mutes the chime entirely.
+  // Default 0.5 → peak ~0.22 (matches the previous hardcoded default).
+  volume: number;
 };
+
+const DEFAULT_VOLUME = 0.5;
 
 const defaultState = (): SavedState => ({
   phase: "focus",
@@ -35,6 +40,7 @@ const defaultState = (): SavedState => ({
   focusMins: FOCUS_MINUTES_DEFAULT,
   breakMins: BREAK_MINUTES_DEFAULT,
   notificationsEnabled: false,
+  volume: DEFAULT_VOLUME,
 });
 
 // Play a 3-note arpeggio rather than a single beep. Sounds more like "time
@@ -44,7 +50,9 @@ const defaultState = (): SavedState => ({
 // Note: each oscillator gets its own AudioContext rather than sharing — on
 // mobile Safari, AudioContexts can fall asleep between phases and the new
 // session needs a fresh context to play.
-function playChime(forPhase: Phase) {
+function playChime(forPhase: Phase, volume = DEFAULT_VOLUME) {
+  // 0 = muted; skip the audio context entirely
+  if (volume <= 0) return;
   try {
     const AudioCtx =
       window.AudioContext ||
@@ -52,15 +60,16 @@ function playChime(forPhase: Phase) {
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
 
-    // C-major triad ascending for break (gentle "rest"), G-major for focus
-    // (firmer "go"). Frequencies in Hz.
     const notes =
       forPhase === "break"
         ? [523.25, 659.25, 783.99] // C5 E5 G5
         : [392.0, 523.25, 659.25]; // G4 C5 E5
 
-    const noteDuration = 0.45; // seconds
-    const noteOverlap = 0.18; // each note starts before the previous ends
+    const noteDuration = 0.45;
+    const noteOverlap = 0.18;
+    // Volume curve: slider 0–1 → gain peak 0–0.6. Above ~0.6 the sine starts
+    // to clip noticeably on most laptop speakers, so we cap the slope.
+    const peakGain = Math.max(0.0001, Math.min(0.6, volume * 0.6));
 
     notes.forEach((freq, i) => {
       const startAt = ctx.currentTime + i * (noteDuration - noteOverlap);
@@ -70,16 +79,13 @@ function playChime(forPhase: Phase) {
       osc.frequency.value = freq;
       osc.connect(gain);
       gain.connect(ctx.destination);
-      // Soft attack/release envelope. exponentialRamp can't go to 0 so we
-      // ramp to a tiny value before stopping.
       gain.gain.setValueAtTime(0.0001, startAt);
-      gain.gain.exponentialRampToValueAtTime(0.22, startAt + 0.04);
+      gain.gain.exponentialRampToValueAtTime(peakGain, startAt + 0.04);
       gain.gain.exponentialRampToValueAtTime(0.0001, startAt + noteDuration);
       osc.start(startAt);
       osc.stop(startAt + noteDuration + 0.05);
     });
 
-    // Close the context after all notes finish so we don't leak resources.
     setTimeout(() => {
       ctx.close().catch(() => {});
     }, (notes.length * (noteDuration - noteOverlap) + noteDuration + 0.2) * 1000);
@@ -215,8 +221,8 @@ export default function PomodoroTimer() {
               : prev.breakMins * 60_000;
           const newCompleted =
             prev.phase === "focus" ? prev.completedFocus + 1 : prev.completedFocus;
-          // 3-note arpeggio
-          playChime(nextPhase);
+          // 3-note arpeggio at the user's chosen volume
+          playChime(nextPhase, prev.volume);
           // OS-level notification (require interaction so it doesn't auto-dismiss)
           if (prev.notificationsEnabled) {
             fireNotification(nextPhase, newCompleted);
@@ -430,6 +436,7 @@ export default function PomodoroTimer() {
         <button
           type="button"
           onClick={async () => {
+            /* notifications toggle */
             // If turning OFF, just toggle.
             if (state.notificationsEnabled) {
               setState((p) => ({ ...p, notificationsEnabled: false }));
@@ -474,6 +481,41 @@ export default function PomodoroTimer() {
           }`}
         >
           {state.notificationsEnabled ? "🔔 On" : "🔕 Off"}
+        </button>
+      </div>
+
+      {/* Volume slider + test chime */}
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() =>
+            setState((p) => ({ ...p, volume: p.volume > 0 ? 0 : DEFAULT_VOLUME }))
+          }
+          aria-label={state.volume > 0 ? "Mute chime" : "Unmute chime"}
+          className="shrink-0 rounded-md p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+          title={state.volume > 0 ? "Mute" : "Unmute"}
+        >
+          {state.volume <= 0 ? "🔇" : state.volume < 0.4 ? "🔈" : state.volume < 0.7 ? "🔉" : "🔊"}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={state.volume}
+          onChange={(e) =>
+            setState((p) => ({ ...p, volume: Number(e.target.value) }))
+          }
+          aria-label="Chime volume"
+          className="flex-1 accent-sky-500"
+        />
+        <button
+          type="button"
+          onClick={() => playChime(state.phase === "focus" ? "break" : "focus", state.volume)}
+          title="Play test chime at current volume"
+          className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
+        >
+          Test
         </button>
       </div>
 
