@@ -767,18 +767,30 @@ export default function ReferencesManager() {
     }
   };
 
-  const saveNotes = async (id: Id<"references">, currentAnnotation?: string) => {
+  // Auto-save state per reference (small green indicator after blur).
+  const [savedFlash, setSavedFlash] = useState<Record<string, boolean>>({});
+
+  const autoSaveNotes = async (
+    id: Id<"references">,
+    currentNotes?: string,
+    currentAnnotation?: string
+  ) => {
+    const nextNotes = notesDraft[id] ?? currentNotes ?? "";
+    const nextAnnotation =
+      annotationDraft[id] !== undefined
+        ? annotationDraft[id]
+        : currentAnnotation ?? "";
+    // Skip the call if nothing changed.
+    if (nextNotes === (currentNotes ?? "") && nextAnnotation === (currentAnnotation ?? "")) {
+      return;
+    }
     try {
-      await updateRef({
-        id,
-        notes: notesDraft[id] ?? "",
-        annotation:
-          annotationDraft[id] !== undefined
-            ? annotationDraft[id]
-            : currentAnnotation,
-      });
-      toast.success("Notes saved");
-      setOpenNotes((s) => ({ ...s, [id]: false }));
+      await updateRef({ id, notes: nextNotes, annotation: nextAnnotation });
+      setSavedFlash((s) => ({ ...s, [id]: true }));
+      setTimeout(
+        () => setSavedFlash((s) => ({ ...s, [id]: false })),
+        1500
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save notes");
     }
@@ -1190,40 +1202,40 @@ i { font-style:italic; font-weight:normal; }
           {editingId ? "Edit reference" : "Add a reference"}
         </h2>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {(["doi", "isbn", "issn", "url"] as const).map((kind) => {
-            const label =
-              kind === "doi"
-                ? "Look up by DOI"
-                : kind === "isbn"
-                  ? "Look up by ISBN"
-                  : kind === "issn"
-                    ? "Look up by ISSN"
-                    : "Look up by URL";
-            const placeholder =
-              kind === "doi"
-                ? "10.1000/xyz123"
-                : kind === "isbn"
-                  ? "9780000000000"
-                  : kind === "issn"
-                    ? "0028-0836"
-                    : "https://…";
-            const value =
-              kind === "doi"
-                ? doiInput
-                : kind === "isbn"
-                  ? isbnInput
-                  : kind === "issn"
-                    ? issnInput
-                    : urlInput;
-            const setValue =
-              kind === "doi"
-                ? setDoiInput
-                : kind === "isbn"
-                  ? setIsbnInput
-                  : kind === "issn"
-                    ? setIssnInput
-                    : setUrlInput;
+        {/* URL is the primary lookup — full width, large input. */}
+        <div className="mt-3">
+          <span className={labelStyle}>Paste a URL</span>
+          <div className="mt-1 flex gap-2">
+            <input
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="https://doi.org/10.1234/abcd  •  https://openstax.org/...  •  any article URL"
+              className={`${inputStyle} text-base`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleLookup("url");
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => handleLookup("url")}
+              disabled={lookupBusy !== null || !urlInput.trim()}
+              className={buttonPrimary}
+            >
+              {lookupBusy === "url" ? "Looking up…" : "Look up"}
+            </button>
+          </div>
+        </div>
+
+        {/* DOI + ISSN are secondary lookups, side by side. */}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {(["doi", "issn"] as const).map((kind) => {
+            const label = kind === "doi" ? "DOI" : "ISSN";
+            const placeholder = kind === "doi" ? "10.1000/xyz123" : "0028-0836";
+            const value = kind === "doi" ? doiInput : issnInput;
+            const setValue = kind === "doi" ? setDoiInput : setIssnInput;
             return (
               <div key={kind}>
                 <span className={labelStyle}>{label}</span>
@@ -1233,11 +1245,17 @@ i { font-style:italic; font-weight:normal; }
                     onChange={(e) => setValue(e.target.value)}
                     placeholder={placeholder}
                     className={inputStyle}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleLookup(kind);
+                      }
+                    }}
                   />
                   <button
                     type="button"
                     onClick={() => handleLookup(kind)}
-                    disabled={lookupBusy !== null}
+                    disabled={lookupBusy !== null || !value.trim()}
                     className={buttonSecondary}
                   >
                     {lookupBusy === kind ? "…" : "Go"}
@@ -1247,6 +1265,37 @@ i { font-style:italic; font-weight:normal; }
             );
           })}
         </div>
+
+        {/* ISBN — rarely used, tucked into a collapsible. */}
+        <details className="mt-3 group">
+          <summary className="cursor-pointer text-xs text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300">
+            More: look up by ISBN
+          </summary>
+          <div className="mt-2 max-w-md">
+            <div className="flex gap-2">
+              <input
+                value={isbnInput}
+                onChange={(e) => setIsbnInput(e.target.value)}
+                placeholder="9780000000000"
+                className={inputStyle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleLookup("isbn");
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => handleLookup("isbn")}
+                disabled={lookupBusy !== null || !isbnInput.trim()}
+                className={buttonSecondary}
+              >
+                {lookupBusy === "isbn" ? "…" : "Go"}
+              </button>
+            </div>
+          </div>
+        </details>
         {lookupError && (
           <p className="mt-2 text-sm text-rose-400">{lookupError}</p>
         )}
@@ -1759,30 +1808,39 @@ i { font-style:italic; font-weight:normal; }
       </section>
 
       <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
-            placeholder="Search this list (author, title, year, notes)…"
-            className={`${inputStyle} max-w-md`}
-          />
-          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-            <input
-              type="checkbox"
-              checked={annotatedMode}
-              onChange={(e) => setAnnotatedMode(e.target.checked)}
-              className="rounded border-slate-600 bg-white dark:bg-slate-950"
-            />
-            Annotated bibliography mode
-          </label>
-        </div>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-            References ({sortedRefs.length}
-            {filterText ? ` of ${refs?.length ?? 0}` : ""})
-          </h2>
-          <div className="flex flex-wrap gap-2">
+        {/* Sticky toolbar — search + count + actions stay reachable on scroll. */}
+        <div className="sticky top-0 -mx-5 -mt-5 mb-4 rounded-t-2xl border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+              References ({sortedRefs.length}
+              {filterText ? ` of ${refs?.length ?? 0}` : ""})
+            </h2>
+            <div className="relative ml-auto flex-1 max-w-md">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                placeholder="Search author, title, year, notes…"
+                className={`${inputStyle} pl-9 mt-0`}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={annotatedMode}
+                onChange={(e) => setAnnotatedMode(e.target.checked)}
+                className="rounded border-slate-600 bg-white dark:bg-slate-950"
+              />
+              Annotated mode
+            </label>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
             <button
               onClick={copyRich}
               disabled={sortedRefs.length === 0}
@@ -1958,6 +2016,7 @@ i { font-style:italic; font-weight:normal; }
                             [r._id]: e.target.value,
                           }))
                         }
+                        onBlur={() => void autoSaveNotes(r._id, r.notes, r.annotation)}
                         placeholder="Quotes, page numbers, ideas to use…"
                         className={`${inputStyle} text-sm`}
                       />
@@ -1975,24 +2034,26 @@ i { font-style:italic; font-weight:normal; }
                             [r._id]: e.target.value,
                           }))
                         }
+                        onBlur={() => void autoSaveNotes(r._id, r.notes, r.annotation)}
                         placeholder="Brief summary + relevance to your assignment…"
                         className={`${inputStyle} text-sm`}
                       />
                     </div>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {savedFlash[r._id] ? (
+                          <span className="text-emerald-600 dark:text-emerald-400">✓ Saved</span>
+                        ) : (
+                          "Saves automatically when you click out of the box"
+                        )}
+                      </span>
                       <button
                         onClick={() =>
                           setOpenNotes((s) => ({ ...s, [r._id]: false }))
                         }
                         className={buttonSecondary}
                       >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => void saveNotes(r._id, r.annotation)}
-                        className={buttonPrimary}
-                      >
-                        Save notes
+                        Close
                       </button>
                     </div>
                   </div>
