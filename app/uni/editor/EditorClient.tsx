@@ -84,10 +84,12 @@ const TEXT_MAX = 30000;
 // Above this word count, switch to chunked parallel mode. Below it,
 // the single-shot path is faster (one round-trip vs many).
 const CHUNK_THRESHOLD_WORDS = 1200;
-// 450 words per chunk keeps the issue count per chunk well under the
-// 6000-token output budget on the server. Was 600, but a dense
-// section produced > 40 issues and truncated the JSON.
-const CHUNK_TARGET_WORDS = 450;
+// 300 words per chunk. Real-world dense academic prose with missing
+// macrons in every other word can produce > 40 issues per 450 words,
+// which truncates even at 6000 maxTokens. 300 keeps issue counts
+// safely below the budget on Flash. Server-side falls back to Pro
+// with 10k tokens if a chunk still truncates.
+const CHUNK_TARGET_WORDS = 300;
 
 // Split draft at paragraph boundaries, greedily packing paragraphs
 // into chunks of ~600 words. If a paragraph alone is huge it stays

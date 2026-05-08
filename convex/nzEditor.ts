@@ -241,26 +241,64 @@ export const editChunk = action({
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
 
     const userContent = `Section ${args.chunkIndex + 1} of ${args.totalChunks} of a longer essay. Find sentence-level issues only.\n\n${args.text}`;
-    // 6000 tokens covers ~40-50 issues per chunk. Truncation here
-    // sinks an otherwise-good run, so we err generous. Schema is still
-    // small enough that Flash handles 6k cleanly.
-    const { raw, modelUsed, usage } = await callWithFallback({
-      systemPrompt: CHUNK_SYSTEM_PROMPT,
-      userContent,
-      maxTokens: 6000,
-    });
+    // 6000 tokens covers ~40-50 issues per chunk on Flash. If Flash
+    // still truncates (very dense sections with missing macrons in
+    // every other word), we retry on Pro with a bigger budget — Pro
+    // handles 10k output reliably.
+    let raw: string;
+    let modelUsed: string;
+    let usage: { inputTokens: number; outputTokens: number };
+    {
+      const r = await callWithFallback({
+        systemPrompt: CHUNK_SYSTEM_PROMPT,
+        userContent,
+        maxTokens: 6000,
+      });
+      raw = r.raw;
+      modelUsed = r.modelUsed;
+      usage = r.usage;
+    }
 
     let result: unknown;
+    let parseErr: unknown = null;
     try {
       result = safeJsonParse(raw);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("Unterminated") || msg.includes("Unexpected end") || msg.includes("position")) {
-        throw new Error(
-          `Section ${args.chunkIndex + 1} response got cut off. Try shorter paragraphs.`,
-        );
+      parseErr = err;
+    }
+
+    if (parseErr !== null) {
+      const msg = parseErr instanceof Error ? parseErr.message : "";
+      const isTruncation =
+        msg.includes("Unterminated") ||
+        msg.includes("Unexpected end") ||
+        msg.includes("position");
+      if (isTruncation) {
+        // Retry once on Pro with a much bigger output budget. Pro is
+        // slower but won't truncate at this scale.
+        try {
+          const retry = await callOpenRouterDetailed({
+            model: "deepseek/deepseek-v4-pro",
+            responseFormatJson: true,
+            temperature: 0.2,
+            maxTokens: 10000,
+            messages: [
+              { role: "system", content: CHUNK_SYSTEM_PROMPT },
+              { role: "user", content: userContent },
+            ],
+          });
+          result = safeJsonParse(retry.content);
+          raw = retry.content;
+          modelUsed = retry.modelUsed;
+          usage = retry.usage;
+        } catch {
+          throw new Error(
+            `Section ${args.chunkIndex + 1} response got cut off even after retry. Try a shorter section.`,
+          );
+        }
+      } else {
+        throw parseErr;
       }
-      throw err;
     }
 
     await ctx.runMutation(internal.usage.recordUsage, {
