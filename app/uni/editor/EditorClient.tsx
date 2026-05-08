@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { loadPdfjs } from "@/lib/pdfjs";
 
 interface Issue {
   category: "spelling" | "grammar" | "punctuation" | "tereo" | "style" | "structure";
@@ -212,6 +213,11 @@ export default function EditorClient() {
   const [completedChunks, setCompletedChunks] = useState(0);
   const [structureDone, setStructureDone] = useState(false);
 
+  // File upload state — same pattern as CheckerClient. PDF parsing is
+  // page-by-page so we can show "Extracting 3/12…" progress.
+  const [extractingFile, setExtractingFile] = useState<null | "pdf" | "docx">(null);
+  const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
+
   // Honest progress: elapsed-time counter + status text. No fake
   // percentage because we genuinely don't know how long the AI will
   // take — output time varies with token count, not input length.
@@ -268,6 +274,89 @@ export default function EditorClient() {
   };
 
   const wordCount = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+
+  // PDF extraction — page-by-page via pdfjs-dist (loaded lazily through
+  // the polyfill shim). 20 MB cap mirrors the other tools.
+  const handlePdf = async (file: File) => {
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("PDF over 20MB — please trim.");
+      return;
+    }
+    setExtractingFile("pdf");
+    setPdfProgress({ done: 0, total: 0 });
+    try {
+      const pdfjs = await loadPdfjs();
+      const buffer = await file.arrayBuffer();
+      const doc = await pdfjs.getDocument({ data: buffer }).promise;
+      const total = doc.numPages;
+      setPdfProgress({ done: 0, total });
+      const parts: string[] = [];
+      for (let i = 1; i <= total; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        const t = content.items
+          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
+          .join(" ");
+        parts.push(t);
+        setPdfProgress({ done: i, total });
+      }
+      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
+      if (extracted.length < 50) {
+        toast.error("Could not pull text from this PDF — it might be image-based.");
+        return;
+      }
+      if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
+      setText(extracted);
+      toast.success(`Extracted ${total} page${total === 1 ? "" : "s"} from "${file.name}"`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+    } finally {
+      setExtractingFile(null);
+      setPdfProgress(null);
+    }
+  };
+
+  // .docx extraction — Mammoth runs entirely in the browser. Note we
+  // import the browser bundle explicitly to avoid Node-only deps.
+  const handleDocx = async (file: File) => {
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("Word doc over 20MB — please trim.");
+      return;
+    }
+    setExtractingFile("docx");
+    try {
+      const mammoth = await import("mammoth/mammoth.browser");
+      const buffer = await file.arrayBuffer();
+      const out = await mammoth.extractRawText({ arrayBuffer: buffer });
+      let extracted = (out.value ?? "").trim();
+      if (extracted.length < 50) {
+        toast.error("Could not pull text from this Word doc.");
+        return;
+      }
+      if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
+      setText(extracted);
+      toast.success(`Extracted text from "${file.name}"`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Word doc extraction failed");
+    } finally {
+      setExtractingFile(null);
+    }
+  };
+
+  const onUpload = (file: File) => {
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".pdf") || file.type === "application/pdf") {
+      void handlePdf(file);
+    } else if (
+      name.endsWith(".docx") ||
+      file.type ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      void handleDocx(file);
+    } else {
+      toast.error("Upload a PDF or .docx file. Word .doc (legacy) isn't supported.");
+    }
+  };
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -403,16 +492,64 @@ export default function EditorClient() {
           <div>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className={labelStyle}>Your draft</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                ~{wordCount.toLocaleString("en-NZ")} words
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <label
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300 ${
+                    extractingFile !== null ? "pointer-events-none opacity-60" : ""
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onUpload(f);
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                    disabled={extractingFile !== null}
+                  />
+                  <span aria-hidden>📄</span>
+                  <span>
+                    {extractingFile === "pdf"
+                      ? pdfProgress
+                        ? `Extracting ${pdfProgress.done}/${pdfProgress.total}…`
+                        : "Reading PDF…"
+                      : "Upload PDF"}
+                  </span>
+                </label>
+                <label
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300 ${
+                    extractingFile !== null ? "pointer-events-none opacity-60" : ""
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onUpload(f);
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                    disabled={extractingFile !== null}
+                  />
+                  <span aria-hidden>📝</span>
+                  <span>
+                    {extractingFile === "docx" ? "Reading Word doc…" : "Upload Word doc (.docx)"}
+                  </span>
+                </label>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  ~{wordCount.toLocaleString("en-NZ")} words
+                </span>
+              </div>
             </div>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={14}
               maxLength={TEXT_MAX}
-              placeholder="Paste your draft here. Minimum 200 characters."
+              placeholder="Paste your draft here, or upload a PDF / Word doc. Minimum 200 characters."
               className={`${inputStyle} max-h-[480px] resize-y overflow-y-auto font-mono`}
             />
           </div>
@@ -420,7 +557,11 @@ export default function EditorClient() {
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : null}
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" disabled={running} className={buttonPrimary}>
+            <button
+              type="submit"
+              disabled={running || extractingFile !== null}
+              className={buttonPrimary}
+            >
               {running ? "Editing…" : "Run editor"}
             </button>
             <button
