@@ -80,6 +80,7 @@ export default function WorkspaceBar() {
   const courses = useQuery(api.courses.list, {});
   const updateAssignment = useMutation(api.assignments.update);
   const createAssignment = useMutation(api.assignments.create);
+  const removeAssignment = useMutation(api.assignments.remove);
   const markSubmitted = useMutation(api.assignments.markSubmitted);
   const unmarkSubmitted = useMutation(api.assignments.unmarkSubmitted);
   const setGrade = useMutation(api.assignments.setGrade);
@@ -294,6 +295,42 @@ export default function WorkspaceBar() {
   const [creatingCourse, setCreatingCourse] = useState(false);
   const [newCourseCode, setNewCourseCode] = useState("");
   const [newCourseName, setNewCourseName] = useState("");
+
+  // Delete the active assignment. Sonner toast with action button matches
+  // the references-delete pattern. References + analyses keep their old
+  // assignmentId — they stay in the user's library, just unattached.
+  const handleDeleteAssignment = () => {
+    if (!active) return;
+    const target = active;
+    toast(`Delete "${target.name}"?`, {
+      description:
+        "References and analyses linked to it will stay in your library but become unattached.",
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          try {
+            await removeAssignment({ id: target._id });
+            // Clear active so the dashboard doesn't try to render the
+            // now-gone assignment.
+            setActiveIdLocal(null);
+            try { window.localStorage.removeItem(STORAGE_KEY); } catch {}
+            try {
+              window.dispatchEvent(
+                new CustomEvent(ACTIVE_EVENT, { detail: null }),
+              );
+            } catch {}
+            toast.success(`Deleted "${target.name}"`);
+          } catch (err) {
+            toast.error(
+              err instanceof Error ? err.message : "Couldn't delete",
+            );
+          }
+        },
+      },
+      cancel: { label: "Cancel", onClick: () => {} },
+      duration: 8000,
+    });
+  };
   const [newCourseColour, setNewCourseColour] =
     useState<CourseColour>(DEFAULT_COURSE_COLOUR);
   const [editingColour, setEditingColour] = useState(false);
@@ -432,13 +469,28 @@ export default function WorkspaceBar() {
         </div>
 
         {!creating ? (
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
-          >
-            + New assignment
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
+            >
+              + New assignment
+            </button>
+            {active && (
+              <button
+                type="button"
+                onClick={handleDeleteAssignment}
+                title={`Delete "${active.name}"`}
+                aria-label={`Delete "${active.name}"`}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-500 transition-colors hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" />
+                </svg>
+              </button>
+            )}
+          </div>
         ) : (
           <div className="flex items-end gap-2">
             <div>
