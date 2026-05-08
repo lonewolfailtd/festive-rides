@@ -73,12 +73,12 @@ export const check = action({
     }
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
 
-    // Try V4 Pro first. If it returns empty content (timeout, filter,
-    // or transient hiccup) auto-fall-back to V4 Flash so the user still
-    // gets a result instead of a hard error. This is specifically why
-    // we use V4 Pro for voice analysis — when it works it's better;
-    // when it doesn't, Flash is good enough.
-    const primaryModel = args.model ?? "deepseek/deepseek-v4-pro";
+    // V4 Flash is the default — ~6-10s vs Pro's 12-18s, and quality is
+    // close enough for AI-text detection that the speed gain wins. Pro
+    // is still selectable via the model picker for high-stakes checks
+    // where the user wants the extra precision. If Flash returns empty
+    // content (rare), we fall back to Pro as a quality retry.
+    const primaryModel = args.model ?? "deepseek/deepseek-v4-flash";
     let raw: string;
     let modelUsed: string;
     let usage: { inputTokens: number; outputTokens: number };
@@ -99,16 +99,17 @@ export const check = action({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       // Only retry on the specific "no content" failure mode, not on
-      // rate-limit / quota / auth errors.
+      // rate-limit / quota / auth errors. Fall back to V4 Pro (more
+      // thorough so more likely to produce output) if Flash hiccups.
       const isEmptyResponse =
         msg.includes("empty response") ||
         msg.includes("no content") ||
         msg.includes("timed out");
-      if (!isEmptyResponse || primaryModel === "deepseek/deepseek-v4-flash") {
+      if (!isEmptyResponse || primaryModel === "deepseek/deepseek-v4-pro") {
         throw err;
       }
       const r = await callOpenRouterDetailed({
-        model: "deepseek/deepseek-v4-flash",
+        model: "deepseek/deepseek-v4-pro",
         responseFormatJson: true,
         temperature: 0.2,
         maxTokens: 3500,
@@ -168,7 +169,10 @@ export const humanise = action({
     }
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
     const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
-      model: args.model ?? "deepseek/deepseek-v4-pro",
+      // V4 Flash is the default for speed — humanising is a generative
+      // rewrite where Flash's quality is essentially indistinguishable
+      // from Pro at half the latency.
+      model: args.model ?? "deepseek/deepseek-v4-flash",
       responseFormatJson: true,
       temperature: 0.6,
       maxTokens: 2500,

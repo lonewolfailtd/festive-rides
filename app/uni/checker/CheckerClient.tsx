@@ -89,10 +89,11 @@ export default function CheckerClient() {
   const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Model picker — V4 Pro is default (cheaper than Claude, comparable quality
-  // on voice analysis). V4 Flash is the budget option, Claude is the premium
-  // pick if the V4 Pro verdict feels off.
-  const [model, setModel] = useStoredState<string>("uni-checker-model", "deepseek/deepseek-v4-pro");
+  // Model picker — V4 Flash is the default for speed (~6-10s vs Pro's
+  // 12-18s). Pro is selectable for high-stakes checks where the extra
+  // precision is worth the wait. Claude Sonnet 4.6 is the premium pick
+  // if the result still feels off after trying both.
+  const [model, setModel] = useStoredState<string>("uni-checker-model", "deepseek/deepseek-v4-flash");
 
   // Calibration sub-tool — runs three known samples through the checker
   // back-to-back so the student can sanity-check the model's calibration.
@@ -406,8 +407,8 @@ export default function CheckerClient() {
                 disabled={running || calibrating !== null}
                 className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
-                <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro (default)</option>
-                <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (fastest)</option>
+                <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (default — fastest)</option>
+                <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro (more thorough, slower)</option>
                 <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6 (premium)</option>
               </select>
             </div>
