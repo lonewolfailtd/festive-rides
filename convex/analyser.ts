@@ -25,6 +25,7 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
       "scenario": "string — 1-2 sentence summary of the scenario or case (NOT a verbatim copy of the brief)",
       "subQuestions": ["string — each sub-question (a, b, c, d) as a single line"],
       "conceptsRequired": ["string — explicit theories/models named in the question, e.g. 'Atkinson-Shiffrin model of memory (1968)', 'biopsychosocial model'"],
+      "searchableQueries": ["string — 3-5 SHORT (5-15 word) scholarly-search phrases the student could plug into a paper search to find sources for THIS task. Each must read like a research query, NOT an instruction. Examples: 'Bandura social learning theory', 'operant conditioning language acquisition', 'biopsychosocial model chronic pain'. Do NOT include task instructions like 'select three subfields' or formatting rules like 'begin each paragraph with a heading' or meta requirements like 'include APA citations'."],
       "wordCountGuideline": number|null,
       "marks": number|null,
       "outline": ["string — bullet plan for what the answer should cover"],

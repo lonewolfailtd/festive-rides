@@ -44,6 +44,7 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
       "scenario": "string — 1-2 sentence summary of the scenario or case (NOT a verbatim copy)",
       "subQuestions": ["string — each sub-question (a, b, c, d) as a single line"],
       "conceptsRequired": ["string — explicit theories/models named, e.g. 'Atkinson-Shiffrin model of memory (1968)'"],
+      "searchableQueries": ["string — 3-5 SHORT (5-15 word) scholarly-search phrases for THIS task. Must read like research queries (e.g. 'Bandura social learning theory', 'operant conditioning language acquisition'), NOT task instructions ('select three subfields') or formatting ('include APA citations')."],
       "wordCountGuideline": number|null,
       "marks": number|null,
       "outline": ["string — bullet plan for what the answer should cover"],

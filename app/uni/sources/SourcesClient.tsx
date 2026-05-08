@@ -127,7 +127,10 @@ function resultKey(r: SearchResult, idx: number): string {
 }
 
 // Shape of fields we read off a saved analysis row. The result blob is
-// stored as `v.any()` so we narrow it client-side.
+// stored as `v.any()` so we narrow it client-side. The new
+// `searchableQueries` field holds research-query-shaped strings for each
+// task; older analyses don't have it and we fall back to a heuristic
+// filter on the subQuestions field.
 interface AnalysisShape {
   keyQuestion?: string;
   researchKeywords?: string[];
@@ -135,8 +138,35 @@ interface AnalysisShape {
   tasks?: {
     taskNumber: string;
     subQuestions?: string[];
+    searchableQueries?: string[];
     conceptsRequired?: string[];
   }[];
+}
+
+// Filter subQuestions to drop entries that are clearly task instructions
+// or formatting rules rather than research queries. Used as a fallback
+// for older analyses that don't have searchableQueries populated.
+function filterSearchable(items: string[]): string[] {
+  const SKIP = [
+    /^select\b/i,
+    /^choose\b/i,
+    /^pick\b/i,
+    /^begin\b/i,
+    /^include\b/i,
+    /paragraph/i,
+    /heading/i,
+    /reference list/i,
+    /APA/i,
+    /citation/i,
+    /word count/i,
+    /^write a\b/i,
+    /title page/i,
+  ];
+  return items.filter((s) => {
+    const len = s.trim().split(/\s+/).length;
+    if (len < 4 || len > 25) return false;
+    return !SKIP.some((re) => re.test(s));
+  });
 }
 
 export default function SourcesClient() {
@@ -349,43 +379,58 @@ export default function SourcesClient() {
             </div>
           )}
 
-          {/* Per-task sub-questions — full research-question style searches */}
-          {latestAnalysis.tasks && latestAnalysis.tasks.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Research questions from each task
-              </p>
-              <ul className="mt-1.5 space-y-1.5">
-                {latestAnalysis.tasks.map((task, ti) => (
-                  <li key={`task-${ti}`}>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      {task.taskNumber}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {task.subQuestions?.map((sq, si) => (
-                        <button
-                          key={`sq-${ti}-${si}`}
-                          type="button"
-                          onClick={() => {
-                            setQuery(sq);
-                            setLastQuery("");
-                            setTimeout(() => {
-                              const form = document.querySelector("form");
-                              if (form) form.requestSubmit();
-                            }, 0);
-                          }}
-                          title={sq}
-                          className="max-w-full truncate rounded-md border border-slate-300 bg-white px-2 py-1 text-left text-xs text-slate-800 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/40 dark:hover:text-sky-200"
-                        >
-                          {sq.length > 80 ? `${sq.slice(0, 80)}…` : sq}
-                        </button>
-                      ))}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Per-task searchable queries — actual scholarly-search phrases.
+              Prefer the analyser's searchableQueries field; for older
+              analyses that don't have it, fall back to a filtered view of
+              subQuestions that strips task instructions / formatting. */}
+          {latestAnalysis.tasks && latestAnalysis.tasks.length > 0 && (() => {
+            const tasksWithQueries = latestAnalysis.tasks.map((task) => {
+              const queries =
+                task.searchableQueries && task.searchableQueries.length > 0
+                  ? task.searchableQueries
+                  : filterSearchable(task.subQuestions ?? []);
+              return { task, queries };
+            }).filter((x) => x.queries.length > 0);
+
+            if (tasksWithQueries.length === 0) return null;
+
+            return (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Search queries for each task
+                </p>
+                <ul className="mt-1.5 space-y-1.5">
+                  {tasksWithQueries.map(({ task, queries }, ti) => (
+                    <li key={`task-${ti}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        {task.taskNumber}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {queries.map((sq, si) => (
+                          <button
+                            key={`sq-${ti}-${si}`}
+                            type="button"
+                            onClick={() => {
+                              setQuery(sq);
+                              setLastQuery("");
+                              setTimeout(() => {
+                                const form = document.querySelector("form");
+                                if (form) form.requestSubmit();
+                              }, 0);
+                            }}
+                            title={sq}
+                            className="max-w-full truncate rounded-md border border-slate-300 bg-white px-2 py-1 text-left text-xs text-slate-800 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/40 dark:hover:text-sky-200"
+                          >
+                            {sq.length > 80 ? `${sq.slice(0, 80)}…` : sq}
+                          </button>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           {/* Overall key question — useful for broad scoping searches */}
           {latestAnalysis.keyQuestion && (
