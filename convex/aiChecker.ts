@@ -72,18 +72,55 @@ export const check = action({
       throw new Error("Text too long — trim to 50000 characters or fewer.");
     }
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
-    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
-      // Use DeepSeek V4 Pro for detection — 1.6T MoE, strong on voice/style
-      // analysis, ~1/7 the price of Claude Sonnet 4.6 for comparable quality.
-      model: args.model ?? "deepseek/deepseek-v4-pro",
-      responseFormatJson: true,
-      temperature: 0.2,
-      maxTokens: 3500,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: trimmed },
-      ],
-    });
+
+    // Try V4 Pro first. If it returns empty content (timeout, filter,
+    // or transient hiccup) auto-fall-back to V4 Flash so the user still
+    // gets a result instead of a hard error. This is specifically why
+    // we use V4 Pro for voice analysis — when it works it's better;
+    // when it doesn't, Flash is good enough.
+    const primaryModel = args.model ?? "deepseek/deepseek-v4-pro";
+    let raw: string;
+    let modelUsed: string;
+    let usage: { inputTokens: number; outputTokens: number };
+    try {
+      const r = await callOpenRouterDetailed({
+        model: primaryModel,
+        responseFormatJson: true,
+        temperature: 0.2,
+        maxTokens: 3500,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: trimmed },
+        ],
+      });
+      raw = r.content;
+      modelUsed = r.modelUsed;
+      usage = r.usage;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      // Only retry on the specific "no content" failure mode, not on
+      // rate-limit / quota / auth errors.
+      const isEmptyResponse =
+        msg.includes("empty response") ||
+        msg.includes("no content") ||
+        msg.includes("timed out");
+      if (!isEmptyResponse || primaryModel === "deepseek/deepseek-v4-flash") {
+        throw err;
+      }
+      const r = await callOpenRouterDetailed({
+        model: "deepseek/deepseek-v4-flash",
+        responseFormatJson: true,
+        temperature: 0.2,
+        maxTokens: 3500,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: trimmed },
+        ],
+      });
+      raw = r.content;
+      modelUsed = r.modelUsed;
+      usage = r.usage;
+    }
     const parsed = safeJsonParse(raw);
     await ctx.runMutation(internal.usage.recordUsage, {
       userId,

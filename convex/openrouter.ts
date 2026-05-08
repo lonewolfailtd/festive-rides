@@ -81,10 +81,20 @@ export async function callOpenRouterDetailed(
   const data = (await response.json()) as {
     choices?: { message?: { content?: string } }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
+    error?: { message?: string; code?: number };
   };
   const content = data.choices?.[0]?.message?.content;
   if (!content) {
-    throw new Error("OpenRouter returned no content");
+    // Surface OpenRouter's error message if it gave one (rate-limited,
+    // content-filtered, model-down etc) — much friendlier than the
+    // generic "no content" we used to throw. Otherwise hint at common
+    // causes so the user knows what to try.
+    if (data.error?.message) {
+      throw new Error(`AI provider: ${data.error.message}`);
+    }
+    throw new Error(
+      "The AI returned an empty response. This usually means the model timed out or hit a content filter. Try again, or pick a different model from the picker.",
+    );
   }
 
   return {

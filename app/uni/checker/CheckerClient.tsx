@@ -617,18 +617,43 @@ export default function CheckerClient() {
 
       {/* Humanise sub-tool */}
       <section className={`${sectionCard} mt-8`}>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-          Humanise a passage
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+            Humanise a passage
+          </h2>
+          {/* Quick-fill button: copy the main draft into the humanise box.
+              Disabled if there's no draft pasted yet. Saves the student
+              from manually copy-pasting between the two textareas. */}
+          {text.trim().length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                // The humanise endpoint caps at 8000 chars; trim to fit.
+                const slice = text.slice(0, 8000);
+                setHumanisePassage(slice);
+                if (text.length > 8000) {
+                  toast.success(
+                    "Loaded the first 8000 characters of your draft.",
+                  );
+                } else {
+                  toast.success("Draft loaded into humanise box.");
+                }
+              }}
+              className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:border-sky-500 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:border-sky-500 dark:hover:bg-sky-900/40"
+            >
+              Use my draft →
+            </button>
+          )}
+        </div>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Paste a flagged passage. We&apos;ll rewrite it to sound more human while preserving every fact and citation.
+          Paste a flagged passage (or click <strong>Use my draft</strong> to copy the one above). We&apos;ll rewrite it to sound more human while preserving every fact and citation.
         </p>
         <div className="mt-3 space-y-3">
           <textarea
             value={humanisePassage}
             onChange={(e) => setHumanisePassage(e.target.value)}
             rows={6}
-            placeholder="Paste the AI-sounding passage here (50“8000 characters)."
+            placeholder="Paste the AI-sounding passage here (50–8000 characters)."
             className={`${inputStyle} font-mono text-sm`}
           />
           <button
