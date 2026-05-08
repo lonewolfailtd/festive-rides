@@ -53,12 +53,37 @@ const splitName = (full: string) => {
   };
 };
 
+// Map our friendly source-type values to OpenAlex `type` filter values.
+// "all" passes no filter. Note: in OpenAlex "book" can sometimes appear
+// as type "book" or "monograph" depending on data; we accept the broader
+// of the two when filtering for "book".
+const SOURCE_TYPE_FILTER: Record<string, string | null> = {
+  all: null,
+  journalArticle: "type:journal-article",
+  book: "type:book|monograph",
+  bookChapter: "type:book-chapter",
+  thesis: "type:dissertation",
+};
+
+const SORT_BY_FILTER: Record<string, string | null> = {
+  // Default OpenAlex relevance sort — no `sort` parameter
+  relevance: null,
+  cited: "cited_by_count:desc",
+  newest: "publication_date:desc",
+  oldest: "publication_date:asc",
+};
+
 export const search = action({
   args: {
     query: v.string(),
     perPage: v.optional(v.number()),
     onlyPeerReviewed: v.optional(v.boolean()),
     yearFrom: v.optional(v.number()),
+    // New filters
+    sourceType: v.optional(v.string()), // "all" | "journalArticle" | "book" | "bookChapter" | "thesis"
+    openAccessOnly: v.optional(v.boolean()),
+    nzAuthoredOnly: v.optional(v.boolean()),
+    sortBy: v.optional(v.string()), // "relevance" | "cited" | "newest" | "oldest"
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -74,9 +99,33 @@ export const search = action({
         "id,doi,title,display_name,publication_year,publication_date,type,authorships,primary_location,open_access,cited_by_count,abstract_inverted_index",
     });
     const filters: string[] = [];
-    if (args.onlyPeerReviewed) filters.push("type:journal-article");
+
+    // Source type filter takes precedence over the legacy peer-reviewed
+    // toggle. "Peer-reviewed only" is effectively "journal articles only"
+    // in OpenAlex parlance, so if the user has both, the explicit type
+    // wins (it's more specific).
+    const typeFilter = args.sourceType
+      ? SOURCE_TYPE_FILTER[args.sourceType]
+      : args.onlyPeerReviewed
+        ? "type:journal-article"
+        : null;
+    if (typeFilter) filters.push(typeFilter);
+
     if (args.yearFrom) filters.push(`from_publication_date:${args.yearFrom}-01-01`);
+    if (args.openAccessOnly) filters.push("is_oa:true");
+    if (args.nzAuthoredOnly) {
+      // Filter to works with at least one author affiliated with a New
+      // Zealand institution. Country code "nz" — case-insensitive in the
+      // OpenAlex API.
+      filters.push("authorships.institutions.country_code:nz");
+    }
+
     if (filters.length > 0) params.set("filter", filters.join(","));
+
+    // Sort — only set if non-default (relevance is OpenAlex's default
+    // when search is provided)
+    const sortFilter = args.sortBy ? SORT_BY_FILTER[args.sortBy] : null;
+    if (sortFilter) params.set("sort", sortFilter);
 
     const res = await fetch(`https://api.openalex.org/works?${params.toString()}`, {
       headers: {

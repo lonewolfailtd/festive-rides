@@ -180,6 +180,10 @@ export default function SourcesClient() {
   const [query, setQuery] = useState("");
   const [onlyPeerReviewed, setOnlyPeerReviewed] = useStoredState<boolean>("uni-sources-peer-reviewed", false);
   const [yearFrom, setYearFrom] = useStoredState<string>("uni-sources-from-year", "");
+  const [sourceType, setSourceType] = useStoredState<string>("uni-sources-source-type", "all");
+  const [openAccessOnly, setOpenAccessOnly] = useStoredState<boolean>("uni-sources-open-access", false);
+  const [nzAuthoredOnly, setNzAuthoredOnly] = useStoredState<boolean>("uni-sources-nz-authored", false);
+  const [sortBy, setSortBy] = useStoredState<string>("uni-sources-sort-by", "relevance");
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
@@ -241,8 +245,16 @@ export default function SourcesClient() {
       const yf = yearFrom.trim() ? Number(yearFrom.trim()) : undefined;
       const result = (await search({
         query: q,
-        onlyPeerReviewed: onlyPeerReviewed || undefined,
+        // Source type takes precedence over the legacy peer-reviewed checkbox
+        // when both are set. Pass undefined for "all" so the action skips
+        // any type filter at all.
+        sourceType: sourceType !== "all" ? sourceType : undefined,
+        onlyPeerReviewed:
+          sourceType === "all" && onlyPeerReviewed ? true : undefined,
         yearFrom: yf && !Number.isNaN(yf) ? yf : undefined,
+        openAccessOnly: openAccessOnly || undefined,
+        nzAuthoredOnly: nzAuthoredOnly || undefined,
+        sortBy: sortBy !== "relevance" ? sortBy : undefined,
       })) as SearchResponse;
       setResponse(result);
       setLastQuery(q);
@@ -489,16 +501,40 @@ export default function SourcesClient() {
               className={`${inputStyle} text-base`}
             />
           </div>
+          {/* Top row: source type + sort by — these change the SHAPE of
+              results most dramatically so they sit visually first. */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
-              <input
-                type="checkbox"
-                checked={onlyPeerReviewed}
-                onChange={(e) => setOnlyPeerReviewed(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500"
-              />
-              Peer-reviewed only
-            </label>
+            <div>
+              <span className={labelStyle}>Source type</span>
+              <select
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value)}
+                className={inputStyle}
+              >
+                <option value="all">All types</option>
+                <option value="journalArticle">Journal article</option>
+                <option value="book">Book</option>
+                <option value="bookChapter">Book chapter</option>
+                <option value="thesis">Thesis / dissertation</option>
+              </select>
+            </div>
+            <div>
+              <span className={labelStyle}>Sort by</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className={inputStyle}
+              >
+                <option value="relevance">Relevance</option>
+                <option value="cited">Most cited</option>
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Year-from + checkboxes row */}
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <span className={labelStyle}>Published since (year)</span>
               <input
@@ -507,7 +543,49 @@ export default function SourcesClient() {
                 onChange={(e) => setYearFrom(e.target.value)}
                 placeholder="2020"
                 className={inputStyle}
+                min={1900}
+                max={2100}
               />
+            </div>
+            <div className="flex flex-col justify-end gap-2">
+              {/* Peer-reviewed is hidden when source type is set to a
+                  specific type — it'd be redundant. Only meaningful for
+                  the "All types" case. */}
+              {sourceType === "all" && (
+                <label className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={onlyPeerReviewed}
+                    onChange={(e) => setOnlyPeerReviewed(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500"
+                  />
+                  Peer-reviewed only
+                </label>
+              )}
+              <label className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={openAccessOnly}
+                  onChange={(e) => setOpenAccessOnly(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500"
+                />
+                Open access only{" "}
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  (free to read)
+                </span>
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-800 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={nzAuthoredOnly}
+                  onChange={(e) => setNzAuthoredOnly(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500"
+                />
+                NZ-authored only{" "}
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  (at least one NZ-affiliated author)
+                </span>
+              </label>
             </div>
           </div>
           {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
