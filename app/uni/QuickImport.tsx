@@ -39,16 +39,17 @@ export default function QuickImport() {
   const [result, setResult] = useState<ImportSuccess | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  // Simulated analysis progress. The Convex action is a single round-trip
-  // (no progress events from the server), so we run a client-side
-  // requestAnimationFrame loop that ramps to ~95% over ~14 seconds and
-  // HOLDS there until the real response lands, at which point we jump to
-  // 100%. rAF gives buttery 60fps animation matched to the browser's
-  // refresh rate, with no setInterval drift or 200ms-stepped jumps.
-  // The non-linear easing curve matches how cognition expects "almost
-  // done" to take longer than "halfway", and the 95% hold prevents
-  // hitting 100% before the actual work finishes.
+  // Simulated analysis progress, **linear** to a realistic time estimate
+  // based on brief length. The Convex action is one round-trip (no real
+  // progress events) but we know roughly how long it takes:
+  //   - Short brief (<3000 chars): ~10s
+  //   - Medium (3000-7000): ~13s
+  //   - Long (7000-14000): ~16s
+  // We ramp 0 → 99% linearly over that estimate, hold at 99% if we
+  // overshot, and snap to 100% the instant the response lands. No
+  // ease-out, no 95% wall — what you see is what's happening.
   const [analysingPct, setAnalysingPct] = useState(0);
+  const [estimatedSeconds, setEstimatedSeconds] = useState(12);
   const rafRef = useRef<number | null>(null);
 
   const stopProgressTimer = () => {
@@ -58,18 +59,25 @@ export default function QuickImport() {
     }
   };
 
-  const startProgressTimer = () => {
+  const estimateSecondsFor = (textLength: number): number => {
+    if (textLength < 3000) return 10;
+    if (textLength < 7000) return 13;
+    return 16;
+  };
+
+  const startProgressTimer = (textLength: number) => {
     stopProgressTimer();
+    const seconds = estimateSecondsFor(textLength);
+    setEstimatedSeconds(seconds);
     setAnalysingPct(0);
     const startedAt = performance.now();
+    const totalMs = seconds * 1000;
     const tick = (now: number) => {
       const elapsedMs = now - startedAt;
-      // Easing curve: cubic ease-out. Fast early, slows toward 95.
-      // Crosses ~70% at 6s, ~90% at 14s, asymptotes near 95.
-      const t = Math.min(1, elapsedMs / 14_000);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const pct = Math.min(95, eased * 95);
-      // Sub-pixel precision (no Math.round) so CSS interpolates smoothly
+      // Linear ramp 0 → 99 over the estimated duration. Hold at 99 if
+      // we're past the estimate but the response hasn't arrived yet.
+      const linear = (elapsedMs / totalMs) * 99;
+      const pct = Math.min(99, linear);
       setAnalysingPct(pct);
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -81,18 +89,22 @@ export default function QuickImport() {
     return () => stopProgressTimer();
   }, []);
 
-  // Stage-aware label so the progress bar reads as if it knows what it's
-  // doing. The thresholds line up with the easing curve above.
+  // Stage-aware label, linearly tied to percent.
   const analysingLabel =
     analysingPct < 25
       ? "Reading the brief"
       : analysingPct < 55
         ? "Finding tasks and concepts"
-        : analysingPct < 80
-          ? "Looking up the course"
-          : analysingPct < 95
-            ? "Setting up your workspace"
-            : "Almost there";
+        : analysingPct < 85
+          ? "Setting up your workspace"
+          : "Finalising";
+
+  // Seconds remaining = estimated duration × (1 - pct/100). Lets the
+  // user see "8s left" rather than guessing.
+  const secondsLeft = Math.max(
+    0,
+    Math.ceil((estimatedSeconds * (100 - analysingPct)) / 100),
+  );
 
   const reset = () => {
     stopProgressTimer();
@@ -114,7 +126,7 @@ export default function QuickImport() {
     }
     if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT);
     setStage("analysing");
-    startProgressTimer();
+    startProgressTimer(text.length);
     try {
       const r = (await importBrief({
         text,
@@ -140,7 +152,7 @@ export default function QuickImport() {
         );
       } catch {}
       // Brief delay so the bar visibly fills to 100% before the success
-      // card replaces it. 350ms matches the bar's CSS transition.
+      // card replaces it. 200ms = bar's CSS transition (100ms) + a beat.
       setTimeout(() => {
         setStage("done");
         toast.success(
@@ -148,7 +160,7 @@ export default function QuickImport() {
             ? `Created course ${r.courseCode ?? "?"} and ${r.assessmentNumber ?? "an assignment"}.`
             : `Set up ${r.assessmentNumber ?? "the assignment"} under ${r.courseCode ?? "your existing course"}.`,
         );
-      }, 350);
+      }, 200);
     } catch (err) {
       stopProgressTimer();
       setError(err instanceof Error ? err.message : "Import failed.");
@@ -353,6 +365,11 @@ export default function QuickImport() {
             <span className="font-medium">{analysingLabel}…</span>
             <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400">
               {Math.floor(analysingPct)}%
+              {analysingPct < 99 && secondsLeft > 0 && (
+                <span className="ml-2 text-slate-500 dark:text-slate-400">
+                  · ~{secondsLeft}s left
+                </span>
+              )}
             </span>
           </div>
           <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
@@ -360,15 +377,13 @@ export default function QuickImport() {
               className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
               style={{
                 width: `${analysingPct}%`,
-                // Long, eased transition smooths the bar between rAF
-                // updates AND glides the final 95→100 jump.
-                transition: "width 350ms cubic-bezier(0.22, 1, 0.36, 1)",
+                // Short transition smooths the bar between rAF updates
+                // without lagging behind the linear ramp. The final
+                // 99→100 jump uses the same transition for a clean snap.
+                transition: "width 100ms linear",
               }}
             />
           </div>
-          <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-            Usually 10–15 seconds. Keep this tab open.
-          </p>
         </div>
       )}
     </section>
