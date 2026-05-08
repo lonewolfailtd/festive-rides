@@ -726,6 +726,27 @@ export default function SourcesClient() {
                       </div>
                     )}
                     <div className="mt-4 flex flex-wrap items-center gap-2">
+                      {/* Primary "View" link. Prefers DOI (resolves to
+                          publisher's landing page), then the OpenAlex
+                          landing-page URL, then the open-access PDF.
+                          One of these is virtually always present. */}
+                      {(r.doi || r.url || r.openAccessUrl) && (
+                        <a
+                          href={
+                            r.doi
+                              ? `https://doi.org/${r.doi}`
+                              : (r.url ?? r.openAccessUrl)
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:border-sky-500 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:border-sky-500 dark:hover:bg-sky-900/40"
+                        >
+                          View
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M7 17l10-10M9 7h8v8" />
+                          </svg>
+                        </a>
+                      )}
                       {r.doi && (
                         <a
                           href={`https://doi.org/${r.doi}`}
