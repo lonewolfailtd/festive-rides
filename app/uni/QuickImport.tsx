@@ -27,6 +27,7 @@ interface ImportSuccess {
   assessmentNumber: string | null;
   taskCount: number;
   isNewCourse: boolean;
+  dueDateDetected: boolean;
 }
 
 export default function QuickImport() {
@@ -67,6 +68,7 @@ export default function QuickImport() {
         assessmentNumber: r.assessmentNumber,
         taskCount: r.taskCount,
         isNewCourse: r.isNewCourse,
+        dueDateDetected: r.dueDateDetected,
       });
       // Set as active assignment so the rest of the dashboard updates
       try {
@@ -185,6 +187,7 @@ export default function QuickImport() {
                 : ""}
               {`${result.assessmentNumber ?? "Assignment"} is now your active assignment`}
               {result.taskCount > 0 ? ` with ${result.taskCount} task${result.taskCount === 1 ? "" : "s"}` : ""}
+              {result.dueDateDetected ? " · due date pulled from the brief" : ""}
               .
             </p>
           </div>

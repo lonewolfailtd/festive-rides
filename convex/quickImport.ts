@@ -37,6 +37,7 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
   "weightingPercent": number|null,
   "totalMarks": number|null,
   "totalWordCount": number|null,
+  "dueDateIso": "string|null — if the brief mentions a submission deadline ('Due: 23 May 2026', 'Submit by Friday 5 June', 'Submission deadline: 14/03/2026'), return it as a yyyy-mm-dd string in NZ time. Use 4-digit year. If unclear or absent, return null. Don't guess.",
   "tasks": [
     {
       "taskNumber": "string — 'Task 1', 'Task 2'...",
@@ -81,6 +82,38 @@ interface QuickImportResult {
   taskCount: number;
   weightingPercent: number | null;
   isNewCourse: boolean;
+  dueDateDetected: boolean;
+}
+
+// Pick the next unused colour from the palette so each new course is
+// visually distinct from the existing ones. Falls back to the first
+// colour if the user already has 6+ courses (and so all colours are
+// used) — duplicates are fine at that point.
+function pickCourseColour(existingColours: (string | undefined | null)[]): string {
+  const ORDER = ["sky", "emerald", "amber", "rose", "violet", "slate"];
+  const used = new Set(existingColours.filter((c): c is string => !!c));
+  for (const c of ORDER) {
+    if (!used.has(c)) return c;
+  }
+  return ORDER[0];
+}
+
+// Parse the AI's "yyyy-mm-dd" due-date string into an epoch-ms timestamp
+// at 23:59 NZ time on that day. Returns undefined if invalid.
+function parseDueDateIso(iso: string | null | undefined): number | undefined {
+  if (!iso || typeof iso !== "string") return undefined;
+  const m = iso.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return undefined;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (y < 2024 || y > 2030 || mo < 1 || mo > 12 || d < 1 || d > 31) return undefined;
+  // Treat as local NZ time at end of day so a "due Friday" doesn't go
+  // overdue at midnight. The Convex server runs in UTC; local Date
+  // construction here approximates NZ but the action runs server-side
+  // so we treat the date as a wall-clock day, end of NZ-ish.
+  const ts = new Date(y, mo - 1, d, 23, 59, 0).getTime();
+  return Number.isFinite(ts) ? ts : undefined;
 }
 
 export const importBrief = action({
@@ -134,6 +167,7 @@ export const importBrief = action({
       weightingPercent?: number | null;
       totalMarks?: number | null;
       totalWordCount?: number | null;
+      dueDateIso?: string | null;
       tasks?: { wordCountGuideline?: number | null }[];
     };
 
@@ -147,6 +181,7 @@ export const importBrief = action({
       const existingCourses = (await ctx.runQuery(api.courses.list, {})) as {
         _id: Id<"courses">;
         code: string;
+        colour?: string;
       }[];
       const match = existingCourses.find(
         (c) => normaliseCode(c.code) === wantedCode,
@@ -154,9 +189,13 @@ export const importBrief = action({
       if (match) {
         courseId = match._id;
       } else {
+        // Pick the next unused palette colour so this new course is
+        // visually distinct from the existing ones.
+        const colour = pickCourseColour(existingCourses.map((c) => c.colour));
         courseId = (await ctx.runMutation(api.courses.create, {
           code: result.courseCode,
           name: result.courseName ?? result.courseCode,
+          colour,
         })) as Id<"courses">;
         isNewCourse = true;
       }
@@ -182,6 +221,9 @@ export const importBrief = action({
       if (sum > 0) wordCountTarget = sum;
     }
 
+    // ---- Parse due date if the AI extracted one ------------------------
+    const dueDate = parseDueDateIso(result.dueDateIso);
+
     // ---- Create the assignment -----------------------------------------
     const assignmentId = (await ctx.runMutation(api.assignments.create, {
       name: assignmentName,
@@ -189,6 +231,7 @@ export const importBrief = action({
       courseId: courseId ?? undefined,
       wordCountTarget: wordCountTarget ?? undefined,
       brief: trimmed,
+      dueDate,
     })) as Id<"assignments">;
 
     // ---- Save the analysis row attached to the new assignment ----------
@@ -214,6 +257,7 @@ export const importBrief = action({
       taskCount: result.tasks?.length ?? 0,
       weightingPercent: result.weightingPercent ?? null,
       isNewCourse,
+      dueDateDetected: dueDate !== undefined,
     };
   },
 });
