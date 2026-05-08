@@ -126,6 +126,19 @@ function resultKey(r: SearchResult, idx: number): string {
   return r.id ?? r.doi ?? r.url ?? `${idx}-${r.title}`;
 }
 
+// Shape of fields we read off a saved analysis row. The result blob is
+// stored as `v.any()` so we narrow it client-side.
+interface AnalysisShape {
+  keyQuestion?: string;
+  researchKeywords?: string[];
+  sourceTypesNeeded?: string[];
+  tasks?: {
+    taskNumber: string;
+    subQuestions?: string[];
+    conceptsRequired?: string[];
+  }[];
+}
+
 export default function SourcesClient() {
   const assignments = useQuery(api.assignments.list);
   const search = useAction(api.sources.search);
@@ -145,6 +158,20 @@ export default function SourcesClient() {
   const [added, setAdded] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState<Record<string, boolean>>({});
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Pull the most recent analysis for the active assignment so we can
+  // suggest research keywords / sub-questions one click away. "skip" when
+  // no assignment is active — Convex hooks accept that to no-op.
+  const analyses = useQuery(
+    api.analysisStore.list,
+    selectedAssignment !== "all"
+      ? { assignmentId: selectedAssignment }
+      : "skip",
+  );
+  const latestAnalysis: AnalysisShape | null =
+    analyses && analyses.length > 0
+      ? (analyses[0].result as AnalysisShape)
+      : null;
 
   useEffect(() => {
     try {
@@ -277,6 +304,130 @@ export default function SourcesClient() {
           </select>
         </div>
       </section>
+
+      {/* Analysis-aware suggestions: only renders when the user has
+          chosen an assignment AND that assignment has at least one
+          saved analysis. Pulled from the analyser's researchKeywords,
+          per-task sub-questions, and the overall keyQuestion — each
+          one click pre-fills the search and submits. */}
+      {selectedAssignment !== "all" && latestAnalysis && (
+        <section className="mb-6 rounded-2xl border border-sky-200 bg-sky-50/60 p-5 dark:border-sky-900/60 dark:bg-sky-950/30">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-sky-900 dark:text-sky-200">
+              Suggested by your analysis
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Click any chip to search it
+            </p>
+          </div>
+
+          {/* Research keywords — broad search terms */}
+          {latestAnalysis.researchKeywords && latestAnalysis.researchKeywords.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Keywords</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {latestAnalysis.researchKeywords.map((kw, i) => (
+                  <button
+                    key={`kw-${i}`}
+                    type="button"
+                    onClick={() => {
+                      setQuery(kw);
+                      setLastQuery("");
+                      // Trigger a search immediately. handleSearch reads from `query`
+                      // state so we use a microtask delay to let the state apply.
+                      setTimeout(() => {
+                        const form = document.querySelector("form");
+                        if (form) form.requestSubmit();
+                      }, 0);
+                    }}
+                    className="rounded-full border border-sky-300 bg-white px-2.5 py-1 text-xs text-sky-800 transition-colors hover:border-sky-500 hover:bg-sky-100 dark:border-sky-800/60 dark:bg-slate-900 dark:text-sky-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/60"
+                  >
+                    {kw}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Per-task sub-questions — full research-question style searches */}
+          {latestAnalysis.tasks && latestAnalysis.tasks.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                Research questions from each task
+              </p>
+              <ul className="mt-1.5 space-y-1.5">
+                {latestAnalysis.tasks.map((task, ti) => (
+                  <li key={`task-${ti}`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {task.taskNumber}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {task.subQuestions?.map((sq, si) => (
+                        <button
+                          key={`sq-${ti}-${si}`}
+                          type="button"
+                          onClick={() => {
+                            setQuery(sq);
+                            setLastQuery("");
+                            setTimeout(() => {
+                              const form = document.querySelector("form");
+                              if (form) form.requestSubmit();
+                            }, 0);
+                          }}
+                          title={sq}
+                          className="max-w-full truncate rounded-md border border-slate-300 bg-white px-2 py-1 text-left text-xs text-slate-800 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/40 dark:hover:text-sky-200"
+                        >
+                          {sq.length > 80 ? `${sq.slice(0, 80)}…` : sq}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Overall key question — useful for broad scoping searches */}
+          {latestAnalysis.keyQuestion && (
+            <div className="mt-4">
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                Overall question
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery(latestAnalysis.keyQuestion ?? "");
+                  setLastQuery("");
+                  setTimeout(() => {
+                    const form = document.querySelector("form");
+                    if (form) form.requestSubmit();
+                  }, 0);
+                }}
+                className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-left text-xs text-slate-800 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/40 dark:hover:text-sky-200"
+              >
+                {latestAnalysis.keyQuestion}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* When an assignment is active but has NO analysis yet, prompt them
+          to run it — analysis is what unlocks the suggestions above. */}
+      {selectedAssignment !== "all" && analyses !== undefined && analyses.length === 0 && (
+        <section className="mb-6 rounded-2xl border border-dashed border-amber-300 bg-amber-50/60 p-4 text-sm dark:border-amber-700/60 dark:bg-amber-950/30">
+          <p className="text-amber-900 dark:text-amber-200">
+            <span className="font-medium">Tip:</span> run the Analyser on this assignment first
+            and we&apos;ll suggest research questions and keywords here based on the brief.
+          </p>
+          <a
+            href={`/uni/analyser?assignmentId=${selectedAssignment}`}
+            className="mt-2 inline-block text-xs font-medium text-amber-800 underline hover:text-amber-700 dark:text-amber-200 dark:hover:text-amber-100"
+          >
+            Open Analyser →
+          </a>
+        </section>
+      )}
 
       <section className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
