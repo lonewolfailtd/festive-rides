@@ -21,9 +21,10 @@ OUTPUT (JSON, no markdown):
   "issues": [{
     "category": "spelling"|"grammar"|"punctuation"|"tereo"|"style"|"structure",
     "severity": "high"|"medium"|"low",
-    "where": "5-15 word VERBATIM quote from draft",
+    "where": "5-15 word VERBATIM quote from draft (must appear exactly, character-for-character)",
+    "correctedSpan": "string — the same quote rewritten with the fix applied, character-for-character. ONLY populate for mechanical fixes (spelling, tereo macrons + plurals, Oxford comma removal, missing apostrophes, italicised te reo). For grammar/style/structure issues, leave as null — those need student judgement. The client uses this for find-and-replace, so it MUST be the verbatim corrected version of the where field with same surrounding words.",
     "problem": "what's wrong, 1 sentence",
-    "suggestion": "the fix with corrected text in 'quotes'",
+    "suggestion": "the fix with corrected text in 'quotes' (for human reading)",
     "rule": "1-sentence rule"
   }],
   "structureNotes": {
@@ -32,8 +33,7 @@ OUTPUT (JSON, no markdown):
     "conclusion": "synthesises vs summarises?",
     "flow": "signposting, variety, transitions",
     "topImprovements": ["3-5 bullet points of biggest fixes"]
-  },
-  "correctedDraft": "string — the WHOLE draft with ONLY mechanical fixes applied: NZ spellings, te reo macrons, removed Oxford commas, missing apostrophes, italics removed from te reo. Do NOT rewrite for grammar or style — leave grammar/style/structure issues UNCHANGED so the student does that thinking themselves. Preserve paragraph breaks. If no mechanical fixes apply, repeat the original draft verbatim."
+  }
 }
 
 KEY GOTCHAS (you already know NZ English; these are the high-payoff ones):
@@ -79,17 +79,23 @@ OUTPUT RULES:
 - For grammar/style/structure, cap at 40 issues (prioritise high-severity).
 - Be honest about weak structure. Don't pad praise.
 
-CORRECTEDDRAFT RULES:
-- Apply ALL mechanical fixes you found in your issues list to the draft text:
-    spelling (US → NZ): every "organize" → "organise", "color" → "colour", etc
-    te reo macrons: every "Maori" → "Māori", "whanau" → "whānau", etc
-    te reo plurals: every "Maoris" → "Māori"
-    Oxford commas removed
-    italicised te reo: italics stripped (output the bare word)
-    missing apostrophes (today's, people's)
-- Do NOT change anything else. Leave grammar errors (affect/effect, less/fewer), weak topic sentences, missing thesis statements, AI clichés, passive voice etc UNTOUCHED. The student needs to fix those themselves.
-- Preserve original paragraph breaks (use \\n\\n between paragraphs).
-- If the draft has zero mechanical issues, output it verbatim.`;
+CORRECTEDSPAN RULES (per-issue, much faster than rebuilding the whole draft):
+- For mechanical fixes only — set "correctedSpan" to the verbatim quote with the fix applied.
+- Examples:
+    where: "todays rapidly evolving healthcare"
+    correctedSpan: "today's rapidly evolving healthcare"
+
+    where: "many Maori practitioners use"
+    correctedSpan: "many Māori practitioners use"
+
+    where: "biological, psychological, and social factors"
+    correctedSpan: "biological, psychological and social factors"
+
+    where: "Some Maoris feel this model"
+    correctedSpan: "Some Māori feel this model"
+
+- For grammar/style/structure issues, set "correctedSpan" to null. Those require student judgement; we don't auto-replace them.
+- The "where" string MUST appear in the draft EXACTLY, character-for-character. Don't paraphrase it. The client does plain find-and-replace, so the find target has to match.`;
 
 export const edit = action({
   args: {
@@ -113,13 +119,11 @@ export const edit = action({
 
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
 
-    // V4 Pro is the default for the NZ Editor specifically. The
-    // schema (array of 30 issue objects, each with 5 fields including
-    // verbatim quotes) is complex enough that Flash's smaller model
-    // routinely hangs or returns empty content via OpenRouter's
-    // JSON-mode enforcement. Pro handles it reliably in 30-60s. The
-    // fallback path stays for resilience: if Pro hiccups, retry once.
-    const primaryModel = args.model ?? "deepseek/deepseek-v4-pro";
+    // Back to V4 Flash now that we've removed the bulky correctedDraft
+    // field — the per-issue correctedSpan strings are tiny by
+    // comparison. With smaller output, Flash handles the schema fine
+    // and runs ~2x faster. Falls back to Pro if Flash hiccups.
+    const primaryModel = args.model ?? "deepseek/deepseek-v4-flash";
     let raw: string;
     let modelUsed: string;
     let usage: { inputTokens: number; outputTokens: number };
@@ -131,7 +135,7 @@ export const edit = action({
         // 6000 tokens fits ~30 capped issues + structureNotes comfortably.
         // Bigger budgets made the model produce excess output and slowed
         // wall-clock time to several minutes.
-        maxTokens: 9000,
+        maxTokens: 6000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: trimmed },
@@ -161,7 +165,7 @@ export const edit = action({
         model: fallbackModel,
         responseFormatJson: true,
         temperature: 0.2,
-        maxTokens: 9000,
+        maxTokens: 6000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: trimmed },

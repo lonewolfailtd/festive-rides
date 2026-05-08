@@ -15,6 +15,10 @@ interface Issue {
   category: "spelling" | "grammar" | "punctuation" | "tereo" | "style" | "structure";
   severity: "high" | "medium" | "low";
   where: string;
+  // Set only for mechanical fixes (spelling, te reo, Oxford commas,
+  // missing apostrophes). Null for grammar/style/structure where the
+  // student needs to think it through.
+  correctedSpan?: string | null;
   problem: string;
   suggestion: string;
   rule: string;
@@ -34,7 +38,38 @@ interface EditResult {
   byCategory: Record<string, number>;
   issues: Issue[];
   structureNotes?: StructureNotes;
-  correctedDraft?: string;
+}
+
+// Apply mechanical fixes (spelling, te reo, Oxford commas, missing
+// apostrophes) to the draft client-side. The model gives us per-issue
+// find/replace pairs; we run them sequentially. Skips issues without
+// a correctedSpan (grammar/style/structure are deliberately left for
+// the student to think about).
+function applyMechanicalFixes(originalText: string, issues: Issue[]): {
+  text: string;
+  applied: number;
+  skipped: number;
+} {
+  let text = originalText;
+  let applied = 0;
+  let skipped = 0;
+  const MECHANICAL: Issue["category"][] = ["spelling", "tereo", "punctuation"];
+  for (const issue of issues) {
+    if (!MECHANICAL.includes(issue.category)) continue;
+    if (!issue.correctedSpan || !issue.where) continue;
+    if (issue.correctedSpan === issue.where) continue;
+    const idx = text.indexOf(issue.where);
+    if (idx < 0) {
+      skipped++;
+      continue;
+    }
+    text =
+      text.slice(0, idx) +
+      issue.correctedSpan +
+      text.slice(idx + issue.where.length);
+    applied++;
+  }
+  return { text, applied, skipped };
 }
 
 const SEVERITY_RANK: Record<Issue["severity"], number> = {
@@ -410,41 +445,54 @@ export default function EditorClient() {
             </div>
           </section>
 
-          {/* Auto-corrected draft — mechanical fixes pre-applied. Student
-              can copy this directly back to their assignment, then work
-              through the remaining grammar/style/structure issues. */}
-          {result.correctedDraft && result.correctedDraft.trim().length > 0 && (
-            <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
-                  Auto-corrected draft
-                </h2>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!result.correctedDraft) return;
-                    try {
-                      await navigator.clipboard.writeText(result.correctedDraft);
-                      setDraftCopied(true);
-                      toast.success("Corrected draft copied. Paste back into your assignment.");
-                      setTimeout(() => setDraftCopied(false), 2200);
-                    } catch {
-                      toast.error("Couldn't copy");
-                    }
-                  }}
-                  className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
-                >
-                  {draftCopied ? "✓ Copied" : "Copy corrected draft"}
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-emerald-900/80 dark:text-emerald-200/80">
-                Spelling, te reo macrons, Oxford commas and missing apostrophes are pre-applied. Grammar, style and structure issues are <strong>left untouched</strong> — those need your judgement.
-              </p>
-              <pre className="mt-3 max-h-[400px] overflow-auto whitespace-pre-wrap rounded-md border border-emerald-300/60 bg-white p-3 font-mono text-xs leading-relaxed text-slate-800 dark:border-emerald-800/60 dark:bg-slate-950 dark:text-slate-200">
-                {result.correctedDraft}
-              </pre>
-            </section>
-          )}
+          {/* Auto-corrected draft — mechanical fixes applied client-side
+              from per-issue correctedSpan pairs. Faster than asking the
+              AI to rewrite the whole draft, and deterministic. */}
+          {(() => {
+            const corrected = applyMechanicalFixes(text, result.issues);
+            if (corrected.applied === 0) return null;
+            return (
+              <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+                    Auto-corrected draft
+                    <span className="ml-2 text-xs font-normal text-emerald-800/80 dark:text-emerald-200/80">
+                      ({corrected.applied} fix{corrected.applied === 1 ? "" : "es"} applied)
+                    </span>
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(corrected.text);
+                        setDraftCopied(true);
+                        toast.success(
+                          `${corrected.applied} mechanical fixes applied. Paste back into your assignment.`,
+                        );
+                        setTimeout(() => setDraftCopied(false), 2200);
+                      } catch {
+                        toast.error("Couldn't copy");
+                      }
+                    }}
+                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+                  >
+                    {draftCopied ? "✓ Copied" : "Copy corrected draft"}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-emerald-900/80 dark:text-emerald-200/80">
+                  Spelling, te reo macrons, Oxford commas and missing apostrophes pre-applied. Grammar, style and structure issues are <strong>left untouched</strong> — those need your judgement.
+                  {corrected.skipped > 0 && (
+                    <span className="ml-1 italic text-amber-800 dark:text-amber-300">
+                      ({corrected.skipped} couldn&apos;t be auto-applied — apply manually from the issue list.)
+                    </span>
+                  )}
+                </p>
+                <pre className="mt-3 max-h-[400px] overflow-auto whitespace-pre-wrap rounded-md border border-emerald-300/60 bg-white p-3 font-mono text-xs leading-relaxed text-slate-800 dark:border-emerald-800/60 dark:bg-slate-950 dark:text-slate-200">
+                  {corrected.text}
+                </pre>
+              </section>
+            );
+          })()}
 
           {/* Issue list — checkbox per issue, sorted high → low severity */}
           {filteredIssues.length > 0 && (
