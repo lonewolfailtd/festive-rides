@@ -7,7 +7,7 @@
 import { api } from "@/convex/_generated/api";
 import { useAction } from "convex/react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 
@@ -126,6 +126,55 @@ export default function EditorClient() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [filter, setFilter] = useState<"all" | Issue["category"]>("all");
 
+  // Linear progress estimate while running. Editor takes 15-30s typically
+  // depending on draft length. Same pattern as Quick Import.
+  const [progressPct, setProgressPct] = useState(0);
+  const [estimatedSeconds, setEstimatedSeconds] = useState(20);
+  const rafRef = useRef<number | null>(null);
+
+  const stopProgressTimer = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  };
+
+  const startProgressTimer = (textLength: number) => {
+    stopProgressTimer();
+    // Empirical: ~12s for 1000 chars, ~25s for 5000, ~40s for 15000+.
+    // Roughly linear with input size.
+    const seconds =
+      textLength < 1500 ? 15 : textLength < 6000 ? 25 : textLength < 15000 ? 35 : 50;
+    setEstimatedSeconds(seconds);
+    setProgressPct(0);
+    const startedAt = performance.now();
+    const totalMs = seconds * 1000;
+    const tick = (now: number) => {
+      const elapsedMs = now - startedAt;
+      const linear = (elapsedMs / totalMs) * 99;
+      setProgressPct(Math.min(99, linear));
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  useEffect(() => {
+    return () => stopProgressTimer();
+  }, []);
+
+  const progressLabel =
+    progressPct < 25
+      ? "Reading your draft"
+      : progressPct < 55
+        ? "Spotting issues"
+        : progressPct < 85
+          ? "Reviewing structure"
+          : "Almost there";
+  const secondsLeft = Math.max(
+    0,
+    Math.ceil((estimatedSeconds * (100 - progressPct)) / 100),
+  );
+
   useEffect(() => {
     try {
       const seen = window.localStorage.getItem("uni-tool-onboarded-editor");
@@ -150,11 +199,16 @@ export default function EditorClient() {
       return;
     }
     setRunning(true);
+    setResult(null);
+    startProgressTimer(text.length);
     try {
       const r = (await editAction({ text })) as EditResult;
+      stopProgressTimer();
+      setProgressPct(100);
       setResult(r);
       setFilter("all");
     } catch (err) {
+      stopProgressTimer();
       setError(err instanceof Error ? err.message : "Edit failed.");
     } finally {
       setRunning(false);
@@ -241,6 +295,33 @@ export default function EditorClient() {
               Clear
             </button>
           </div>
+
+          {/* Linear progress bar with seconds-left, mirroring Quick Import.
+              Only renders while running. */}
+          {running && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
+                <span className="font-medium">{progressLabel}…</span>
+                <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400">
+                  {Math.floor(progressPct)}%
+                  {progressPct < 99 && secondsLeft > 0 && (
+                    <span className="ml-2 text-slate-500 dark:text-slate-400">
+                      · ~{secondsLeft}s left
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
+                  style={{
+                    width: `${progressPct}%`,
+                    transition: "width 100ms linear",
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </form>
       </section>
 
