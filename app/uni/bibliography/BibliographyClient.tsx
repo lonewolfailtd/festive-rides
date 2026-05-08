@@ -110,7 +110,7 @@ export default function BibliographyClient() {
     }
     if (textLen > MAX_TEXT) {
       setError(
-        `Too long ” please trim to ${MAX_TEXT.toLocaleString("en-NZ")} characters or split into chunks.`
+        `Too long — please trim to ${MAX_TEXT.toLocaleString("en-NZ")} characters or split into chunks.`
       );
       return;
     }
@@ -263,7 +263,7 @@ export default function BibliographyClient() {
     <main className="mx-auto max-w-4xl px-4 py-10">
       <PageHeader
         eyebrow="Bibliography Importer"
-        title="Paste a reference list ” get APA 7 entries"
+        title="Paste a reference list — get APA 7 entries"
         description="Drop in any reference list (Word doc, EndNote export, mixed APA 6 and APA 7, whatever). We parse each entry, normalise it to APA 7 and bulk-import the ones you want."
       />
 
@@ -277,9 +277,9 @@ export default function BibliographyClient() {
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Paste a chunk of references in any format into the big text area.</li>
                 <li>Optional: pick the assignment you want them attached to.</li>
-                <li>Click Parse ” each reference is normalised to strict APA 7.</li>
+                <li>Click Parse — each reference is normalised to strict APA 7.</li>
                 <li>Review the table. Untick any you don&rsquo;t want. Watch the amber notes for missing data.</li>
-                <li>Click Import ” selected entries land in your references list, ready to copy into Word.</li>
+                <li>Click Import — selected entries land in your references list, ready to copy into Word.</li>
               </ol>
             </div>
             <button
@@ -308,7 +308,7 @@ export default function BibliographyClient() {
               <option value="">No assignment</option>
               {(assignments ?? []).map((a) => (
                 <option key={a._id} value={a._id}>
-                  {a.courseCode ? `${a.courseCode} Â· ` : ""}
+                  {a.courseCode ? `${a.courseCode} · ` : ""}
                   {a.name}
                 </option>
               ))}
@@ -336,7 +336,7 @@ export default function BibliographyClient() {
               onChange={(e) => setText(e.target.value)}
               rows={14}
               required
-              placeholder="Paste your reference list here. Any format is fine ” we&rsquo;ll sort it out."
+              placeholder="Paste your reference list here. Any format is fine — we&rsquo;ll sort it out."
               className={`${inputStyle} resize-y font-mono`}
             />
           </div>
@@ -488,7 +488,7 @@ export default function BibliographyClient() {
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-800">
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   {selectedCount} of {result.references.length} selected
-                  {importedCount > 0 && ` Â· ${importedCount} imported`}
+                  {importedCount > 0 && ` · ${importedCount} imported`}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   {importedCount > 0 && (

@@ -331,7 +331,7 @@ function AuthorsEditor({
               className={`${buttonGhost} mb-2`}
               aria-label="Remove"
             >
-              Ã—
+              ×
             </button>
           </div>
         ))}
@@ -482,7 +482,7 @@ function checkNzStyle(text: string): StyleFlag[] {
       });
     }
   }
-  // Oxford comma: ", word(s), and " ” comma immediately before "and" in a
+  // Oxford comma: ", word(s), and " — comma immediately before "and" in a
   // prose list. We deliberately do NOT match "&" (APA author lists use
   // "Surname, A., & Surname, B." which is APA style, not an Oxford comma).
   const oxford = /,\s+[^,]+?,\s+and\s+/g;
@@ -544,7 +544,7 @@ export default function ReferencesManager() {
   // Style checker state
   const [styleFlags, setStyleFlags] = useState<StyleFlag[] | null>(null);
 
-  // Always fetch all user references in one query ” we filter client-side
+  // Always fetch all user references in one query — we filter client-side
   // by selected assignment so per-list counts come for free in the sidebar.
   const allRefs = useQuery(api.references.listForAssignment, {
     assignmentId: undefined,
@@ -555,7 +555,7 @@ export default function ReferencesManager() {
     return allRefs.filter((r) => r.assignmentId === selectedAssignment);
   }, [allRefs, selectedAssignment]);
 
-  // Counts for the sidebar ” { "all": N, [assignmentId]: N }
+  // Counts for the sidebar — { "all": N, [assignmentId]: N }
   const assignmentCounts = useMemo(() => {
     const counts: Record<string, number> = { all: 0 };
     if (!allRefs) return counts;
@@ -882,7 +882,7 @@ export default function ReferencesManager() {
   };
 
   // Add a single candidate immediately (used by the "Add now" button on
-  // each candidate card ” bypasses the batch select-and-import flow).
+  // each candidate card — bypasses the batch select-and-import flow).
   const handleAddSingleCandidate = async (
     cand: RevRow["candidates"][number]
   ) => {
@@ -1095,7 +1095,7 @@ export default function ReferencesManager() {
     return () => window.removeEventListener("keydown", handler);
   }, [selectMode]);
 
-  // Onboarding banner ” shown once on first visit, dismissed via localStorage.
+  // Onboarding banner — shown once on first visit, dismissed via localStorage.
   const [showOnboarding, setShowOnboarding] = useState(false);
   useEffect(() => {
     try {
@@ -1302,7 +1302,7 @@ ${items}
       toast.success(`Refreshed formatting on ${updated} reference${updated === 1 ? "" : "s"}`);
     } else {
       toast.success(
-        `Refreshed ${updated} reference${updated === 1 ? "" : "s"}; ${failed} could not be re-formatted (probably missing required fields ” Edit them manually).`
+        `Refreshed ${updated} reference${updated === 1 ? "" : "s"}; ${failed} could not be re-formatted (probably missing required fields — Edit them manually).`
       );
     }
   };
@@ -1374,7 +1374,7 @@ i { font-style:italic; font-weight:normal; }
     const html = buildBulkHtml();
     const plain = buildBulkPlain();
     const count = sortedRefs.length;
-    const successMessage = `Copied ${count} reference${count === 1 ? "" : "s"} ” paste straight into Word`;
+    const successMessage = `Copied ${count} reference${count === 1 ? "" : "s"} — paste straight into Word`;
     if (
       typeof window !== "undefined" &&
       "ClipboardItem" in window &&
@@ -1407,7 +1407,7 @@ i { font-style:italic; font-weight:normal; }
       <PageHeader
         eyebrow="References"
         title="APA 7 reference list"
-        description="Build, edit and export properly formatted references ” copy them straight into Word."
+        description="Build, edit and export properly formatted references — copy them straight into Word."
       />
 
       {showOnboarding && (
@@ -1418,10 +1418,10 @@ i { font-style:italic; font-weight:normal; }
                 Quick start
               </p>
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                <li>Make a list for each assignment in the sidebar (e.g. <em>PSYC101 ” Essay 2</em>).</li>
-                <li>Paste a URL or DOI into the lookup field ” the form auto-fills.</li>
+                <li>Make a list for each assignment in the sidebar (e.g. <em>PSYC101 — Essay 2</em>).</li>
+                <li>Paste a URL or DOI into the lookup field — the form auto-fills.</li>
                 <li>Open <em>Notes</em> on any reference to jot quotes / page numbers as you read.</li>
-                <li>When you&apos;re done, hit <em>Copy for Word</em> or <em>Download .docx</em> ” italics + hanging indent included.</li>
+                <li>When you&apos;re done, hit <em>Copy for Word</em> or <em>Download .docx</em> — italics + hanging indent included.</li>
               </ol>
             </div>
             <button
@@ -1467,7 +1467,7 @@ i { font-style:italic; font-weight:normal; }
               </li>
               {assignments?.map((a) => {
                 const isActive = selectedAssignment === a._id;
-                const label = a.courseCode ? `${a.courseCode} ” ${a.name}` : a.name;
+                const label = a.courseCode ? `${a.courseCode} — ${a.name}` : a.name;
                 return (
                   <li key={a._id}>
                     <button
@@ -1668,10 +1668,10 @@ i { font-style:italic; font-weight:normal; }
                                   </p>
                                   <p className="mt-0.5 text-slate-500 dark:text-slate-400">
                                     {authorList}{more}
-                                    {c.year ? ` Â· ${c.year}` : ""}
-                                    {c.journal ? ` Â· ${c.journal}` : ""}
+                                    {c.year ? ` · ${c.year}` : ""}
+                                    {c.journal ? ` · ${c.journal}` : ""}
                                     {c.citedByCount && c.citedByCount > 0
-                                      ? ` Â· cited ${c.citedByCount}Ã—`
+                                      ? ` · cited ${c.citedByCount}×`
                                       : ""}
                                   </p>
                                   {c.abstract && (
@@ -1688,7 +1688,7 @@ i { font-style:italic; font-weight:normal; }
                                         onClick={(e) => e.stopPropagation()}
                                         className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
                                       >
-                                        <span>â†—</span>
+                                        <span>↗</span>
                                         <span>View</span>
                                       </a>
                                     )}
@@ -1745,7 +1745,7 @@ i { font-style:italic; font-weight:normal; }
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         <details>
           <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300 hover:text-sky-300">
-            Bulk import ” paste a list of DOIs or URLs
+            Bulk import — paste a list of DOIs or URLs
           </summary>
           <div className="mt-3 space-y-3">
             <textarea
@@ -1782,7 +1782,7 @@ i { font-style:italic; font-weight:normal; }
           {editingId ? "Edit reference" : "Add a reference"}
         </h2>
 
-        {/* URL is the primary lookup ” full width, large input. */}
+        {/* URL is the primary lookup — full width, large input. */}
         <div className="mt-3">
           <span className={labelStyle}>Paste a URL</span>
           <div className="mt-1 flex gap-2">
@@ -1847,7 +1847,7 @@ i { font-style:italic; font-weight:normal; }
           })}
         </div>
 
-        {/* ISBN ” rarely used, tucked into a collapsible. */}
+        {/* ISBN — rarely used, tucked into a collapsible. */}
         <details className="mt-3 group">
           <summary className="cursor-pointer text-xs text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300">
             More: look up by ISBN
@@ -1885,7 +1885,7 @@ i { font-style:italic; font-weight:normal; }
           <div className="mt-3 space-y-2">
             {lookupInfo.warnings.length > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
-                <p className="font-medium">Sources disagreed on some fields ” please double-check before saving:</p>
+                <p className="font-medium">Sources disagreed on some fields — please double-check before saving:</p>
                 <ul className="mt-1.5 list-disc space-y-1 pl-4">
                   {lookupInfo.warnings.map((w, i) => (
                     <li key={i}>{w}</li>
@@ -1903,7 +1903,7 @@ i { font-style:italic; font-weight:normal; }
                 Queried: {lookupInfo.sourcesQueried.join(", ")}
                 {Object.keys(lookupInfo.fieldSources).length > 0 && (
                   <>
-                    {" Â· "}
+                    {" · "}
                     <details className="inline">
                       <summary className="cursor-pointer text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200">
                         per-field sources
@@ -2389,7 +2389,7 @@ i { font-style:italic; font-weight:normal; }
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
-        {/* Sticky toolbar ” search + count + actions stay reachable on scroll. */}
+        {/* Sticky toolbar — search + count + actions stay reachable on scroll. */}
         <div className="sticky top-0 -mx-5 -mt-5 mb-4 rounded-t-2xl border-b border-slate-200 bg-white/90 px-5 py-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 dark:shadow-none">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
@@ -2432,7 +2432,7 @@ i { font-style:italic; font-weight:normal; }
                   ? "border-sky-500 bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200"
                   : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
               }`}
-              title="Toggle select mode (s) ” pick refs and quick-cite them as a group"
+              title="Toggle select mode (s) — pick refs and quick-cite them as a group"
             >
               {selectMode ? "✕ Exit select" : "Multi-cite"}
             </button>
@@ -2530,7 +2530,7 @@ i { font-style:italic; font-weight:normal; }
                     <span className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
                       {f.kind === "us-spelling" ? "US spelling" : "Oxford comma"}
                     </span>{" "}
-                    <code className="text-slate-900 dark:text-slate-100">{f.match}</code> â†’{" "}
+                    <code className="text-slate-900 dark:text-slate-100">{f.match}</code> →{" "}
                     <span className="text-emerald-700 dark:text-emerald-300">{f.suggestion}</span>
                     <div className="mt-0.5 text-xs text-slate-500">
                       {f.snippet}
@@ -2630,7 +2630,7 @@ i { font-style:italic; font-weight:normal; }
                           aria-label={`Remove tag ${tag}`}
                           className="text-slate-400 hover:text-rose-500"
                         >
-                          Ã—
+                          ×
                         </button>
                       </span>
                     ))}
@@ -2720,7 +2720,7 @@ i { font-style:italic; font-weight:normal; }
                     {openNotes[r._id]
                       ? "Hide notes"
                       : (r.notes && r.notes.trim()) || (r.annotation && r.annotation.trim())
-                        ? "Notes â—"
+                        ? "Notes ●"
                         : "+ Notes"}
                   </button>
                   <button
@@ -2770,7 +2770,7 @@ i { font-style:italic; font-weight:normal; }
                   >
                     {r.annotation?.trim() || (
                       <span className="text-slate-500">
-                        (No annotation yet ” open notes to add one)
+                        (No annotation yet — open notes to add one)
                       </span>
                     )}
                   </p>
@@ -2779,7 +2779,7 @@ i { font-style:italic; font-weight:normal; }
                 {openNotes[r._id] && (
                   <div className="mt-3 space-y-3 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-3">
                     <div>
-                      <span className={labelStyle}>Quick notes (private ” not exported)</span>
+                      <span className={labelStyle}>Quick notes (private — not exported)</span>
                       <textarea
                         rows={3}
                         value={notesDraft[r._id] ?? r.notes ?? ""}
@@ -2840,7 +2840,7 @@ i { font-style:italic; font-weight:normal; }
         </div>
       </div>
 
-      {/* Floating quick-cite bar ” appears in select mode with at least 1 ref. */}
+      {/* Floating quick-cite bar — appears in select mode with at least 1 ref. */}
       {selectMode && selectedRefIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-slate-300 bg-white px-4 py-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
           <span className="text-sm text-slate-700 dark:text-slate-200">

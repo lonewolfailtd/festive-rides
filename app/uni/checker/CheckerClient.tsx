@@ -89,12 +89,12 @@ export default function CheckerClient() {
   const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Model picker ” V4 Pro is default (cheaper than Claude, comparable quality
+  // Model picker — V4 Pro is default (cheaper than Claude, comparable quality
   // on voice analysis). V4 Flash is the budget option, Claude is the premium
   // pick if the V4 Pro verdict feels off.
   const [model, setModel] = useStoredState<string>("uni-checker-model", "deepseek/deepseek-v4-pro");
 
-  // Calibration sub-tool ” runs three known samples through the checker
+  // Calibration sub-tool — runs three known samples through the checker
   // back-to-back so the student can sanity-check the model's calibration.
   const [calibrating, setCalibrating] = useState<null | "human" | "ai" | "mixed">(null);
   const [calibrationResults, setCalibrationResults] = useState<{
@@ -124,7 +124,7 @@ export default function CheckerClient() {
 
   const handlePdf = async (file: File) => {
     if (file.size > 20 * 1024 * 1024) {
-      toast.error("PDF over 20MB ” please trim.");
+      toast.error("PDF over 20MB — please trim.");
       return;
     }
     setExtractingFile("pdf");
@@ -148,7 +148,7 @@ export default function CheckerClient() {
       }
       let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
       if (extracted.length < 50) {
-        toast.error("Could not pull text from this PDF ” it might be image-based.");
+        toast.error("Could not pull text from this PDF — it might be image-based.");
         return;
       }
       if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
@@ -164,7 +164,7 @@ export default function CheckerClient() {
 
   const handleDocx = async (file: File) => {
     if (file.size > 20 * 1024 * 1024) {
-      toast.error("Word doc over 20MB ” please trim.");
+      toast.error("Word doc over 20MB — please trim.");
       return;
     }
     setExtractingFile("docx");
@@ -226,9 +226,9 @@ export default function CheckerClient() {
   // raw ChatGPT-style filler; mixed is a sandwich. Lets the student see at a
   // glance whether the current model is calibrated correctly.
   const SAMPLES = {
-    human: `okay so I've been thinking about this for a while and I'm not really sure if Bowlby's attachment thing actually fits what I've seen with my own kids. like, my eldest was the textbook secure-attached baby ” clung to me for about six months, then started doing his own thing. but my second? totally different. she barely cared if I left the room from about four months on, which Ainsworth's framework would call avoidant or whatever. Bowlby would probably say I screwed something up but honestly I think she just has a different temperament. the strange situation test always rubbed me the wrong way too ” twenty minutes in a weird room with a stranger isn't exactly representative of a kid's actual home life. I get why it became the gold standard, it's reproducible, but reproducible isn't the same as valid. anyway that's my two cents.`,
+    human: `okay so I've been thinking about this for a while and I'm not really sure if Bowlby's attachment thing actually fits what I've seen with my own kids. like, my eldest was the textbook secure-attached baby — clung to me for about six months, then started doing his own thing. but my second? totally different. she barely cared if I left the room from about four months on, which Ainsworth's framework would call avoidant or whatever. Bowlby would probably say I screwed something up but honestly I think she just has a different temperament. the strange situation test always rubbed me the wrong way too — twenty minutes in a weird room with a stranger isn't exactly representative of a kid's actual home life. I get why it became the gold standard, it's reproducible, but reproducible isn't the same as valid. anyway that's my two cents.`,
     ai: `Attachment theory, originally proposed by John Bowlby and further developed through the seminal work of Mary Ainsworth, represents a multifaceted framework for understanding the nuanced dynamics of early caregiver-infant relationships. It is important to note that this theory underscores the comprehensive nature of attachment as a foundational element of human development. Furthermore, the strange situation paradigm has been instrumental in delineating distinct attachment styles. Moreover, contemporary research continues to navigate the complexities of these multifaceted developmental trajectories. Additionally, the implications of attachment theory extend across diverse cultural contexts, illuminating the tapestry of human bonding. In conclusion, Bowlby's foundational contributions, alongside Ainsworth's empirical extensions, have profoundly shaped our holistic understanding of socio-emotional development in today's rapidly evolving psychological landscape.`,
-    mixed: `Bowlby's attachment theory has been hugely influential ” there's no real argument about that. The Strange Situation gave the field a way to actually measure something that had been fuzzy. But it's important to note that the theory operates within a multifaceted framework, and contemporary research continues to navigate the complexities of cross-cultural application. Honestly though, when I read Rothbaum's 2000 critique of how poorly attachment categories transfer to Japanese samples, it knocked some of the wind out of the universalist claims for me. Furthermore, the strange situation paradigm presents methodological limitations that warrant comprehensive examination. I think the framework still has legs, just narrower legs than the textbooks make out.`,
+    mixed: `Bowlby's attachment theory has been hugely influential — there's no real argument about that. The Strange Situation gave the field a way to actually measure something that had been fuzzy. But it's important to note that the theory operates within a multifaceted framework, and contemporary research continues to navigate the complexities of cross-cultural application. Honestly though, when I read Rothbaum's 2000 critique of how poorly attachment categories transfer to Japanese samples, it knocked some of the wind out of the universalist claims for me. Furthermore, the strange situation paradigm presents methodological limitations that warrant comprehensive examination. I think the framework still has legs, just narrower legs than the textbooks make out.`,
   } as const;
 
   const runCalibration = async (which: "human" | "ai" | "mixed") => {
@@ -286,12 +286,12 @@ export default function CheckerClient() {
               <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Paste your draft, or click ðŸ“„ Upload PDF / ðŸ“ Upload Word doc to extract from a file.</li>
-                <li>Click <em>Check for AI</em> ” get an overall score and per-paragraph breakdown.</li>
+                <li>Click <em>Check for AI</em> — get an overall score and per-paragraph breakdown.</li>
                 <li>Read the &quot;tells&quot; section to see what patterns flagged as AI-like.</li>
                 <li>Use the <em>Humanise a passage</em> tool below to rewrite specific bits.</li>
               </ol>
               <p className="mt-2 text-xs text-sky-900/80 dark:text-sky-300/80">
-                âš  AI detectors are imperfect. Real tools (Turnitin, GPTZero) have 5“15% false-positive rates. Use this as a guide, not a verdict ” and write in your own voice from the start when you can.
+                ⚠  AI detectors are imperfect. Real tools (Turnitin, GPTZero) have 5“15% false-positive rates. Use this as a guide, not a verdict — and write in your own voice from the start when you can.
               </p>
             </div>
             <button
@@ -413,7 +413,7 @@ export default function CheckerClient() {
             </div>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Your text is sent to OpenRouter and discarded after the response. Different models score the same text slightly differently ” flip between them if a verdict feels off.
+            Your text is sent to OpenRouter and discarded after the response. Different models score the same text slightly differently — flip between them if a verdict feels off.
           </p>
         </form>
       </section>
@@ -422,13 +422,13 @@ export default function CheckerClient() {
       <section className={`${sectionCard} mb-6`}>
         <details className="group">
           <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-slate-600 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-300">
-            <span className="mr-1.5 inline-block transition-transform group-open:rotate-90">â–¸</span>
+            <span className="mr-1.5 inline-block transition-transform group-open:rotate-90">▸</span>
             Sanity-check the model
           </summary>
         <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Three known samples ” a human-written, an obviously-AI, and a mixed paragraph. Run them to see if the model is calibrated correctly today before you trust its verdict on your own draft.
+              Three known samples — a human-written, an obviously-AI, and a mixed paragraph. Run them to see if the model is calibrated correctly today before you trust its verdict on your own draft.
             </p>
           </div>
           <button
@@ -541,7 +541,7 @@ export default function CheckerClient() {
                     >
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                          Â¶ {i + 1}
+                          ¶ {i + 1}
                         </span>
                         <span className={`text-sm font-medium ${c.text}`}>
                           {Math.round(p.score)}/100

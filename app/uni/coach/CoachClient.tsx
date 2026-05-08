@@ -227,7 +227,7 @@ export default function CoachClient() {
     setResult(null);
     if (draftLen < MIN_DRAFT) {
       setError(
-        `Your draft is a bit short ” please paste at least ${MIN_DRAFT} characters.`
+        `Your draft is a bit short — please paste at least ${MIN_DRAFT} characters.`
       );
       return;
     }
@@ -291,7 +291,7 @@ export default function CoachClient() {
                 <li>Paste the assignment brief in the optional brief box, OR open the Analyser to send one over.</li>
                 <li>Paste your draft into the big text area.</li>
                 <li>Pick the word-count target that matches your assignment level.</li>
-                <li>Click Get feedback ” you&rsquo;ll get scored ratings on structure, argument, evidence, citation density and tone.</li>
+                <li>Click Get feedback — you&rsquo;ll get scored ratings on structure, argument, evidence, citation density and tone.</li>
                 <li>Specific improvements quote your own text and tell you what to change.</li>
               </ol>
             </div>

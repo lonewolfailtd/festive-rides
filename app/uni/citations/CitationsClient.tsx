@@ -77,7 +77,7 @@ export default function CitationsClient() {
       return;
     }
     if (textLen > MAX_TEXT) {
-      toast.error(`Draft is too long ” trim to ${MAX_TEXT} characters or fewer.`);
+      toast.error(`Draft is too long — trim to ${MAX_TEXT} characters or fewer.`);
       return;
     }
     setRunning(true);
@@ -132,7 +132,7 @@ export default function CitationsClient() {
                 <li>Pick the assignment your draft belongs to so we can match against the right references list.</li>
                 <li>Paste your draft into the big text area.</li>
                 <li>
-                  Click Extract ” every parenthetical and narrative citation is pulled out
+                  Click Extract — every parenthetical and narrative citation is pulled out
                   and cross-checked against your saved references.
                 </li>
                 <li>
@@ -177,7 +177,7 @@ export default function CitationsClient() {
               {assignments?.map((a) => (
                 <option key={a._id} value={a._id}>
                   {a.name}
-                  {a.courseCode ? ` ” ${a.courseCode}` : ""}
+                  {a.courseCode ? ` — ${a.courseCode}` : ""}
                 </option>
               ))}
             </select>
@@ -307,9 +307,9 @@ export default function CitationsClient() {
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(m);
-                          toast.success("Copied ” paste into the References add form", {
+                          toast.success("Copied — paste into the References add form", {
                             action: {
-                              label: "Open References â†’",
+                              label: "Open References →",
                               onClick: () => {
                                 window.location.href =
                                   assignmentId === ""
@@ -338,7 +338,7 @@ export default function CitationsClient() {
                 Unused references
               </h2>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
-                These are in your references list but never cited in the draft. Either cite them or remove them ” markers penalise dead weight.
+                These are in your references list but never cited in the draft. Either cite them or remove them — markers penalise dead weight.
               </p>
               <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-900 dark:text-slate-100">
                 {result.unusedRefs.map((r) => (
@@ -383,7 +383,7 @@ export default function CitationsClient() {
                       <th className="py-2 pr-3 font-medium">Author</th>
                       <th className="py-2 pr-3 font-medium">Year</th>
                       <th className="py-2 pr-3 font-medium">Page</th>
-                      <th className="py-2 pr-3 font-medium">Â¶</th>
+                      <th className="py-2 pr-3 font-medium">¶</th>
                     </tr>
                   </thead>
                   <tbody>

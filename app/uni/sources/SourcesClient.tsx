@@ -694,8 +694,8 @@ export default function SourcesClient() {
                     </p>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {r.year ?? "n.d."}
-                      {r.journal ? ` Â· ${r.journal}` : ""}
-                      {!r.journal && r.publisher ? ` Â· ${r.publisher}` : ""}
+                      {r.journal ? ` · ${r.journal}` : ""}
+                      {!r.journal && r.publisher ? ` · ${r.publisher}` : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-300">
