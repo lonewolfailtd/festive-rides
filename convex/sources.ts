@@ -101,13 +101,19 @@ export const search = action({
     const filters: string[] = [];
 
     // Source type filter takes precedence over the legacy peer-reviewed
-    // toggle. "Peer-reviewed only" is effectively "journal articles only"
-    // in OpenAlex parlance, so if the user has both, the explicit type
-    // wins (it's more specific).
+    // toggle. "Peer-reviewed only" was previously `type:journal-article`
+    // alone, which was too tight — it excludes peer-reviewed book
+    // chapters, review articles, and conference proceedings. Broadened
+    // to a union of types that ARE typically peer-reviewed:
+    //   journal-article  — published in academic journals
+    //   review           — review articles in journals
+    //   book-chapter     — chapters in edited academic books
+    //   proceedings-article — peer-reviewed conference papers
+    // The OR syntax in OpenAlex filters uses `|` between values.
     const typeFilter = args.sourceType
       ? SOURCE_TYPE_FILTER[args.sourceType]
       : args.onlyPeerReviewed
-        ? "type:journal-article"
+        ? "type:journal-article|review|book-chapter|proceedings-article"
         : null;
     if (typeFilter) filters.push(typeFilter);
 

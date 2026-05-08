@@ -629,6 +629,34 @@ export default function SourcesClient() {
                   if (form) form.requestSubmit();
                 }, 0);
               }}
+              onTogglePeerReviewed={() => {
+                setOnlyPeerReviewed(false);
+                setTimeout(() => {
+                  const form = document.querySelector("form");
+                  if (form) form.requestSubmit();
+                }, 0);
+              }}
+              onClearYear={() => {
+                setYearFrom("");
+                setTimeout(() => {
+                  const form = document.querySelector("form");
+                  if (form) form.requestSubmit();
+                }, 0);
+              }}
+              onToggleOpenAccess={() => {
+                setOpenAccessOnly(false);
+                setTimeout(() => {
+                  const form = document.querySelector("form");
+                  if (form) form.requestSubmit();
+                }, 0);
+              }}
+              onToggleNzAuthored={() => {
+                setNzAuthoredOnly(false);
+                setTimeout(() => {
+                  const form = document.querySelector("form");
+                  if (form) form.requestSubmit();
+                }, 0);
+              }}
               onClearFilters={() => {
                 setOnlyPeerReviewed(false);
                 setOpenAccessOnly(false);
@@ -824,16 +852,21 @@ function ZeroResultsHelp(props: {
   sourceType: string;
   onShorten: (q: string) => void;
   onClearFilters: () => void;
+  onTogglePeerReviewed: () => void;
+  onClearYear: () => void;
+  onToggleOpenAccess: () => void;
+  onToggleNzAuthored: () => void;
 }) {
   const queryWordCount = props.lastQuery.trim().split(/\s+/).length;
   const isLong = queryWordCount > 10;
   const shortened = isLong ? shortenQuery(props.lastQuery) : "";
-  const filtersOn =
-    props.onlyPeerReviewed ||
-    props.openAccessOnly ||
-    props.nzAuthoredOnly ||
-    props.yearFrom.trim().length > 0 ||
-    props.sourceType !== "all";
+  const activeFilters: string[] = [];
+  if (props.onlyPeerReviewed) activeFilters.push("Peer-reviewed only");
+  if (props.openAccessOnly) activeFilters.push("Open access only");
+  if (props.nzAuthoredOnly) activeFilters.push("NZ-authored only");
+  if (props.yearFrom.trim()) activeFilters.push(`From ${props.yearFrom}`);
+  if (props.sourceType !== "all") activeFilters.push(`Type: ${props.sourceType}`);
+  const anyFilterOn = activeFilters.length > 0;
 
   return (
     <div className="space-y-3 text-sm">
@@ -857,20 +890,80 @@ function ZeroResultsHelp(props: {
             </span>
           </li>
         )}
-        {filtersOn && (
+        {/* Per-filter toggles when each is the likely culprit. The
+            peer-reviewed toggle is the most common cause of zero
+            results because foundational psych papers are pre-2020 AND
+            are journal articles — combined with strict type filtering,
+            edge-case queries vanish. */}
+        {props.onlyPeerReviewed && (
           <li>
-            You have filters on. Clearing them often surfaces relevant results
-            at the cost of breadth.{" "}
+            <strong>Peer-reviewed only</strong> is on. This narrows results to
+            journal articles, reviews, book chapters and conference papers.
+            Foundational papers (Skinner 1953, Bandura 1977, etc) might still
+            be missed if combined with a recent year filter.{" "}
+            <button
+              type="button"
+              onClick={props.onTogglePeerReviewed}
+              className="rounded-md border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900 hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+              Turn off peer-reviewed
+            </button>
+          </li>
+        )}
+        {props.yearFrom.trim() && (
+          <li>
+            Year filter: <strong>From {props.yearFrom}</strong>. If you need
+            foundational/older papers, drop this.{" "}
+            <button
+              type="button"
+              onClick={props.onClearYear}
+              className="rounded-md border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900 hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+              Clear year filter
+            </button>
+          </li>
+        )}
+        {props.openAccessOnly && (
+          <li>
+            <strong>Open access only</strong> is on. About 30% of papers are
+            open access — turning this off triples the result pool.{" "}
+            <button
+              type="button"
+              onClick={props.onToggleOpenAccess}
+              className="rounded-md border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900 hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+              Turn off open access
+            </button>
+          </li>
+        )}
+        {props.nzAuthoredOnly && (
+          <li>
+            <strong>NZ-authored only</strong> is on. Foundational psychology
+            isn&apos;t mostly NZ work; this filter is for NZ-context
+            assignments.{" "}
+            <button
+              type="button"
+              onClick={props.onToggleNzAuthored}
+              className="rounded-md border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900 hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+              Turn off NZ-authored
+            </button>
+          </li>
+        )}
+        {anyFilterOn && (
+          <li className="text-xs text-slate-500 dark:text-slate-400">
+            Or just{" "}
             <button
               type="button"
               onClick={props.onClearFilters}
               className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300"
             >
-              Clear filters and retry
-            </button>
+              clear ALL filters
+            </button>{" "}
+            and retry.
           </li>
         )}
-        {!isLong && !filtersOn && (
+        {!isLong && !anyFilterOn && (
           <li>Try broader or more common keywords.</li>
         )}
         <li className="text-xs text-slate-500 dark:text-slate-400">
