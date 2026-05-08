@@ -77,7 +77,7 @@ export default function CitationsClient() {
       return;
     }
     if (textLen > MAX_TEXT) {
-      toast.error(`Draft is too long â€” trim to ${MAX_TEXT} characters or fewer.`);
+      toast.error(`Draft is too long ” trim to ${MAX_TEXT} characters or fewer.`);
       return;
     }
     setRunning(true);
@@ -132,7 +132,7 @@ export default function CitationsClient() {
                 <li>Pick the assignment your draft belongs to so we can match against the right references list.</li>
                 <li>Paste your draft into the big text area.</li>
                 <li>
-                  Click Extract â€” every parenthetical and narrative citation is pulled out
+                  Click Extract ” every parenthetical and narrative citation is pulled out
                   and cross-checked against your saved references.
                 </li>
                 <li>
@@ -177,7 +177,7 @@ export default function CitationsClient() {
               {assignments?.map((a) => (
                 <option key={a._id} value={a._id}>
                   {a.name}
-                  {a.courseCode ? ` â€” ${a.courseCode}` : ""}
+                  {a.courseCode ? ` ” ${a.courseCode}` : ""}
                 </option>
               ))}
             </select>
@@ -217,7 +217,7 @@ export default function CitationsClient() {
               disabled={running || tooShort || tooLong || textLen === 0}
               className={buttonPrimary}
             >
-              {running ? "Extractingâ€¦" : "Extract citations"}
+              {running ? "Extracting…" : "Extract citations"}
             </button>
             <button
               type="button"
@@ -307,7 +307,7 @@ export default function CitationsClient() {
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(m);
-                          toast.success("Copied â€” paste into the References add form", {
+                          toast.success("Copied ” paste into the References add form", {
                             action: {
                               label: "Open References â†’",
                               onClick: () => {
@@ -338,7 +338,7 @@ export default function CitationsClient() {
                 Unused references
               </h2>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
-                These are in your references list but never cited in the draft. Either cite them or remove them â€” markers penalise dead weight.
+                These are in your references list but never cited in the draft. Either cite them or remove them ” markers penalise dead weight.
               </p>
               <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-900 dark:text-slate-100">
                 {result.unusedRefs.map((r) => (
@@ -405,7 +405,7 @@ export default function CitationsClient() {
                           {c.year}
                         </td>
                         <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-                          {c.page ?? "â€”"}
+                          {c.page ?? "”"}
                         </td>
                         <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
                           {c.paragraphIndex + 1}

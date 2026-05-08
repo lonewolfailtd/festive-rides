@@ -92,7 +92,7 @@ export default function SettingsClient() {
     try {
       await changePassword({ currentPassword, newPassword });
       toast.success(
-        "Password reset. You'll be signed out â€” sign in again with your new password."
+        "Password reset. You'll be signed out ” sign in again with your new password."
       );
       setCurrentPassword("");
       setNewPassword("");
@@ -131,7 +131,7 @@ export default function SettingsClient() {
 
   const handleExport = () => {
     if (!exportData) {
-      toast.error("Export is still loading â€” please try again in a moment.");
+      toast.error("Export is still loading ” please try again in a moment.");
       return;
     }
     setExporting(true);
@@ -158,7 +158,7 @@ export default function SettingsClient() {
 
   const handleDeleteAccount = async () => {
     if (!me?.email) {
-      toast.error("Couldn't read your account email â€” try refreshing.");
+      toast.error("Couldn't read your account email ” try refreshing.");
       return;
     }
     setDeletingAccount(true);
@@ -207,11 +207,11 @@ export default function SettingsClient() {
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Signed in as{" "}
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {me?.email ?? "â€¦"}
+              {me?.email ?? "…"}
             </span>
           </p>
 
-          {/* Display name â€” used to greet you on the dashboard. */}
+          {/* Display name ” used to greet you on the dashboard. */}
           <div className="mt-4">
             <span className={labelStyle}>Display name</span>
             {editingName === null ? (
@@ -219,7 +219,7 @@ export default function SettingsClient() {
                 <span className="text-sm text-slate-900 dark:text-slate-100">
                   {me?.displayName ?? (
                     <em className="text-slate-500 dark:text-slate-400">
-                      Not set â€” pick something on the dashboard or here.
+                      Not set ” pick something on the dashboard or here.
                     </em>
                   )}
                 </span>
@@ -252,7 +252,7 @@ export default function SettingsClient() {
                   disabled={savingName}
                   className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-60"
                 >
-                  {savingName ? "Savingâ€¦" : "Save"}
+                  {savingName ? "Saving…" : "Save"}
                 </button>
                 <button
                   type="button"
@@ -273,7 +273,7 @@ export default function SettingsClient() {
               Change password
             </h2>
             <p className="-mt-2 text-xs text-slate-500 dark:text-slate-400">
-              For safety this will sign you out â€” sign back in with your new
+              For safety this will sign you out ” sign back in with your new
               password.
             </p>
 
@@ -326,12 +326,12 @@ export default function SettingsClient() {
               disabled={changingPassword}
               className={buttonPrimary}
             >
-              {changingPassword ? "Updatingâ€¦" : "Change password"}
+              {changingPassword ? "Updating…" : "Change password"}
             </button>
           </form>
         </section>
 
-        {/* AI usage â€” daily call count + monthly spend, with progress bars */}
+        {/* AI usage ” daily call count + monthly spend, with progress bars */}
         {usage && (
           <section className={sectionCard}>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
@@ -399,7 +399,7 @@ export default function SettingsClient() {
           </section>
         )}
 
-        {/* Appearance / theme picker â€” show all 5 palettes with names + blurbs */}
+        {/* Appearance / theme picker ” show all 5 palettes with names + blurbs */}
         <ThemeSection />
 
         <section className={sectionCard}>
@@ -427,7 +427,7 @@ export default function SettingsClient() {
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Download a complete JSON dump of every assignment, course,
             reference, analysis and your calendar token. Keep the file
-            private â€” it contains everything you've stored in the tool.
+            private ” it contains everything you've stored in the tool.
           </p>
 
           {exportCounts && (
@@ -446,10 +446,10 @@ export default function SettingsClient() {
               className={buttonPrimary}
             >
               {exporting
-                ? "Building fileâ€¦"
+                ? "Building file…"
                 : exportData
                   ? "Export my data"
-                  : "Loadingâ€¦"}
+                  : "Loading…"}
             </button>
           </div>
         </section>
@@ -465,7 +465,7 @@ export default function SettingsClient() {
               disabled={signingOutAll}
               className="rounded-md border border-rose-400 bg-white px-2 py-1 text-xs text-rose-800 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-200 dark:hover:bg-rose-900/30"
             >
-              {signingOutAll ? "Signing outâ€¦" : "Sign out everywhere"}
+              {signingOutAll ? "Signing out…" : "Sign out everywhere"}
             </button>
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Wipes every active session including this one.
@@ -492,7 +492,7 @@ export default function SettingsClient() {
                   Are you sure?
                 </h3>
                 <p className="text-xs text-slate-700 dark:text-slate-300">
-                  This will permanently delete your login and all of your data â€” assignments, courses, references, analyses, calendar tokens and AI usage history. There is no recovery.
+                  This will permanently delete your login and all of your data ” assignments, courses, references, analyses, calendar tokens and AI usage history. There is no recovery.
                 </p>
                 <div>
                   <span className={labelStyle}>Your email</span>
@@ -523,7 +523,7 @@ export default function SettingsClient() {
                     className="inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-rose-500 to-rose-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-px hover:from-rose-400 hover:to-rose-500 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                   >
                     {deletingAccount
-                      ? "Deletingâ€¦"
+                      ? "Deleting…"
                       : "Permanently delete my account"}
                   </button>
                   <button
@@ -557,7 +557,7 @@ export default function SettingsClient() {
   );
 }
 
-// Rich theme picker on Settings â€” shows all five palettes with names,
+// Rich theme picker on Settings ” shows all five palettes with names,
 // blurbs and a generous swatch row preview. The compact dot picker on
 // the dashboard is for quick switching once a student knows what they
 // like; this one is for the first choice.
@@ -571,7 +571,7 @@ function ThemeSection() {
         Appearance
       </h2>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-        Pick a colour palette. The whole app â€” buttons, links, focus rings, progress bars, the active-assignment highlights â€” switches instantly. Your choice persists across devices in your browser.
+        Pick a colour palette. The whole app ” buttons, links, focus rings, progress bars, the active-assignment highlights ” switches instantly. Your choice persists across devices in your browser.
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -602,7 +602,7 @@ function ThemeSection() {
               <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                 {p.blurb}
               </p>
-              {/* Swatch preview â€” five tints of the palette */}
+              {/* Swatch preview ” five tints of the palette */}
               <div className="mt-3 flex h-6 overflow-hidden rounded-full">
                 {[0.4, 0.6, 1.0, 0.8, 0.55].map((opacity, i) => (
                   <span

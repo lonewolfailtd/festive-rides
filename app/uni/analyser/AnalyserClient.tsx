@@ -24,7 +24,7 @@ type AnalysisTask = {
 type AnalysisResult = {
   summary: string;
   keyQuestion: string;
-  // New optional context fields. Older saved analyses won't have these â€” they
+  // New optional context fields. Older saved analyses won't have these ” they
   // render only when populated.
   courseCode?: string | null;
   assessmentNumber?: string | null;
@@ -83,7 +83,7 @@ function buildMarkdown(r: AnalysisResult): string {
       const meta: string[] = [];
       if (t.marks != null) meta.push(`${t.marks} marks`);
       if (t.wordCountGuideline != null) meta.push(`${t.wordCountGuideline} words`);
-      lines.push(`### ${t.taskNumber}${meta.length ? ` â€” ${meta.join(" Â· ")}` : ""}`);
+      lines.push(`### ${t.taskNumber}${meta.length ? ` ” ${meta.join(" Â· ")}` : ""}`);
       if (t.scenario) {
         lines.push("");
         lines.push(`_${t.scenario}_`);
@@ -116,18 +116,18 @@ function buildMarkdown(r: AnalysisResult): string {
     lines.push("");
   }
   lines.push("## Task verbs");
-  for (const t of r.taskVerbs) lines.push(`- **${t.verb}** â€” ${t.meaning}`);
+  for (const t of r.taskVerbs) lines.push(`- **${t.verb}** ” ${t.meaning}`);
   lines.push("");
   lines.push("## Marking criteria");
   const sortedRubric = [...r.rubricBreakdown].sort(
     (a, b) => b.weightPercent - a.weightPercent,
   );
   for (const c of sortedRubric)
-    lines.push(`- **${c.criterion}** (${c.weightPercent}%) â€” ${c.focus}`);
+    lines.push(`- **${c.criterion}** (${c.weightPercent}%) ” ${c.focus}`);
   lines.push("");
   lines.push("## Word-count split");
   for (const s of r.wordCountSplit)
-    lines.push(`- **${s.section}** â€” ${s.words} words. ${s.purpose}`);
+    lines.push(`- **${s.section}** ” ${s.words} words. ${s.purpose}`);
   lines.push("");
   lines.push("## Outline");
   for (const o of r.outline) {
@@ -168,7 +168,7 @@ export default function AnalyserClient() {
   const [editDraft, setEditDraft] = useState("");
   const [sectionDrafts, setSectionDrafts] = useState<Record<number, string>>({});
 
-  // Rubric-mapper state. Lazy-loaded â€” only fetched when the student asks
+  // Rubric-mapper state. Lazy-loaded ” only fetched when the student asks
   // for it because it's a second AI call. Maps each rubric criterion to the
   // outline sections that earn those marks.
   type RubricMapping = {
@@ -284,13 +284,13 @@ export default function AnalyserClient() {
     }
 
     sections.push(h2("Task verbs"));
-    sections.push("<ul>" + r.taskVerbs.map((t) => `<li><strong>${escapeForHtml(t.verb)}</strong> â€” ${escapeForHtml(t.meaning)}</li>`).join("") + "</ul>");
+    sections.push("<ul>" + r.taskVerbs.map((t) => `<li><strong>${escapeForHtml(t.verb)}</strong> ” ${escapeForHtml(t.meaning)}</li>`).join("") + "</ul>");
 
     sections.push(h2("Marking criteria"));
-    sections.push("<ul>" + r.rubricBreakdown.map((c) => `<li><strong>${escapeForHtml(c.criterion)}</strong> (${c.weightPercent}%) â€” ${escapeForHtml(c.focus)}</li>`).join("") + "</ul>");
+    sections.push("<ul>" + r.rubricBreakdown.map((c) => `<li><strong>${escapeForHtml(c.criterion)}</strong> (${c.weightPercent}%) ” ${escapeForHtml(c.focus)}</li>`).join("") + "</ul>");
 
     sections.push(h2("Word-count split"));
-    sections.push("<ul>" + r.wordCountSplit.map((s) => `<li><strong>${escapeForHtml(s.section)}</strong> â€” ${s.words} words. ${escapeForHtml(s.purpose)}</li>`).join("") + "</ul>");
+    sections.push("<ul>" + r.wordCountSplit.map((s) => `<li><strong>${escapeForHtml(s.section)}</strong> ” ${s.words} words. ${escapeForHtml(s.purpose)}</li>`).join("") + "</ul>");
 
     sections.push(h2("Outline"));
     for (const o of r.outline) {
@@ -353,7 +353,7 @@ export default function AnalyserClient() {
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
-      toast.error("PDF is over 20MB â€” please trim and try again.");
+      toast.error("PDF is over 20MB ” please trim and try again.");
       return;
     }
     setExtractingPdf(target);
@@ -380,7 +380,7 @@ export default function AnalyserClient() {
       let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
       if (extracted.length < 30) {
         toast.error(
-          "Couldn't pull text from that PDF â€” it might be scanned / image-based. Try OCR'ing it first."
+          "Couldn't pull text from that PDF ” it might be scanned / image-based. Try OCR'ing it first."
         );
         return;
       }
@@ -393,7 +393,7 @@ export default function AnalyserClient() {
       else setRubric(extracted);
       toast.success(
         truncated
-          ? `Extracted ${total} pages â€” trimmed to ${BRIEF_LIMIT} chars`
+          ? `Extracted ${total} pages ” trimmed to ${BRIEF_LIMIT} chars`
           : `Extracted ${total} pages from "${file.name}" into ${target}`
       );
     } catch (err) {
@@ -585,7 +585,7 @@ export default function AnalyserClient() {
                 <li>Pick which assignment you&apos;re planning (or leave unassigned).</li>
                 <li>Either paste the brief into the box, or click ðŸ“„ Upload PDF to extract it from a file.</li>
                 <li>Optionally paste/upload the marking rubric, and pick a word-count target.</li>
-                <li>Click <em>Analyse</em> â€” get the actual question, task verbs, an outline you can tick off, and research keywords.</li>
+                <li>Click <em>Analyse</em> ” get the actual question, task verbs, an outline you can tick off, and research keywords.</li>
                 <li>Click a keyword chip to jump to Source Finder pre-loaded with that term.</li>
                 <li>Click <em>Send brief to Draft Coach</em> when you&apos;re ready to write.</li>
               </ol>
@@ -684,8 +684,8 @@ export default function AnalyserClient() {
                   <span>
                     {extractingPdf === "brief"
                       ? pdfProgress
-                        ? `Extracting ${pdfProgress.done}/${pdfProgress.total}â€¦`
-                        : "Reading PDFâ€¦"
+                        ? `Extracting ${pdfProgress.done}/${pdfProgress.total}…`
+                        : "Reading PDF…"
                       : "Upload PDF"}
                   </span>
                 </label>
@@ -717,7 +717,7 @@ export default function AnalyserClient() {
                 <option value="">No assignment (unassigned)</option>
                 {assignments?.map((a) => (
                   <option key={a._id} value={a._id}>
-                    {a.courseCode ? `${a.courseCode} â€” ${a.name}` : a.name}
+                    {a.courseCode ? `${a.courseCode} ” ${a.name}` : a.name}
                   </option>
                 ))}
               </select>
@@ -762,8 +762,8 @@ export default function AnalyserClient() {
                 <span>
                   {extractingPdf === "rubric"
                     ? pdfProgress
-                      ? `Extracting ${pdfProgress.done}/${pdfProgress.total}â€¦`
-                      : "Reading PDFâ€¦"
+                      ? `Extracting ${pdfProgress.done}/${pdfProgress.total}…`
+                      : "Reading PDF…"
                     : "Upload PDF"}
                 </span>
               </label>
@@ -801,7 +801,7 @@ export default function AnalyserClient() {
               disabled={running || brief.trim().length === 0}
               className={buttonPrimary}
             >
-              {running ? "Thinkingâ€¦" : "Analyse"}
+              {running ? "Thinking…" : "Analyse"}
             </button>
             <button
               type="button"
@@ -884,7 +884,7 @@ export default function AnalyserClient() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                   </svg>
-                  {iterating ? "Refiningâ€¦" : "Mapping rubricâ€¦"}
+                  {iterating ? "Refining…" : "Mapping rubric…"}
                 </span>
               )}
             </h2>
@@ -1175,7 +1175,7 @@ export default function AnalyserClient() {
                     disabled={mappingRubric || !analysisId}
                     className="text-xs text-sky-600 hover:text-sky-500 disabled:opacity-50 dark:text-sky-400 dark:hover:text-sky-300"
                   >
-                    {mappingRubric ? "Mappingâ€¦" : rubricMapping ? "Re-map to outline" : "Map to outline â†’"}
+                    {mappingRubric ? "Mapping…" : rubricMapping ? "Re-map to outline" : "Map to outline â†’"}
                   </button>
                   <button
                     type="button"
@@ -1223,7 +1223,7 @@ export default function AnalyserClient() {
                     <ul className="mt-2 space-y-1">
                       {rubricMapping.sectionLoad.map((s, i) => (
                         <li key={i} className="text-slate-700 dark:text-slate-300">
-                          <strong>{s.section}</strong> â€” {s.marksAvailable}% available Â· covers: {s.criteriaCovered.join(", ") || "â€”"}
+                          <strong>{s.section}</strong> ” {s.marksAvailable}% available Â· covers: {s.criteriaCovered.join(", ") || "”"}
                         </li>
                       ))}
                     </ul>
@@ -1235,7 +1235,7 @@ export default function AnalyserClient() {
             {showMarkerChecklist && sortedRubric.length > 0 && (
               <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800/50 dark:bg-emerald-950/20">
                 <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
-                  Tick each criterion before submitting â€” { checkedRubricCriteria.size }/{ sortedRubric.length } done
+                  Tick each criterion before submitting ” { checkedRubricCriteria.size }/{ sortedRubric.length } done
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {sortedRubric.map((c, i) => {
@@ -1256,7 +1256,7 @@ export default function AnalyserClient() {
                           className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600"
                         />
                         <span className={checked ? "text-slate-500 line-through dark:text-slate-500" : "text-slate-800 dark:text-slate-200"}>
-                          <strong>{c.criterion}</strong> ({c.weightPercent}%) â€” {c.focus}
+                          <strong>{c.criterion}</strong> ({c.weightPercent}%) ” {c.focus}
                         </span>
                       </li>
                     );
@@ -1357,7 +1357,7 @@ export default function AnalyserClient() {
                               setSectionDrafts((sd) => ({ ...sd, [i]: e.target.value }))
                             }
                             rows={4}
-                            placeholder={`Paste your "${s.section}" draft text hereâ€¦`}
+                            placeholder={`Paste your "${s.section}" draft text here…`}
                             className={`${inputStyle} text-sm`}
                           />
                           <p
@@ -1373,9 +1373,9 @@ export default function AnalyserClient() {
                           >
                             {wc.toLocaleString("en-NZ")} words
                             {status === "ok" && ` âœ“ on target (within Â±10%)`}
-                            {status === "under" && ` â€” need ~${Math.max(0, Math.round(s.words - tol) - wc)} more`}
-                            {status === "over" && ` â€” over by ~${wc - Math.round(s.words + tol)}`}
-                            {status === "none" && " â€” paste your draft above to track"}
+                            {status === "under" && ` ” need ~${Math.max(0, Math.round(s.words - tol) - wc)} more`}
+                            {status === "over" && ` ” over by ~${wc - Math.round(s.words + tol)}`}
+                            {status === "none" && " ” paste your draft above to track"}
                           </p>
                         </div>
                       </details>
@@ -1582,7 +1582,7 @@ export default function AnalyserClient() {
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     rows={3}
-                    placeholder={`e.g. "Make the outline focus more on MÄtauranga MÄori frameworks" or "The word-count split feels off â€” give the discussion more space"`}
+                    placeholder={`e.g. "Make the outline focus more on MÄtauranga MÄori frameworks" or "The word-count split feels off ” give the discussion more space"`}
                     className={`${inputStyle} text-sm`}
                   />
                   <button
@@ -1591,7 +1591,7 @@ export default function AnalyserClient() {
                     disabled={iterating || !feedback.trim()}
                     className={buttonPrimary}
                   >
-                    {iterating ? "Refiningâ€¦" : "Refine with feedback"}
+                    {iterating ? "Refining…" : "Refine with feedback"}
                   </button>
                 </div>
               )}

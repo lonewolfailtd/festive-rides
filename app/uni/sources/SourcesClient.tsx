@@ -240,7 +240,7 @@ export default function SourcesClient() {
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Type a topic, author, or set of keywords into the search box.</li>
                 <li>Optionally tick &ldquo;peer-reviewed only&rdquo; or set a &ldquo;from year&rdquo; filter.</li>
-                <li>Click Search â€” you&rsquo;ll get up to 25 results from OpenAlex (250M+ scholarly works).</li>
+                <li>Click Search ” you&rsquo;ll get up to 25 results from OpenAlex (250M+ scholarly works).</li>
                 <li>Click &ldquo;View&rdquo; on any result to see it on the publisher&rsquo;s page.</li>
                 <li>Click &ldquo;Add as reference&rdquo; to import it as a properly formatted APA 7 reference.</li>
               </ol>
@@ -271,7 +271,7 @@ export default function SourcesClient() {
             <option value="all">All references (no assignment filter)</option>
             {assignments?.map((a) => (
               <option key={a._id} value={a._id}>
-                {a.courseCode ? `${a.courseCode} â€” ${a.name}` : a.name}
+                {a.courseCode ? `${a.courseCode} ” ${a.name}` : a.name}
               </option>
             ))}
           </select>
@@ -317,7 +317,7 @@ export default function SourcesClient() {
           {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
           <div>
             <button type="submit" disabled={searching} className={buttonPrimary}>
-              {searching ? "Searchingâ€¦" : "Search"}
+              {searching ? "Searching…" : "Search"}
             </button>
           </div>
         </form>
@@ -359,7 +359,7 @@ export default function SourcesClient() {
                 const abstract = r.abstract ?? "";
                 const truncatedAbstract =
                   abstract.length > 280
-                    ? `${abstract.slice(0, 280)}â€¦`
+                    ? `${abstract.slice(0, 280)}…`
                     : abstract;
                 return (
                   <li
@@ -435,7 +435,7 @@ export default function SourcesClient() {
                         {isAdded
                           ? "Added âœ“"
                           : isAdding
-                            ? "Addingâ€¦"
+                            ? "Adding…"
                             : "Add to references"}
                       </button>
                     </div>

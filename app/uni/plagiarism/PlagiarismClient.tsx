@@ -150,12 +150,12 @@ export default function PlagiarismClient() {
               <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Paste your draft (at least 200 characters).</li>
-                <li>Click <em>Run self-check</em> â€” get an overall risk level and a list of flagged phrases.</li>
+                <li>Click <em>Run self-check</em> ” get an overall risk level and a list of flagged phrases.</li>
                 <li>For each flag, click <em>Search Google</em> to see if the phrase appears verbatim online.</li>
                 <li>If it does, rewrite in your own words or add a proper citation before submission.</li>
               </ol>
               <p className="mt-2 text-xs text-sky-900/80 dark:text-sky-300/80">
-                âš  This is a self-check, not a real plagiarism checker. It can&apos;t query Turnitin&apos;s database â€” it flags phrasing that LOOKS plagiarised so you can verify manually.
+                âš  This is a self-check, not a real plagiarism checker. It can&apos;t query Turnitin&apos;s database ” it flags phrasing that LOOKS plagiarised so you can verify manually.
               </p>
             </div>
             <button
@@ -195,7 +195,7 @@ export default function PlagiarismClient() {
 
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" disabled={running} className={buttonPrimary}>
-              {running ? "Scanningâ€¦" : "Run self-check"}
+              {running ? "Scanning…" : "Run self-check"}
             </button>
             <button
               type="button"
@@ -209,7 +209,7 @@ export default function PlagiarismClient() {
               Clear
             </button>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              Powered by DeepSeek V4 Flash â€” your text is sent to OpenRouter and discarded.
+              Powered by DeepSeek V4 Flash ” your text is sent to OpenRouter and discarded.
             </span>
           </div>
         </form>
@@ -224,7 +224,7 @@ export default function PlagiarismClient() {
         >
           <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-200">
             <p>
-              <strong>Honest disclaimer:</strong> This isn&apos;t a real plagiarism checker â€” it can&apos;t query Turnitin&apos;s database. It flags phrasing that LOOKS plagiarised so you can manually verify with Google.
+              <strong>Honest disclaimer:</strong> This isn&apos;t a real plagiarism checker ” it can&apos;t query Turnitin&apos;s database. It flags phrasing that LOOKS plagiarised so you can manually verify with Google.
             </p>
           </div>
 
@@ -245,7 +245,7 @@ export default function PlagiarismClient() {
           {result.phrases.length === 0 ? (
             <section className={sectionCard}>
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                Nothing distinctive enough to flag. That&apos;s a good sign â€” but still spot-check anything you remember pulling from a source.
+                Nothing distinctive enough to flag. That&apos;s a good sign ” but still spot-check anything you remember pulling from a source.
               </p>
             </section>
           ) : (

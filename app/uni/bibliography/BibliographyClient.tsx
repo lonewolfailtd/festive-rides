@@ -110,7 +110,7 @@ export default function BibliographyClient() {
     }
     if (textLen > MAX_TEXT) {
       setError(
-        `Too long â€” please trim to ${MAX_TEXT.toLocaleString("en-NZ")} characters or split into chunks.`
+        `Too long ” please trim to ${MAX_TEXT.toLocaleString("en-NZ")} characters or split into chunks.`
       );
       return;
     }
@@ -168,7 +168,7 @@ export default function BibliographyClient() {
       return next;
     });
     const toastId = toast.loading(
-      `Importing 0 of ${toImportIndices.length} referencesâ€¦`
+      `Importing 0 of ${toImportIndices.length} references…`
     );
     let done = 0;
     let failed = 0;
@@ -224,7 +224,7 @@ export default function BibliographyClient() {
       }
       setImportedCount(done);
       toast.loading(
-        `Imported ${done} of ${toImportIndices.length}${failed > 0 ? ` (${failed} failed)` : ""}â€¦`,
+        `Imported ${done} of ${toImportIndices.length}${failed > 0 ? ` (${failed} failed)` : ""}…`,
         { id: toastId }
       );
     }
@@ -263,7 +263,7 @@ export default function BibliographyClient() {
     <main className="mx-auto max-w-4xl px-4 py-10">
       <PageHeader
         eyebrow="Bibliography Importer"
-        title="Paste a reference list â€” get APA 7 entries"
+        title="Paste a reference list ” get APA 7 entries"
         description="Drop in any reference list (Word doc, EndNote export, mixed APA 6 and APA 7, whatever). We parse each entry, normalise it to APA 7 and bulk-import the ones you want."
       />
 
@@ -277,9 +277,9 @@ export default function BibliographyClient() {
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Paste a chunk of references in any format into the big text area.</li>
                 <li>Optional: pick the assignment you want them attached to.</li>
-                <li>Click Parse â€” each reference is normalised to strict APA 7.</li>
+                <li>Click Parse ” each reference is normalised to strict APA 7.</li>
                 <li>Review the table. Untick any you don&rsquo;t want. Watch the amber notes for missing data.</li>
-                <li>Click Import â€” selected entries land in your references list, ready to copy into Word.</li>
+                <li>Click Import ” selected entries land in your references list, ready to copy into Word.</li>
               </ol>
             </div>
             <button
@@ -336,7 +336,7 @@ export default function BibliographyClient() {
               onChange={(e) => setText(e.target.value)}
               rows={14}
               required
-              placeholder="Paste your reference list here. Any format is fine â€” we&rsquo;ll sort it out."
+              placeholder="Paste your reference list here. Any format is fine ” we&rsquo;ll sort it out."
               className={`${inputStyle} resize-y font-mono`}
             />
           </div>
@@ -349,7 +349,7 @@ export default function BibliographyClient() {
               disabled={running || tooShort || tooLong || textLen === 0}
               className={buttonPrimary}
             >
-              {running ? "Parsingâ€¦" : "Parse"}
+              {running ? "Parsing…" : "Parse"}
             </button>
             <button
               type="button"
@@ -450,7 +450,7 @@ export default function BibliographyClient() {
                         )}
                         {status?.status === "importing" && (
                           <span className="rounded-full bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
-                            Importingâ€¦
+                            Importing…
                           </span>
                         )}
                         {status?.status === "pending" && (
@@ -503,7 +503,7 @@ export default function BibliographyClient() {
                     className={buttonPrimary}
                   >
                     {importing
-                      ? `Importingâ€¦ (${importedCount}/${selectedCount})`
+                      ? `Importing… (${importedCount}/${selectedCount})`
                       : `Import ${selectedCount} selected reference${selectedCount === 1 ? "" : "s"}`}
                   </button>
                 </div>
