@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import EmptyState from "../EmptyState";
+import { loadPdfjs } from "@/lib/pdfjs";
 
 type AnalysisTask = {
   taskNumber: string;
@@ -419,10 +420,7 @@ export default function AnalyserClient() {
     setExtractingPdf(target);
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await import("pdfjs-dist");
-      // unpkg mirrors npm exactly so the worker version always matches the
-      // installed pdfjs-dist. cdnjs lags behind for newer pdfjs releases.
-      pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+      const pdfjs = await loadPdfjs();
       const buffer = await file.arrayBuffer();
       const doc = await pdfjs.getDocument({ data: buffer }).promise;
       const total = doc.numPages;

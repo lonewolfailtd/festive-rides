@@ -15,6 +15,7 @@ import { useAction } from "convex/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { loadPdfjs } from "@/lib/pdfjs";
 
 const STORAGE_KEY = "uni-active-assignment-v1";
 const ACTIVE_EVENT = "uni:active-assignment-changed";
@@ -176,8 +177,7 @@ export default function QuickImport() {
     setStage("extracting");
     setProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await import("pdfjs-dist");
-      pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+      const pdfjs = await loadPdfjs();
       const buffer = await file.arrayBuffer();
       const doc = await pdfjs.getDocument({ data: buffer }).promise;
       const total = doc.numPages;

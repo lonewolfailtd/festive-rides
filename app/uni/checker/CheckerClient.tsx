@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { useStoredState } from "@/lib/useStoredState";
+import { loadPdfjs } from "@/lib/pdfjs";
 
 type ParagraphScore = {
   preview: string;
@@ -131,8 +132,7 @@ export default function CheckerClient() {
     setExtractingFile("pdf");
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await import("pdfjs-dist");
-      pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+      const pdfjs = await loadPdfjs();
       const buffer = await file.arrayBuffer();
       const doc = await pdfjs.getDocument({ data: buffer }).promise;
       const total = doc.numPages;
