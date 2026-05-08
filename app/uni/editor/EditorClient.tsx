@@ -34,7 +34,14 @@ interface EditResult {
   byCategory: Record<string, number>;
   issues: Issue[];
   structureNotes?: StructureNotes;
+  correctedDraft?: string;
 }
+
+const SEVERITY_RANK: Record<Issue["severity"], number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
 
 const TEXT_MIN = 200;
 const TEXT_MAX = 30000;
@@ -125,6 +132,12 @@ export default function EditorClient() {
   const [error, setError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [filter, setFilter] = useState<"all" | Issue["category"]>("all");
+  // Tracks which issues the student has marked as fixed. Indexed by
+  // issue position. Persists in component state for the session — a
+  // new edit run resets it.
+  const [fixedSet, setFixedSet] = useState<Set<number>>(new Set());
+  const [hideFixed, setHideFixed] = useState(false);
+  const [draftCopied, setDraftCopied] = useState(false);
 
   // Linear progress estimate while running. Editor takes 15-30s typically
   // depending on draft length. Same pattern as Quick Import.
@@ -200,6 +213,8 @@ export default function EditorClient() {
     }
     setRunning(true);
     setResult(null);
+    setFixedSet(new Set());
+    setHideFixed(false);
     startProgressTimer(text.length);
     try {
       const r = (await editAction({ text })) as EditResult;
@@ -215,11 +230,21 @@ export default function EditorClient() {
     }
   };
 
+  // Sort by severity (high → low), then keep original order within same
+  // severity. Filter by category and optionally hide already-fixed.
+  // We keep the original index so the checkbox state ties to a stable id.
   const filteredIssues = result
-    ? filter === "all"
-      ? result.issues
-      : result.issues.filter((i) => i.category === filter)
+    ? result.issues
+        .map((issue, originalIndex) => ({ issue, originalIndex }))
+        .filter(({ issue, originalIndex }) => {
+          if (filter !== "all" && issue.category !== filter) return false;
+          if (hideFixed && fixedSet.has(originalIndex)) return false;
+          return true;
+        })
+        .sort((a, b) => SEVERITY_RANK[a.issue.severity] - SEVERITY_RANK[b.issue.severity])
     : [];
+
+  const fixedCount = fixedSet.size;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
@@ -385,24 +410,100 @@ export default function EditorClient() {
             </div>
           </section>
 
-          {/* Issue list */}
+          {/* Auto-corrected draft — mechanical fixes pre-applied. Student
+              can copy this directly back to their assignment, then work
+              through the remaining grammar/style/structure issues. */}
+          {result.correctedDraft && result.correctedDraft.trim().length > 0 && (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+                  Auto-corrected draft
+                </h2>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!result.correctedDraft) return;
+                    try {
+                      await navigator.clipboard.writeText(result.correctedDraft);
+                      setDraftCopied(true);
+                      toast.success("Corrected draft copied. Paste back into your assignment.");
+                      setTimeout(() => setDraftCopied(false), 2200);
+                    } catch {
+                      toast.error("Couldn't copy");
+                    }
+                  }}
+                  className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+                >
+                  {draftCopied ? "✓ Copied" : "Copy corrected draft"}
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-emerald-900/80 dark:text-emerald-200/80">
+                Spelling, te reo macrons, Oxford commas and missing apostrophes are pre-applied. Grammar, style and structure issues are <strong>left untouched</strong> — those need your judgement.
+              </p>
+              <pre className="mt-3 max-h-[400px] overflow-auto whitespace-pre-wrap rounded-md border border-emerald-300/60 bg-white p-3 font-mono text-xs leading-relaxed text-slate-800 dark:border-emerald-800/60 dark:bg-slate-950 dark:text-slate-200">
+                {result.correctedDraft}
+              </pre>
+            </section>
+          )}
+
+          {/* Issue list — checkbox per issue, sorted high → low severity */}
           {filteredIssues.length > 0 && (
             <section className={sectionCard}>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                {filter === "all" ? "All issues" : CATEGORY_INFO[filter].label}{" "}
-                <span className="ml-1 text-xs font-normal text-slate-500 dark:text-slate-400">
-                  {filteredIssues.length} of {result.totalIssues}
-                </span>
-              </h2>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  {filter === "all" ? "All issues" : CATEGORY_INFO[filter].label}{" "}
+                  <span className="ml-1 text-xs font-normal text-slate-500 dark:text-slate-400">
+                    {filteredIssues.length} of {result.totalIssues}
+                    {fixedCount > 0 && (
+                      <span className="ml-1 text-emerald-700 dark:text-emerald-300">
+                        · {fixedCount} fixed
+                      </span>
+                    )}
+                  </span>
+                </h2>
+                {fixedCount > 0 && (
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={hideFixed}
+                      onChange={(e) => setHideFixed(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-slate-400 text-sky-600 focus:ring-sky-500"
+                    />
+                    Hide fixed
+                  </label>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Sorted by severity. Tick the box to mark an issue as addressed.
+              </p>
               <ol className="mt-4 space-y-3">
-                {filteredIssues.map((issue, i) => {
+                {filteredIssues.map(({ issue, originalIndex }) => {
                   const info = CATEGORY_INFO[issue.category];
+                  const isFixed = fixedSet.has(originalIndex);
                   return (
                     <li
-                      key={i}
-                      className={`rounded-lg border ${info.tone.border} ${info.tone.bg} p-4`}
+                      key={originalIndex}
+                      className={`rounded-lg border p-4 transition-opacity ${
+                        isFixed
+                          ? "border-emerald-200 bg-emerald-50/50 opacity-50 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                          : `${info.tone.border} ${info.tone.bg}`
+                      }`}
                     >
                       <div className="flex flex-wrap items-baseline gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isFixed}
+                          onChange={() => {
+                            setFixedSet((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(originalIndex)) next.delete(originalIndex);
+                              else next.add(originalIndex);
+                              return next;
+                            });
+                          }}
+                          aria-label="Mark this issue as fixed"
+                          className="h-4 w-4 shrink-0 rounded border-slate-400 text-emerald-600 focus:ring-emerald-500"
+                        />
                         <span
                           className={`inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[11px] font-medium ${info.tone.text} ring-1 ring-inset ring-slate-200/60 dark:bg-slate-900 dark:ring-slate-700/60`}
                         >
@@ -416,8 +517,19 @@ export default function EditorClient() {
                         <span className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                           {issue.severity}
                         </span>
+                        {isFixed && (
+                          <span className="ml-auto text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                            ✓ fixed
+                          </span>
+                        )}
                       </div>
-                      <p className="mt-2 text-sm italic text-slate-700 dark:text-slate-300">
+                      <p
+                        className={`mt-2 text-sm italic ${
+                          isFixed
+                            ? "text-slate-500 line-through dark:text-slate-500"
+                            : "text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
                         &ldquo;{issue.where}&rdquo;
                       </p>
                       <p className="mt-2 text-sm text-slate-900 dark:text-slate-100">
