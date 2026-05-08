@@ -62,16 +62,36 @@ export async function callOpenRouterDetailed(
     body.response_format = { type: "json_object" };
   }
 
-  const response = await fetch(OPENROUTER_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://festiverides.online/uni",
-      "X-Title": "Uni Citation Tool",
-    },
-    body: JSON.stringify(body),
-  });
+  // Hard 90-second timeout. OpenRouter occasionally has degraded
+  // providers that hang indefinitely — without this we'd wait until
+  // the Convex action's 10-minute ceiling. 90s is more than enough for
+  // any normal completion at 6000 maxTokens (~30s typical) and lets
+  // callers fall back to a different model in reasonable time.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+  let response: Response;
+  try {
+    response = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://festiverides.online/uni",
+        "X-Title": "Uni Citation Tool",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(
+        "The AI provider timed out (over 90 seconds). Try again in a moment, or pick a different model from the picker.",
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");

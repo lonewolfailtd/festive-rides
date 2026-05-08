@@ -80,20 +80,57 @@ export const edit = action({
 
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
 
-    const model = args.model ?? "deepseek/deepseek-v4-flash";
-    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
-      model,
-      responseFormatJson: true,
-      temperature: 0.2,
-      // 6000 tokens fits ~30 capped issues + structureNotes comfortably.
-      // Bigger budgets made the model produce excess output and slowed
-      // wall-clock time to several minutes.
-      maxTokens: 6000,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: trimmed },
-      ],
-    });
+    // Same fallback pattern as the AI Checker: try Flash first (fast),
+    // fall back to Pro if Flash returns empty content (provider hiccup,
+    // content filter, transient timeout). Empty-content failures on
+    // OpenRouter for V4 Flash are rare but happen — Pro is more
+    // reliable and only ~2x slower, so it's a fine safety net.
+    const primaryModel = args.model ?? "deepseek/deepseek-v4-flash";
+    let raw: string;
+    let modelUsed: string;
+    let usage: { inputTokens: number; outputTokens: number };
+    try {
+      const r = await callOpenRouterDetailed({
+        model: primaryModel,
+        responseFormatJson: true,
+        temperature: 0.2,
+        // 6000 tokens fits ~30 capped issues + structureNotes comfortably.
+        // Bigger budgets made the model produce excess output and slowed
+        // wall-clock time to several minutes.
+        maxTokens: 6000,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: trimmed },
+        ],
+      });
+      raw = r.content;
+      modelUsed = r.modelUsed;
+      usage = r.usage;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const isEmptyResponse =
+        msg.includes("empty response") ||
+        msg.includes("no content") ||
+        msg.includes("timed out");
+      // Don't retry rate-limit / quota / auth errors. Don't retry if
+      // they were already on Pro.
+      if (!isEmptyResponse || primaryModel === "deepseek/deepseek-v4-pro") {
+        throw err;
+      }
+      const r = await callOpenRouterDetailed({
+        model: "deepseek/deepseek-v4-pro",
+        responseFormatJson: true,
+        temperature: 0.2,
+        maxTokens: 6000,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: trimmed },
+        ],
+      });
+      raw = r.content;
+      modelUsed = r.modelUsed;
+      usage = r.usage;
+    }
 
     let result: unknown;
     try {
