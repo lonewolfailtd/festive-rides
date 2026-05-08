@@ -80,6 +80,35 @@ const SEVERITY_RANK: Record<Issue["severity"], number> = {
 
 const TEXT_MIN = 200;
 const TEXT_MAX = 30000;
+// Above this word count, switch to chunked parallel mode. Below it,
+// the single-shot path is faster (one round-trip vs many).
+const CHUNK_THRESHOLD_WORDS = 1200;
+const CHUNK_TARGET_WORDS = 600;
+
+// Split draft at paragraph boundaries, greedily packing paragraphs
+// into chunks of ~600 words. If a paragraph alone is huge it stays
+// as one chunk — acceptable; we don't sentence-split because that
+// risks breaking quotes that span sentences.
+function chunkDraft(text: string, targetWords = CHUNK_TARGET_WORDS): string[] {
+  const paragraphs = text.split(/\n\s*\n+/).filter((p) => p.trim().length > 0);
+  if (paragraphs.length === 0) return [text];
+  const chunks: string[] = [];
+  let current = "";
+  let currentWords = 0;
+  for (const p of paragraphs) {
+    const words = p.trim().split(/\s+/).filter(Boolean).length;
+    if (current && currentWords + words > targetWords) {
+      chunks.push(current);
+      current = p;
+      currentWords = words;
+    } else {
+      current = current ? current + "\n\n" + p : p;
+      currentWords += words;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
 
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
@@ -160,6 +189,8 @@ const SEVERITY_TONE: Record<Issue["severity"], string> = {
 
 export default function EditorClient() {
   const editAction = useAction(api.nzEditor.edit);
+  const editChunkAction = useAction(api.nzEditor.editChunk);
+  const analyseStructureAction = useAction(api.nzEditor.analyseStructure);
 
   const [text, setText] = useState("");
   const [running, setRunning] = useState(false);
@@ -173,6 +204,13 @@ export default function EditorClient() {
   const [fixedSet, setFixedSet] = useState<Set<number>>(new Set());
   const [hideFixed, setHideFixed] = useState(false);
   const [draftCopied, setDraftCopied] = useState(false);
+
+  // Chunked-mode progress. totalChunks=0 means we're on the single-shot
+  // path (short drafts). Otherwise structureDone + completedChunks tick
+  // up as each parallel call resolves.
+  const [totalChunks, setTotalChunks] = useState(0);
+  const [completedChunks, setCompletedChunks] = useState(0);
+  const [structureDone, setStructureDone] = useState(false);
 
   // Honest progress: elapsed-time counter + status text. No fake
   // percentage because we genuinely don't know how long the AI will
@@ -242,16 +280,67 @@ export default function EditorClient() {
     setResult(null);
     setFixedSet(new Set());
     setHideFixed(false);
+    setCompletedChunks(0);
+    setStructureDone(false);
     startProgressTimer();
+
     try {
-      const r = (await editAction({ text })) as EditResult;
-      stopProgressTimer();
-      setResult(r);
-      setFilter("all");
+      // Decide path: short drafts go single-shot (one round-trip is
+      // faster than splitting). Long drafts go parallel — each chunk is
+      // a separate Convex action call, all running simultaneously.
+      if (wordCount <= CHUNK_THRESHOLD_WORDS) {
+        setTotalChunks(0);
+        const r = (await editAction({ text })) as EditResult;
+        setResult(r);
+        setFilter("all");
+      } else {
+        const chunks = chunkDraft(text);
+        setTotalChunks(chunks.length);
+
+        // Fire all chunk edits + the structure call in parallel. Each
+        // chunk-edit promise increments completedChunks as it resolves
+        // so the progress bar updates in real time.
+        const chunkPromises = chunks.map(async (chunkText, i) => {
+          const r = (await editChunkAction({
+            text: chunkText,
+            chunkIndex: i,
+            totalChunks: chunks.length,
+          })) as { issues?: Issue[] };
+          setCompletedChunks((prev) => prev + 1);
+          return r.issues ?? [];
+        });
+
+        const structurePromise = analyseStructureAction({ text }).then(
+          (r) => {
+            setStructureDone(true);
+            return r as { summary?: string; structureNotes?: StructureNotes };
+          },
+        );
+
+        const [allIssueArrays, structureResult] = await Promise.all([
+          Promise.all(chunkPromises),
+          structurePromise,
+        ]);
+
+        const issues = allIssueArrays.flat();
+        const byCategory: Record<string, number> = {};
+        for (const issue of issues) {
+          byCategory[issue.category] = (byCategory[issue.category] ?? 0) + 1;
+        }
+
+        setResult({
+          summary: structureResult.summary ?? "",
+          totalIssues: issues.length,
+          byCategory,
+          issues,
+          structureNotes: structureResult.structureNotes,
+        });
+        setFilter("all");
+      }
     } catch (err) {
-      stopProgressTimer();
       setError(err instanceof Error ? err.message : "Edit failed.");
     } finally {
+      stopProgressTimer();
       setRunning(false);
     }
   };
@@ -347,25 +436,55 @@ export default function EditorClient() {
             </button>
           </div>
 
-          {/* Honest progress: indeterminate sliding bar (we don't know how
-              long the AI will take) + elapsed-time counter + status text
-              that advances with elapsed time. No fake percentage. */}
+          {/* Honest progress. Two modes:
+              - Chunked mode (totalChunks > 0): deterministic % from
+                completed chunks + structure call. Each unit of work is
+                an actual API call we can count.
+              - Short-draft mode (totalChunks === 0): indeterminate
+                slider, because we genuinely don't know how long it'll
+                take and faking a % would be dishonest. */}
           {running && (
             <div className="mt-2">
               <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-medium">{statusLabel}…</span>
+                <span className="font-medium">
+                  {totalChunks > 0
+                    ? `Editing — ${completedChunks} of ${totalChunks} sections done${structureDone ? " · structure done" : ""}`
+                    : `${statusLabel}…`}
+                </span>
                 <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400">
                   {Math.floor(elapsedSeconds)}s elapsed
                 </span>
               </div>
               <div className="relative mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
-                <div
-                  className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
-                  style={{
-                    animation: "nzeditor-slide 1.4s ease-in-out infinite",
-                  }}
-                />
+                {totalChunks > 0 ? (
+                  // Real progress bar: chunks count for chunks/(chunks+1)
+                  // of the total, structure call for the remaining 1/.
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        ((completedChunks + (structureDone ? 1 : 0)) /
+                          (totalChunks + 1)) *
+                          100,
+                      )}%`,
+                      transition: "width 200ms ease-out",
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
+                    style={{
+                      animation: "nzeditor-slide 1.4s ease-in-out infinite",
+                    }}
+                  />
+                )}
               </div>
+              {totalChunks > 0 && (
+                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  Long draft split into {totalChunks} sections, all running in parallel for speed.
+                </p>
+              )}
               <style>{`
                 @keyframes nzeditor-slide {
                   0% { left: -33%; }

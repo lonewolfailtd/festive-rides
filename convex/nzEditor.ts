@@ -97,6 +97,217 @@ CORRECTEDSPAN RULES (per-issue, much faster than rebuilding the whole draft):
 - For grammar/style/structure issues, set "correctedSpan" to null. Those require student judgement; we don't auto-replace them.
 - The "where" string MUST appear in the draft EXACTLY, character-for-character. Don't paraphrase it. The client does plain find-and-replace, so the find target has to match.`;
 
+// Chunk-mode prompt: just issues, no structure notes (those are done
+// separately by analyseStructure). Smaller schema = Flash handles it
+// reliably even at 4000 maxTokens. We tell the model this is one
+// section so it doesn't critique structure or write a summary.
+const CHUNK_SYSTEM_PROMPT = `You are an experienced NZ academic editor checking ONE SECTION of an Open Polytechnic undergraduate essay. Catch real errors, output JSON only.
+
+You are NOT critiquing structure — that's done separately on the full draft. Focus only on sentence-level issues:
+- Spelling (NZ -ise/-our/-re; see list below)
+- Te reo Māori macrons and plurals
+- Grammar (affect/effect, less/fewer, comma splices, agreement)
+- Punctuation (no Oxford commas, apostrophes, restrictive/non-restrictive)
+- Style (AI clichés, stacked transitions, intensifiers, passive overuse)
+
+OUTPUT (JSON, no markdown):
+{
+  "issues": [{
+    "category": "spelling"|"grammar"|"punctuation"|"tereo"|"style",
+    "severity": "high"|"medium"|"low",
+    "where": "5-15 word VERBATIM quote from this section (must appear exactly, character-for-character)",
+    "correctedSpan": "string — verbatim quote with the fix applied. ONLY populate for mechanical fixes (spelling, tereo macrons + plurals, Oxford comma removal, missing apostrophes). For grammar/style issues, set to null.",
+    "problem": "what's wrong, 1 sentence",
+    "suggestion": "the fix with corrected text in 'quotes'",
+    "rule": "1-sentence rule"
+  }]
+}
+
+KEY GOTCHAS:
+
+Spelling: -ise (organise, analyse, recognise) NOT -ize. -our (colour, behaviour) NOT -or. -re (centre, fibre) NOT -er. judgement, grey, ageing, programme (TV/event), tyre, kerb, defence/offence/licence (n.), fulfil/instil (single-l), travelled (double-l).
+
+Te reo Māori (HIGH severity always — be thorough):
+- Flag EVERY missing macron. Common forms:
+  Māori (NOT Maori), whānau (NOT whanau), hapū (NOT hapu),
+  mātauranga (NOT matauranga), kōrero (NOT korero), tikanga,
+  hauora, Pākehā (NOT Pakeha), Aotearoa, tāne (NOT tane),
+  wāhine (NOT wahine), Te Whare Tapa Whā (NOT Wha),
+  kōhanga (NOT kohanga), pōwhiri (NOT powhiri),
+  kaumātua (NOT kaumatua), tūrangawaewae, tūpuna (NOT tupuna),
+  tamariki, rangatahi, ngā, tēnā, taonga
+- Plural rule: te reo nouns DON'T take English -s.
+  "Māoris" → "Māori", "iwis" → "iwi", "hapūs" → "hapū",
+  "marae's" → "marae", "whānaus" → "whānau"
+- Do NOT italicise te reo in NZ academic writing.
+
+Punctuation: NO Oxford comma. Apostrophes for possession. Comma before non-restrictive "which".
+
+Grammar: affect (v) vs effect (n), less (uncountable) vs fewer (countable), comma splices, subject-verb agreement.
+
+Style — AI cliché phrases to ALWAYS flag:
+  "in today's rapidly evolving landscape", "rapidly evolving"
+  "It is important to note", "It should be noted"
+  "delve into", "delves into"
+  "tapestry of", "rich tapestry"
+  "navigate the complexities", "navigating the complexities"
+  "multifaceted", "nuanced"
+  "underscore", "underscores the importance"
+  "in conclusion" (as opener)
+Plus stacked transitions (Furthermore + Moreover + Additionally), passive when active is clearer, "really"/"very" intensifiers in academic prose.
+
+OUTPUT RULES:
+- "where" MUST be exact verbatim quote from THIS SECTION
+- BE THOROUGH on spelling and te reo Māori — find EVERY US spelling and EVERY missing macron.
+- For grammar/style, cap at 25 issues for this section (prioritise high-severity).
+- Use NZ English. NO Oxford commas in your output.
+- Set "correctedSpan" to null for non-mechanical issues.`;
+
+// Structure-only prompt: small output, runs in parallel with chunk
+// edits. Doesn't list sentence errors — those come from the chunks.
+const STRUCTURE_SYSTEM_PROMPT = `You are an experienced NZ academic editor reviewing the STRUCTURE of an Open Polytechnic undergraduate APA 7 essay. Don't list sentence-level errors — those are checked separately. Output JSON only.
+
+OUTPUT (JSON, no markdown):
+{
+  "summary": "2-3 sentence honest overall verdict on the draft",
+  "structureNotes": {
+    "introduction": "2-3 sentences on hook/context/thesis",
+    "bodyParagraphs": "PEEL adherence, citations, topic sentences",
+    "conclusion": "synthesises vs summarises?",
+    "flow": "signposting, variety, transitions",
+    "topImprovements": ["3-5 bullet points of biggest fixes"]
+  }
+}
+
+KEY POINTS:
+- Thesis must be arguable + specific (not "In this essay I will discuss").
+- Body paragraphs need topic sentences + 1-2 citations + analysis (not just description).
+- Conclusion synthesises — no new evidence, no formulaic "Further research is needed".
+- Be honest about weak structure. Don't pad praise.
+- Use NZ English. NO Oxford commas in your output.`;
+
+// Shared helper: call OpenRouter with Flash → Pro fallback on
+// empty/timeout errors. Used by both editChunk and analyseStructure.
+async function callWithFallback(args: {
+  systemPrompt: string;
+  userContent: string;
+  maxTokens: number;
+}): Promise<{ raw: string; modelUsed: string; usage: { inputTokens: number; outputTokens: number } }> {
+  const primaryModel = "deepseek/deepseek-v4-flash";
+  try {
+    const r = await callOpenRouterDetailed({
+      model: primaryModel,
+      responseFormatJson: true,
+      temperature: 0.2,
+      maxTokens: args.maxTokens,
+      messages: [
+        { role: "system", content: args.systemPrompt },
+        { role: "user", content: args.userContent },
+      ],
+    });
+    return { raw: r.content, modelUsed: r.modelUsed, usage: r.usage };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    const isTransient =
+      msg.includes("empty response") ||
+      msg.includes("no content") ||
+      msg.includes("timed out");
+    if (!isTransient) throw err;
+    const r = await callOpenRouterDetailed({
+      model: "deepseek/deepseek-v4-pro",
+      responseFormatJson: true,
+      temperature: 0.2,
+      maxTokens: args.maxTokens,
+      messages: [
+        { role: "system", content: args.systemPrompt },
+        { role: "user", content: args.userContent },
+      ],
+    });
+    return { raw: r.content, modelUsed: r.modelUsed, usage: r.usage };
+  }
+}
+
+// Edit ONE chunk. Client splits the draft at paragraph boundaries and
+// calls this in parallel for each chunk. Returns just an issues array.
+export const editChunk = action({
+  args: {
+    text: v.string(),
+    chunkIndex: v.number(),
+    totalChunks: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+
+    const userContent = `Section ${args.chunkIndex + 1} of ${args.totalChunks} of a longer essay. Find sentence-level issues only.\n\n${args.text}`;
+    const { raw, modelUsed, usage } = await callWithFallback({
+      systemPrompt: CHUNK_SYSTEM_PROMPT,
+      userContent,
+      maxTokens: 4000,
+    });
+
+    let result: unknown;
+    try {
+      result = safeJsonParse(raw);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("Unterminated") || msg.includes("Unexpected end") || msg.includes("position")) {
+        throw new Error(
+          `Section ${args.chunkIndex + 1} response got cut off. Try shorter paragraphs.`,
+        );
+      }
+      throw err;
+    }
+
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "nzEditor.editChunk",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+
+    return result;
+  },
+});
+
+// Analyse the WHOLE draft for structure. Runs in parallel with the
+// chunk calls. Small output; Flash handles it easily.
+export const analyseStructure = action({
+  args: {
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+
+    const { raw, modelUsed, usage } = await callWithFallback({
+      systemPrompt: STRUCTURE_SYSTEM_PROMPT,
+      userContent: args.text,
+      maxTokens: 2500,
+    });
+
+    let result: unknown;
+    try {
+      result = safeJsonParse(raw);
+    } catch (err) {
+      throw err;
+    }
+
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "nzEditor.analyseStructure",
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+
+    return result;
+  },
+});
+
 export const edit = action({
   args: {
     text: v.string(),
