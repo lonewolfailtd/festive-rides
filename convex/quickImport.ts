@@ -146,7 +146,12 @@ export const importBrief = action({
       model,
       responseFormatJson: true,
       temperature: 0.2,
-      maxTokens: 6000,
+      // 5-task NZ Open Polytech briefs (with scenario + subQuestions +
+      // searchableQueries + outline + suggestedSources per task PLUS
+      // top-level fields) routinely exceed 6000 tokens. Bumped to 12000
+      // so we don't truncate mid-JSON. V4 Flash's 1M context handles
+      // this fine cost-wise; output tokens are the variable.
+      maxTokens: 12000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: `ASSIGNMENT BRIEF:\n${trimmed}` },
@@ -161,7 +166,7 @@ export const importBrief = action({
       outputTokens: usage.outputTokens,
     });
 
-    const result = safeJsonParse(raw) as {
+    let result: {
       courseCode?: string | null;
       courseName?: string | null;
       assessmentNumber?: string | null;
@@ -171,6 +176,25 @@ export const importBrief = action({
       dueDateIso?: string | null;
       tasks?: { wordCountGuideline?: number | null }[];
     };
+    try {
+      result = safeJsonParse(raw);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      // The most common parse failure is truncation from hitting the
+      // output token limit on a long brief. Give the user a concrete
+      // workaround instead of the raw "Unterminated string" parser
+      // error from JSON.parse.
+      if (
+        msg.includes("Unterminated") ||
+        msg.includes("Unexpected end") ||
+        msg.includes("position")
+      ) {
+        throw new Error(
+          "The brief was so long that the AI's response got cut off mid-output. Try trimming the brief to just the assignment instructions (drop the marking schedule and any title-page boilerplate) and re-import.",
+        );
+      }
+      throw err;
+    }
 
     // ---- Find or create the course --------------------------------------
     // Use the existing public courses CRUD — actions inherit the user's

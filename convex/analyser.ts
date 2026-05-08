@@ -98,7 +98,7 @@ export const analyse = action({
       model,
       responseFormatJson: true,
       temperature: 0.2,
-      maxTokens: 6000,
+      maxTokens: 12000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: buildPrompt(trimmed, args.rubric, args.wordCountTarget) },
@@ -171,7 +171,7 @@ ${args.feedback.trim()}`;
       model,
       responseFormatJson: true,
       temperature: 0.25,
-      maxTokens: 6000,
+      maxTokens: 12000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
