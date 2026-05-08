@@ -84,7 +84,10 @@ const TEXT_MAX = 30000;
 // Above this word count, switch to chunked parallel mode. Below it,
 // the single-shot path is faster (one round-trip vs many).
 const CHUNK_THRESHOLD_WORDS = 1200;
-const CHUNK_TARGET_WORDS = 600;
+// 450 words per chunk keeps the issue count per chunk well under the
+// 6000-token output budget on the server. Was 600, but a dense
+// section produced > 40 issues and truncated the JSON.
+const CHUNK_TARGET_WORDS = 450;
 
 // Split draft at paragraph boundaries, greedily packing paragraphs
 // into chunks of ~600 words. If a paragraph alone is huge it stays
@@ -388,7 +391,10 @@ export default function EditorClient() {
 
         // Fire all chunk edits + the structure call in parallel. Each
         // chunk-edit promise increments completedChunks as it resolves
-        // so the progress bar updates in real time.
+        // so the progress bar updates in real time. We use allSettled
+        // so one bad chunk (truncation, rate-limit, malformed JSON)
+        // doesn't sink the whole run — partial result is better than
+        // nothing on a long assignment.
         const chunkPromises = chunks.map(async (chunkText, i) => {
           const r = (await editChunkAction({
             text: chunkText,
@@ -406,23 +412,56 @@ export default function EditorClient() {
           },
         );
 
-        const [allIssueArrays, structureResult] = await Promise.all([
-          Promise.all(chunkPromises),
-          structurePromise,
+        const [chunkResults, structureSettled] = await Promise.all([
+          Promise.allSettled(chunkPromises),
+          structurePromise.catch((err: unknown) => ({
+            __failed: true,
+            error: err instanceof Error ? err.message : "Structure analysis failed",
+          })),
         ]);
 
-        const issues = allIssueArrays.flat();
+        const issues: Issue[] = [];
+        const failedChunks: number[] = [];
+        chunkResults.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            issues.push(...r.value);
+          } else {
+            failedChunks.push(i + 1);
+          }
+        });
+
+        if (failedChunks.length === chunks.length) {
+          // Every chunk failed — surface the first error so the user
+          // sees a real diagnosis instead of an empty result.
+          const firstFailure = chunkResults.find(
+            (r): r is PromiseRejectedResult => r.status === "rejected",
+          );
+          throw firstFailure?.reason ?? new Error("All sections failed to edit.");
+        }
+
+        if (failedChunks.length > 0) {
+          toast.warning(
+            `Section${failedChunks.length === 1 ? "" : "s"} ${failedChunks.join(", ")} couldn't be edited. Showing partial results — try splitting the draft and re-running those parts.`,
+          );
+        }
+
         const byCategory: Record<string, number> = {};
         for (const issue of issues) {
           byCategory[issue.category] = (byCategory[issue.category] ?? 0) + 1;
         }
 
+        const structureOk =
+          structureSettled && !("__failed" in structureSettled);
+        if (!structureOk) {
+          toast.warning("Structure analysis failed — issues are still shown below.");
+        }
+
         setResult({
-          summary: structureResult.summary ?? "",
+          summary: structureOk ? (structureSettled.summary ?? "") : "",
           totalIssues: issues.length,
           byCategory,
           issues,
-          structureNotes: structureResult.structureNotes,
+          structureNotes: structureOk ? structureSettled.structureNotes : undefined,
         });
         setFilter("all");
       }

@@ -241,10 +241,13 @@ export const editChunk = action({
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
 
     const userContent = `Section ${args.chunkIndex + 1} of ${args.totalChunks} of a longer essay. Find sentence-level issues only.\n\n${args.text}`;
+    // 6000 tokens covers ~40-50 issues per chunk. Truncation here
+    // sinks an otherwise-good run, so we err generous. Schema is still
+    // small enough that Flash handles 6k cleanly.
     const { raw, modelUsed, usage } = await callWithFallback({
       systemPrompt: CHUNK_SYSTEM_PROMPT,
       userContent,
-      maxTokens: 4000,
+      maxTokens: 6000,
     });
 
     let result: unknown;
