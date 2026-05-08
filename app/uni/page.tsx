@@ -72,16 +72,16 @@ export default function UniHomePage() {
       />
       {/* Compact header — one row, top toolbar pulled into the same line so
           the workspace bar sits in the first viewport on mobile too. */}
-      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-display font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-y-3 gap-x-3">
+        <div className="min-w-0 w-full sm:w-auto">
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             Uni Citation Tool
-            <span className="ml-2 text-xs font-normal text-sky-600 dark:text-sky-400">
+            <span className="block sm:inline sm:ml-2 mt-0.5 sm:mt-0 text-xs font-normal text-sky-600 dark:text-sky-400">
               · Open Polytechnic NZ · APA 7
             </span>
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           <Link
             href="/uni/calendar"
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"

@@ -2390,13 +2390,13 @@ i { font-style:italic; font-weight:normal; }
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         {/* Sticky toolbar — search + count + actions stay reachable on scroll. */}
-        <div className="sticky top-0 -mx-5 -mt-5 mb-4 rounded-t-2xl border-b border-slate-200 bg-white/90 px-5 py-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 dark:shadow-none">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="sticky top-0 -mx-5 -mt-5 mb-4 rounded-t-2xl border-b border-slate-200 bg-white/90 px-3 sm:px-5 py-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 dark:shadow-none">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               References ({sortedRefs.length}
               {filterText ? ` of ${refs?.length ?? 0}` : ""})
             </h2>
-            <div className="relative ml-auto flex-1 max-w-md">
+            <div className="relative basis-full sm:basis-auto sm:ml-auto sm:flex-1 sm:max-w-md order-3 sm:order-none">
               <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8" />
@@ -2412,7 +2412,7 @@ i { font-style:italic; font-weight:normal; }
                 className={`${inputStyle} pl-9 mt-0`}
               />
             </div>
-            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+            <label className="hidden sm:flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={annotatedMode}
@@ -2470,7 +2470,7 @@ i { font-style:italic; font-weight:normal; }
             </div>
           )}
 
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
             <button
               onClick={copyRich}
               disabled={sortedRefs.length === 0}
@@ -2489,14 +2489,14 @@ i { font-style:italic; font-weight:normal; }
             <button
               onClick={runStyleCheck}
               disabled={sortedRefs.length === 0}
-              className={buttonSecondary}
+              className={`${buttonSecondary} hidden sm:inline-flex`}
             >
               Check NZ English
             </button>
             <button
               onClick={refreshAllFormatting}
               disabled={sortedRefs.length === 0 || refreshingFormatting}
-              className={buttonSecondary}
+              className={`${buttonSecondary} hidden sm:inline-flex`}
               title="Re-runs the APA formatter on every reference. Use after the formatter has been updated."
             >
               {refreshingFormatting ? "Refreshing…" : "Refresh formatting"}

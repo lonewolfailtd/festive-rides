@@ -304,8 +304,8 @@ export default function CoachClient() {
 
       <section className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[12rem]">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+            <div className="flex-1 min-w-0 sm:min-w-[12rem]">
               <span className={labelStyle}>Word count target</span>
               <select
                 value={wordTarget}

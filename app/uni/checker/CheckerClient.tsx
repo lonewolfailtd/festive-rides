@@ -396,8 +396,8 @@ export default function CheckerClient() {
             >
               Clear
             </button>
-            <div className="ml-auto flex items-center gap-2">
-              <label className="text-xs text-slate-500 dark:text-slate-400" htmlFor="model-picker">
+            <div className="basis-full sm:basis-auto sm:ml-auto flex items-center gap-2">
+              <label className="text-xs text-slate-500 dark:text-slate-400 shrink-0" htmlFor="model-picker">
                 Model:
               </label>
               <select
@@ -405,7 +405,7 @@ export default function CheckerClient() {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 disabled={running || calibrating !== null}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="flex-1 sm:flex-initial min-w-0 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (default — fastest)</option>
                 <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro (more thorough, slower)</option>

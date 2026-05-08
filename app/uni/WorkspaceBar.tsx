@@ -492,8 +492,8 @@ export default function WorkspaceBar() {
             )}
           </div>
         ) : (
-          <div className="flex items-end gap-2">
-            <div>
+          <div className="flex flex-wrap items-end gap-2 w-full sm:w-auto">
+            <div className="flex-1 min-w-[10rem]">
               <span className={labelStyle}>Name</span>
               <input
                 type="text"
@@ -750,7 +750,7 @@ export default function WorkspaceBar() {
               ✓ Mark submitted
             </button>
           ) : editingGrade ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full">
               <input
                 type="number"
                 min={0}
@@ -759,21 +759,21 @@ export default function WorkspaceBar() {
                 value={gradeNumDraft}
                 onChange={(e) => setGradeNumDraft(e.target.value)}
                 placeholder="%"
-                className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
               <input
                 type="text"
                 value={gradeLetterDraft}
                 onChange={(e) => setGradeLetterDraft(e.target.value)}
                 placeholder="A+ / Pass"
-                className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
               <input
                 type="text"
                 value={feedbackDraft}
                 onChange={(e) => setFeedbackDraft(e.target.value)}
                 placeholder="Marker feedback (optional)"
-                className="flex-1 min-w-[12rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="basis-full sm:basis-auto sm:flex-1 sm:min-w-[12rem] rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
               <button
                 type="button"
@@ -835,7 +835,7 @@ export default function WorkspaceBar() {
             // First unfilled stage is the "current focus"
             const focusIdx = stages.findIndex((s) => !s.done);
             return (
-              <ol className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <ol className="flex flex-wrap items-center gap-y-2 gap-x-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 {stages.map((s, i) => {
                   const isFocus = i === focusIdx;
                   return (

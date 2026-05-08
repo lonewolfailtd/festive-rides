@@ -163,8 +163,8 @@ export default function CalendarClient() {
       />
 
       {/* Toolbar */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-y-3 gap-x-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={goPrev}
@@ -173,7 +173,7 @@ export default function CalendarClient() {
           >
             ← Prev
           </button>
-          <h2 className="px-3 text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100 min-w-[12rem] text-center">
+          <h2 className="px-2 sm:px-3 text-base sm:text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100 min-w-[8rem] sm:min-w-[12rem] text-center">
             {MONTH_NAMES[month]} {year}
           </h2>
           <button
@@ -192,7 +192,7 @@ export default function CalendarClient() {
             Today
           </button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"

@@ -312,8 +312,8 @@ export default function QuickImport() {
         if (file) onUpload(file);
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex-1 min-w-[14rem]">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
+        <div className="flex-1 min-w-0 sm:min-w-[14rem]">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             🚀 Quick start: drop your assignment brief
           </p>
