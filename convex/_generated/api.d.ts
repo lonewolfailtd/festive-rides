@@ -25,6 +25,7 @@ import type * as dataExport from "../dataExport.js";
 import type * as http from "../http.js";
 import type * as icalSubscription from "../icalSubscription.js";
 import type * as lookup from "../lookup.js";
+import type * as nzEditor from "../nzEditor.js";
 import type * as openrouter from "../openrouter.js";
 import type * as passwordReset from "../passwordReset.js";
 import type * as plagiarism from "../plagiarism.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   icalSubscription: typeof icalSubscription;
   lookup: typeof lookup;
+  nzEditor: typeof nzEditor;
   openrouter: typeof openrouter;
   passwordReset: typeof passwordReset;
   plagiarism: typeof plagiarism;

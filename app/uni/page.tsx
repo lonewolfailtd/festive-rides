@@ -56,6 +56,12 @@ const cards = [
     blurb:
       "Spots phrases that sound copy-pasted or unusually distinctive — the stuff a real plagiarism scanner would flag. Each one comes with a Google search link so you can check yourself.",
   },
+  {
+    href: "/uni/editor",
+    title: "NZ Editor",
+    blurb:
+      "Grammarly-style proofreader tuned for NZ English: catches US spellings, missing macrons on te reo Māori, Oxford comma slips, and weak essay structure. Tells you what's wrong, what to change it to, and why.",
+  },
 ];
 
 export default function UniHomePage() {

@@ -45,7 +45,13 @@ const GROUPS: { eyebrow: string; tagline: string; hrefs: string[] }[] = [
   {
     eyebrow: "Write & Review",
     tagline: "Draft, score and check before you submit.",
-    hrefs: ["/uni/coach", "/uni/checker", "/uni/citations", "/uni/plagiarism"],
+    hrefs: [
+      "/uni/coach",
+      "/uni/editor",
+      "/uni/checker",
+      "/uni/citations",
+      "/uni/plagiarism",
+    ],
   },
 ];
 
