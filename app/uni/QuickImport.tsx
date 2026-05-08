@@ -13,7 +13,7 @@
 import { api } from "@/convex/_generated/api";
 import { useAction } from "convex/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const STORAGE_KEY = "uni-active-assignment-v1";
@@ -39,11 +39,68 @@ export default function QuickImport() {
   const [result, setResult] = useState<ImportSuccess | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // Simulated analysis progress. The Convex action is a single round-trip
+  // (no progress events from the server), so we run a client-side
+  // requestAnimationFrame loop that ramps to ~95% over ~14 seconds and
+  // HOLDS there until the real response lands, at which point we jump to
+  // 100%. rAF gives buttery 60fps animation matched to the browser's
+  // refresh rate, with no setInterval drift or 200ms-stepped jumps.
+  // The non-linear easing curve matches how cognition expects "almost
+  // done" to take longer than "halfway", and the 95% hold prevents
+  // hitting 100% before the actual work finishes.
+  const [analysingPct, setAnalysingPct] = useState(0);
+  const rafRef = useRef<number | null>(null);
+
+  const stopProgressTimer = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  };
+
+  const startProgressTimer = () => {
+    stopProgressTimer();
+    setAnalysingPct(0);
+    const startedAt = performance.now();
+    const tick = (now: number) => {
+      const elapsedMs = now - startedAt;
+      // Easing curve: cubic ease-out. Fast early, slows toward 95.
+      // Crosses ~70% at 6s, ~90% at 14s, asymptotes near 95.
+      const t = Math.min(1, elapsedMs / 14_000);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const pct = Math.min(95, eased * 95);
+      // Sub-pixel precision (no Math.round) so CSS interpolates smoothly
+      setAnalysingPct(pct);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopProgressTimer();
+  }, []);
+
+  // Stage-aware label so the progress bar reads as if it knows what it's
+  // doing. The thresholds line up with the easing curve above.
+  const analysingLabel =
+    analysingPct < 25
+      ? "Reading the brief"
+      : analysingPct < 55
+        ? "Finding tasks and concepts"
+        : analysingPct < 80
+          ? "Looking up the course"
+          : analysingPct < 95
+            ? "Setting up your workspace"
+            : "Almost there";
+
   const reset = () => {
+    stopProgressTimer();
     setStage("idle");
     setProgress(null);
     setError(null);
     setResult(null);
+    setAnalysingPct(0);
   };
 
   const handleText = async (text: string, fileName?: string) => {
@@ -57,11 +114,16 @@ export default function QuickImport() {
     }
     if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT);
     setStage("analysing");
+    startProgressTimer();
     try {
       const r = (await importBrief({
         text,
         fileName,
       })) as ImportSuccess & { courseId: string | null; analysisId: string };
+      // Stop the simulated ramp and snap to 100. The CSS transition on
+      // the bar's width gives a satisfying final glide.
+      stopProgressTimer();
+      setAnalysingPct(100);
       setResult({
         assignmentId: r.assignmentId,
         courseCode: r.courseCode,
@@ -77,13 +139,18 @@ export default function QuickImport() {
           new CustomEvent(ACTIVE_EVENT, { detail: r.assignmentId }),
         );
       } catch {}
-      setStage("done");
-      toast.success(
-        r.isNewCourse
-          ? `Created course ${r.courseCode ?? "?"} and ${r.assessmentNumber ?? "an assignment"}.`
-          : `Set up ${r.assessmentNumber ?? "the assignment"} under ${r.courseCode ?? "your existing course"}.`,
-      );
+      // Brief delay so the bar visibly fills to 100% before the success
+      // card replaces it. 350ms matches the bar's CSS transition.
+      setTimeout(() => {
+        setStage("done");
+        toast.success(
+          r.isNewCourse
+            ? `Created course ${r.courseCode ?? "?"} and ${r.assessmentNumber ?? "an assignment"}.`
+            : `Set up ${r.assessmentNumber ?? "the assignment"} under ${r.courseCode ?? "your existing course"}.`,
+        );
+      }, 350);
     } catch (err) {
+      stopProgressTimer();
       setError(err instanceof Error ? err.message : "Import failed.");
       setStage("idle");
     }
@@ -266,7 +333,7 @@ export default function QuickImport() {
                   ? `Reading PDF ${progress.done}/${progress.total}…`
                   : "Reading file…"
                 : stage === "analysing"
-                  ? "Analysing brief…"
+                  ? `Analysing… ${Math.floor(analysingPct)}%`
                   : "Choose a file"}
             </span>
           </label>
@@ -281,18 +348,27 @@ export default function QuickImport() {
       )}
 
       {stage === "analysing" && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <svg
-            className="h-3.5 w-3.5 animate-spin text-sky-500"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-          >
-            <circle cx="12" cy="12" r="9" strokeOpacity="0.25" />
-            <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
-          </svg>
-          <span>Reading the brief, finding tasks, looking up the course… this takes about 10–15 seconds.</span>
+        <div className="mt-4">
+          <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
+            <span className="font-medium">{analysingLabel}…</span>
+            <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400">
+              {Math.floor(analysingPct)}%
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
+              style={{
+                width: `${analysingPct}%`,
+                // Long, eased transition smooths the bar between rAF
+                // updates AND glides the final 95→100 jump.
+                transition: "width 350ms cubic-bezier(0.22, 1, 0.36, 1)",
+              }}
+            />
+          </div>
+          <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            Usually 10–15 seconds. Keep this tab open.
+          </p>
         </div>
       )}
     </section>
