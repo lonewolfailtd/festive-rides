@@ -227,6 +227,11 @@ export default function EditorClient() {
   // percentage because we genuinely don't know how long the AI will
   // take — output time varies with token count, not input length.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  // Last completed run's duration. Stays visible on the result card
+  // after the run finishes so the student can see how long it took
+  // — useful for deciding whether to use the editor in shorter
+  // sessions or split the draft.
+  const [lastRunSeconds, setLastRunSeconds] = useState<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
   const stopProgressTimer = () => {
@@ -376,6 +381,8 @@ export default function EditorClient() {
     setHideFixed(false);
     setCompletedChunks(0);
     setStructureDone(false);
+    setLastRunSeconds(null);
+    const runStartedAt = performance.now();
     startProgressTimer();
 
     try {
@@ -471,6 +478,8 @@ export default function EditorClient() {
       setError(err instanceof Error ? err.message : "Edit failed.");
     } finally {
       stopProgressTimer();
+      const ranFor = (performance.now() - runStartedAt) / 1000;
+      setLastRunSeconds(ranFor);
       setRunning(false);
     }
   };
@@ -691,6 +700,27 @@ export default function EditorClient() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Overall
+                {lastRunSeconds !== null && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-normal text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    {lastRunSeconds < 60
+                      ? `${lastRunSeconds.toFixed(1)}s`
+                      : `${Math.floor(lastRunSeconds / 60)}m ${Math.floor(lastRunSeconds % 60)}s`}
+                  </span>
+                )}
               </h2>
               <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {result.totalIssues}

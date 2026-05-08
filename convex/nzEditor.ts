@@ -157,11 +157,13 @@ Style — AI cliché phrases to ALWAYS flag:
 Plus stacked transitions (Furthermore + Moreover + Additionally), passive when active is clearer, "really"/"very" intensifiers in academic prose.
 
 OUTPUT RULES:
-- "where" MUST be exact verbatim quote from THIS SECTION
-- BE THOROUGH on spelling and te reo Māori — find EVERY US spelling and EVERY missing macron.
+- "where" MUST be exact verbatim quote from THIS SECTION.
+- ONLY emit issues for actual problems. NEVER emit an issue with "no change needed", "correct as is", "no issue here" or similar — if it's correct, leave it out entirely.
+- DEDUPLICATE: if the same word is misspelled multiple times in this section (e.g. "Maori" appears 5×), emit ONE issue for it on the first occurrence. Don't repeat the same fix per occurrence — the student will find-and-replace.
 - For grammar/style, cap at 25 issues for this section (prioritise high-severity).
 - Use NZ English. NO Oxford commas in your output.
-- Set "correctedSpan" to null for non-mechanical issues.`;
+- Set "correctedSpan" to null for non-mechanical issues.
+- Do NOT think out loud inside the JSON. If you're uncertain, omit the issue. Issues are for problems you're confident about.`;
 
 // Structure-only prompt: small output, runs in parallel with chunk
 // edits. Doesn't list sentence errors — those come from the chunks.
