@@ -285,7 +285,7 @@ export default function CheckerClient() {
             <div className="space-y-2">
               <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                <li>Paste your draft, or click ðŸ“„ Upload PDF / ðŸ“ Upload Word doc to extract from a file.</li>
+                <li>Paste your draft, or click 📄 Upload PDF / 📝 Upload Word doc to extract from a file.</li>
                 <li>Click <em>Check for AI</em> — get an overall score and per-paragraph breakdown.</li>
                 <li>Read the &quot;tells&quot; section to see what patterns flagged as AI-like.</li>
                 <li>Use the <em>Humanise a passage</em> tool below to rewrite specific bits.</li>
@@ -330,7 +330,7 @@ export default function CheckerClient() {
                     className="hidden"
                     disabled={extractingFile !== null}
                   />
-                  <span aria-hidden>ðŸ“„</span>
+                  <span aria-hidden>📄</span>
                   <span>
                     {extractingFile === "pdf"
                       ? pdfProgress
@@ -355,7 +355,7 @@ export default function CheckerClient() {
                     className="hidden"
                     disabled={extractingFile !== null}
                   />
-                  <span aria-hidden>ðŸ“</span>
+                  <span aria-hidden>📝</span>
                   <span>
                     {extractingFile === "docx" ? "Reading Word doc…" : "Upload Word doc (.docx)"}
                   </span>

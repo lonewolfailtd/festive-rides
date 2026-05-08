@@ -58,6 +58,66 @@ const countWords = (s: string): number => {
   return trimmed.split(/\s+/).filter(Boolean).length;
 };
 
+// Strip repeated page headers/footers and other PDF artefacts. Open
+// Polytech briefs have "Set B ver. 1.0", "© The Open Polytechnic of New
+// Zealand Ltd", page numbers, and the assessment header repeated on
+// every page; pdfjs extracts them as part of each page's text.
+function cleanBriefText(raw: string): string {
+  let s = raw;
+  // Common Open Polytech repeating boilerplate. Remove all occurrences.
+  const REPEATING = [
+    /Set [A-Z] ver\. ?\d+\.\d+/g,
+    /© The Open Polytechnic of New Zealand Ltd/g,
+    /\d{5} ?ASSESSMENT ?\d+/g,
+    // Page-N footers like "Page 4" or just trailing single digits
+    // following common boilerplate. Conservative.
+  ];
+  for (const re of REPEATING) s = s.replace(re, "");
+  // Collapse 3+ consecutive newlines to 2
+  s = s.replace(/\n{3,}/g, "\n\n");
+  // Collapse multi-space to single space within lines
+  s = s.replace(/[ \t]{2,}/g, " ");
+  // Trim each line
+  s = s
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line, i, arr) => {
+      // Drop empty lines that are surrounded by other empty lines
+      if (line.length > 0) return true;
+      const prev = arr[i - 1];
+      return prev !== "";
+    })
+    .join("\n");
+  return s.trim();
+}
+
+// Detect a "Marking schedule" / "Marking criteria" heading and split the
+// pasted/extracted text into a clean brief + rubric pair. Returns the
+// rubric portion separately so the analyser sees the brief alone.
+function splitBriefAndRubric(text: string): { brief: string; rubric: string | null } {
+  // Match common headings, case-insensitive, on their own line or after
+  // typical preceding whitespace.
+  const HEADINGS = [
+    /\n\s*Marking schedule\b[\s\S]*$/i,
+    /\n\s*Marking criteria\b[\s\S]*$/i,
+    /\n\s*Marking rubric\b[\s\S]*$/i,
+    /\n\s*Assessment rubric\b[\s\S]*$/i,
+    /\n\s*Rubric\b[\s\S]*$/i,
+  ];
+  for (const re of HEADINGS) {
+    const match = re.exec(text);
+    if (match && match.index > 200) {
+      // Only split if there's substantial brief content before the
+      // heading (avoids splitting a brief that just mentions the word
+      // "rubric" in passing).
+      const brief = text.slice(0, match.index).trim();
+      const rubric = text.slice(match.index).trim();
+      return { brief, rubric };
+    }
+  }
+  return { brief: text, rubric: null };
+}
+
 function buildMarkdown(r: AnalysisResult): string {
   const lines: string[] = [];
   lines.push("# Assignment plan");
@@ -384,6 +444,25 @@ export default function AnalyserClient() {
         );
         return;
       }
+      // Clean up repeated page headers/footers (Open Polytech briefs have
+      // "Set B ver. 1.0 © The Open Polytechnic of New Zealand Ltd N" on
+      // every page) and other PDF noise before storing.
+      extracted = cleanBriefText(extracted);
+
+      // Auto-split: if dropping into the brief slot AND the text contains
+      // a "Marking schedule"-shaped heading, send everything from that
+      // heading onwards to the rubric slot so the analyser sees a clean
+      // brief without the rubric soup mixed in.
+      let autoSplit = false;
+      if (target === "brief") {
+        const split = splitBriefAndRubric(extracted);
+        if (split.rubric) {
+          extracted = split.brief;
+          setRubric(split.rubric);
+          autoSplit = true;
+        }
+      }
+
       let truncated = false;
       if (extracted.length > BRIEF_LIMIT) {
         extracted = extracted.slice(0, BRIEF_LIMIT);
@@ -392,9 +471,11 @@ export default function AnalyserClient() {
       if (target === "brief") setBrief(extracted);
       else setRubric(extracted);
       toast.success(
-        truncated
-          ? `Extracted ${total} pages — trimmed to ${BRIEF_LIMIT} chars`
-          : `Extracted ${total} pages from "${file.name}" into ${target}`
+        autoSplit
+          ? `Extracted ${total} pages — split brief from rubric automatically`
+          : truncated
+            ? `Extracted ${total} pages — trimmed to ${BRIEF_LIMIT} chars`
+            : `Extracted ${total} pages from "${file.name}" into ${target}`
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "PDF extraction failed");
@@ -583,7 +664,7 @@ export default function AnalyserClient() {
               <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">Quick start</p>
               <ol className="ml-4 list-decimal space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 <li>Pick which assignment you&apos;re planning (or leave unassigned).</li>
-                <li>Either paste the brief into the box, or click ðŸ“„ Upload PDF to extract it from a file.</li>
+                <li>Either paste the brief into the box, or click 📄 Upload PDF to extract it from a file.</li>
                 <li>Optionally paste/upload the marking rubric, and pick a word-count target.</li>
                 <li>Click <em>Analyse</em> — get the actual question, task verbs, an outline you can tick off, and research keywords.</li>
                 <li>Click a keyword chip to jump to Source Finder pre-loaded with that term.</li>
@@ -680,7 +761,7 @@ export default function AnalyserClient() {
                     className="hidden"
                     disabled={extractingPdf !== null}
                   />
-                  <span aria-hidden>ðŸ“„</span>
+                  <span aria-hidden>📄</span>
                   <span>
                     {extractingPdf === "brief"
                       ? pdfProgress
@@ -731,6 +812,26 @@ export default function AnalyserClient() {
             <textarea
               value={brief}
               onChange={(e) => setBrief(e.target.value)}
+              onPaste={(e) => {
+                // Intercept large pastes (likely a full brief copy-paste)
+                // and run the same cleanup + brief/rubric split that PDF
+                // upload does. Only triggers for pastes >= 1000 chars so
+                // normal editing isn't disrupted.
+                const pasted = e.clipboardData.getData("text");
+                if (pasted.length < 1000) return;
+                e.preventDefault();
+                let cleaned = cleanBriefText(pasted);
+                const split = splitBriefAndRubric(cleaned);
+                if (split.rubric) {
+                  cleaned = split.brief;
+                  setRubric(split.rubric);
+                  toast.success("Auto-split brief from rubric on paste");
+                } else {
+                  toast.success("Cleaned up the paste");
+                }
+                if (cleaned.length > BRIEF_LIMIT) cleaned = cleaned.slice(0, BRIEF_LIMIT);
+                setBrief(cleaned);
+              }}
               maxLength={BRIEF_LIMIT}
               rows={10}
               placeholder="Paste the full brief, including any context, questions and submission requirements."
@@ -758,7 +859,7 @@ export default function AnalyserClient() {
                   className="hidden"
                   disabled={extractingPdf !== null}
                 />
-                <span aria-hidden>ðŸ“„</span>
+                <span aria-hidden>📄</span>
                 <span>
                   {extractingPdf === "rubric"
                     ? pdfProgress
@@ -895,7 +996,7 @@ export default function AnalyserClient() {
                   className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
                   title="Open References list for this assignment"
                 >
-                  ðŸ“š {currentAssignmentRefCount} reference{currentAssignmentRefCount === 1 ? "" : "s"}
+                  📚 {currentAssignmentRefCount} reference{currentAssignmentRefCount === 1 ? "" : "s"}
                 </Link>
               )}
               <button
@@ -1026,20 +1127,49 @@ export default function AnalyserClient() {
 
           {result.tasks && result.tasks.length > 0 && (
             <section className={sectionCard}>
-              <div className="flex items-baseline justify-between gap-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                   Tasks
                 </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {result.tasks.length} task{result.tasks.length === 1 ? "" : "s"} in this brief
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {result.tasks.length} task{result.tasks.length === 1 ? "" : "s"} in this brief
+                  </span>
+                  {/* Expand / collapse all so the user can flip the whole
+                      block in one click instead of clicking 5 toggles. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allOpen: Record<number, boolean> = {};
+                      result.tasks!.forEach((_, i) => (allOpen[i] = true));
+                      setOpenTasks(allOpen);
+                    }}
+                    className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                  >
+                    Expand all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allClosed: Record<number, boolean> = {};
+                      result.tasks!.forEach((_, i) => (allClosed[i] = false));
+                      setOpenTasks(allClosed);
+                    }}
+                    className="text-xs text-slate-600 hover:text-slate-500 dark:text-slate-400 dark:hover:text-slate-300"
+                  >
+                    Collapse all
+                  </button>
+                </div>
               </div>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Each task is marked separately. Plan, draft and check them one by one.
+                Tap any task to expand it. Task 1 is open by default; the rest start collapsed to keep the page scannable.
               </p>
               <div className="mt-3 space-y-3">
                 {result.tasks.map((t, i) => {
-                  const open = openTasks[i] ?? true;
+                  // Default to first task expanded, the rest collapsed.
+                  // Long briefs (5+ tasks) felt overwhelming when every
+                  // task body was open by default.
+                  const open = openTasks[i] ?? i === 0;
                   const meta: string[] = [];
                   if (t.marks != null) meta.push(`${t.marks} marks`);
                   if (t.wordCountGuideline != null) meta.push(`${t.wordCountGuideline} words`);
