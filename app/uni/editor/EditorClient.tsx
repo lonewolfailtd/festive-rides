@@ -174,10 +174,10 @@ export default function EditorClient() {
   const [hideFixed, setHideFixed] = useState(false);
   const [draftCopied, setDraftCopied] = useState(false);
 
-  // Linear progress estimate while running. Editor takes 15-30s typically
-  // depending on draft length. Same pattern as Quick Import.
-  const [progressPct, setProgressPct] = useState(0);
-  const [estimatedSeconds, setEstimatedSeconds] = useState(20);
+  // Honest progress: elapsed-time counter + status text. No fake
+  // percentage because we genuinely don't know how long the AI will
+  // take — output time varies with token count, not input length.
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const rafRef = useRef<number | null>(null);
 
   const stopProgressTimer = () => {
@@ -187,20 +187,12 @@ export default function EditorClient() {
     }
   };
 
-  const startProgressTimer = (textLength: number) => {
+  const startProgressTimer = () => {
     stopProgressTimer();
-    // Empirical: ~12s for 1000 chars, ~25s for 5000, ~40s for 15000+.
-    // Roughly linear with input size.
-    const seconds =
-      textLength < 1500 ? 15 : textLength < 6000 ? 25 : textLength < 15000 ? 35 : 50;
-    setEstimatedSeconds(seconds);
-    setProgressPct(0);
+    setElapsedSeconds(0);
     const startedAt = performance.now();
-    const totalMs = seconds * 1000;
     const tick = (now: number) => {
-      const elapsedMs = now - startedAt;
-      const linear = (elapsedMs / totalMs) * 99;
-      setProgressPct(Math.min(99, linear));
+      setElapsedSeconds((now - startedAt) / 1000);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -210,18 +202,18 @@ export default function EditorClient() {
     return () => stopProgressTimer();
   }, []);
 
-  const progressLabel =
-    progressPct < 25
-      ? "Reading your draft"
-      : progressPct < 55
-        ? "Spotting issues"
-        : progressPct < 85
-          ? "Reviewing structure"
-          : "Almost there";
-  const secondsLeft = Math.max(
-    0,
-    Math.ceil((estimatedSeconds * (100 - progressPct)) / 100),
-  );
+  // Status text advances by elapsed time only. After 60s we acknowledge
+  // we're past expected — better than fake "almost there" forever.
+  const statusLabel =
+    elapsedSeconds < 5
+      ? "Sending your draft"
+      : elapsedSeconds < 20
+        ? "AI is reading and finding issues"
+        : elapsedSeconds < 45
+          ? "Generating feedback"
+          : elapsedSeconds < 75
+            ? "Still working — long drafts can take up to 90 seconds"
+            : "Taking longer than usual — if it doesn't finish, hard-refresh and try a shorter section";
 
   useEffect(() => {
     try {
@@ -250,11 +242,10 @@ export default function EditorClient() {
     setResult(null);
     setFixedSet(new Set());
     setHideFixed(false);
-    startProgressTimer(text.length);
+    startProgressTimer();
     try {
       const r = (await editAction({ text })) as EditResult;
       stopProgressTimer();
-      setProgressPct(100);
       setResult(r);
       setFilter("all");
     } catch (err) {
@@ -356,30 +347,32 @@ export default function EditorClient() {
             </button>
           </div>
 
-          {/* Linear progress bar with seconds-left, mirroring Quick Import.
-              Only renders while running. */}
+          {/* Honest progress: indeterminate sliding bar (we don't know how
+              long the AI will take) + elapsed-time counter + status text
+              that advances with elapsed time. No fake percentage. */}
           {running && (
             <div className="mt-2">
               <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-medium">{progressLabel}…</span>
+                <span className="font-medium">{statusLabel}…</span>
                 <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400">
-                  {Math.floor(progressPct)}%
-                  {progressPct < 99 && secondsLeft > 0 && (
-                    <span className="ml-2 text-slate-500 dark:text-slate-400">
-                      · ~{secondsLeft}s left
-                    </span>
-                  )}
+                  {Math.floor(elapsedSeconds)}s elapsed
                 </span>
               </div>
-              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
+              <div className="relative mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
+                  className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
                   style={{
-                    width: `${progressPct}%`,
-                    transition: "width 100ms linear",
+                    animation: "nzeditor-slide 1.4s ease-in-out infinite",
                   }}
                 />
               </div>
+              <style>{`
+                @keyframes nzeditor-slide {
+                  0% { left: -33%; }
+                  50% { left: 50%; }
+                  100% { left: 100%; }
+                }
+              `}</style>
             </div>
           )}
         </form>
