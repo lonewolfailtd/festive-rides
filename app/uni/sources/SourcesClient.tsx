@@ -444,26 +444,20 @@ export default function SourcesClient() {
             );
           })()}
 
-          {/* Overall key question — useful for broad scoping searches */}
+          {/* The overall key question is shown for context only — it's
+              too long/broad to use as a keyword search and OpenAlex
+              returns 0 results for natural-language sentences with this
+              many concepts. Use the keyword chips and per-task queries
+              above instead. */}
           {latestAnalysis.keyQuestion && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Overall question
+            <div className="mt-4 rounded-md border border-slate-200 bg-white/70 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+              <span className="font-medium text-slate-700 dark:text-slate-300">
+                The big question:{" "}
+              </span>
+              <span>{latestAnalysis.keyQuestion}</span>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                Use the shorter keyword chips above for actual searches — long sentences usually return zero results on a keyword database.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery(latestAnalysis.keyQuestion ?? "");
-                  setLastQuery("");
-                  setTimeout(() => {
-                    const form = document.querySelector("form");
-                    if (form) form.requestSubmit();
-                  }, 0);
-                }}
-                className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-left text-xs text-slate-800 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/40 dark:hover:text-sky-200"
-              >
-                {latestAnalysis.keyQuestion}
-              </button>
             </div>
           )}
         </section>
@@ -620,9 +614,33 @@ export default function SourcesClient() {
             for &ldquo;{lastQuery}&rdquo;
           </h2>
           {response.results.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              No results. Try broader keywords or remove filters.
-            </p>
+            <ZeroResultsHelp
+              lastQuery={lastQuery}
+              onlyPeerReviewed={onlyPeerReviewed}
+              openAccessOnly={openAccessOnly}
+              nzAuthoredOnly={nzAuthoredOnly}
+              yearFrom={yearFrom}
+              sourceType={sourceType}
+              onShorten={(short) => {
+                setQuery(short);
+                setLastQuery("");
+                setTimeout(() => {
+                  const form = document.querySelector("form");
+                  if (form) form.requestSubmit();
+                }, 0);
+              }}
+              onClearFilters={() => {
+                setOnlyPeerReviewed(false);
+                setOpenAccessOnly(false);
+                setNzAuthoredOnly(false);
+                setYearFrom("");
+                setSourceType("all");
+                setTimeout(() => {
+                  const form = document.querySelector("form");
+                  if (form) form.requestSubmit();
+                }, 0);
+              }}
+            />
           ) : (
             <ul className="space-y-4">
               {response.results.map((r, idx) => {
@@ -721,5 +739,145 @@ export default function SourcesClient() {
         </motion.section>
       )}
     </main>
+  );
+}
+
+// Zero-results helper. Diagnoses why a search returned nothing and
+// offers concrete fixes:
+//  - If the query is long (>10 words), offers a shortened version
+//    (stopwords + filler stripped, top distinctive nouns kept).
+//  - If filters are tight, offers a "clear filters and retry" button.
+//  - Otherwise just tells the student to broaden the keywords.
+
+const STOPWORDS = new Set([
+  "how",
+  "can",
+  "be",
+  "is",
+  "are",
+  "was",
+  "were",
+  "the",
+  "a",
+  "an",
+  "of",
+  "in",
+  "and",
+  "or",
+  "to",
+  "for",
+  "on",
+  "at",
+  "by",
+  "with",
+  "from",
+  "as",
+  "that",
+  "this",
+  "these",
+  "those",
+  "what",
+  "why",
+  "when",
+  "where",
+  "which",
+  "do",
+  "does",
+  "did",
+  "applied",
+  "real",
+  "world",
+  "scenarios",
+  "explain",
+  "their",
+  "between",
+  "have",
+  "has",
+  "had",
+]);
+
+function shortenQuery(q: string): string {
+  // Drop punctuation, lower, split, drop stopwords + duplicates, keep
+  // the first 5-6 distinctive terms.
+  const words = q
+    .toLowerCase()
+    .replace(/[?!.,;:()"'`]/g, "")
+    .split(/\s+/)
+    .filter((w) => w && w.length > 2 && !STOPWORDS.has(w));
+  const seen = new Set<string>();
+  const distinct: string[] = [];
+  for (const w of words) {
+    if (seen.has(w)) continue;
+    seen.add(w);
+    distinct.push(w);
+    if (distinct.length >= 6) break;
+  }
+  return distinct.join(" ");
+}
+
+function ZeroResultsHelp(props: {
+  lastQuery: string;
+  onlyPeerReviewed: boolean;
+  openAccessOnly: boolean;
+  nzAuthoredOnly: boolean;
+  yearFrom: string;
+  sourceType: string;
+  onShorten: (q: string) => void;
+  onClearFilters: () => void;
+}) {
+  const queryWordCount = props.lastQuery.trim().split(/\s+/).length;
+  const isLong = queryWordCount > 10;
+  const shortened = isLong ? shortenQuery(props.lastQuery) : "";
+  const filtersOn =
+    props.onlyPeerReviewed ||
+    props.openAccessOnly ||
+    props.nzAuthoredOnly ||
+    props.yearFrom.trim().length > 0 ||
+    props.sourceType !== "all";
+
+  return (
+    <div className="space-y-3 text-sm">
+      <p className="text-slate-600 dark:text-slate-400">
+        No results. Here&apos;s why and what to try:
+      </p>
+      <ul className="ml-4 list-disc space-y-2 text-slate-700 dark:text-slate-300">
+        {isLong && (
+          <li>
+            Your query is <strong>{queryWordCount} words</strong>. Keyword
+            databases work best with 3–6 distinctive terms. Try:{" "}
+            <button
+              type="button"
+              onClick={() => props.onShorten(shortened)}
+              className="rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 font-mono text-xs text-sky-800 hover:border-sky-500 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200"
+            >
+              {shortened}
+            </button>{" "}
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              (click to search)
+            </span>
+          </li>
+        )}
+        {filtersOn && (
+          <li>
+            You have filters on. Clearing them often surfaces relevant results
+            at the cost of breadth.{" "}
+            <button
+              type="button"
+              onClick={props.onClearFilters}
+              className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300"
+            >
+              Clear filters and retry
+            </button>
+          </li>
+        )}
+        {!isLong && !filtersOn && (
+          <li>Try broader or more common keywords.</li>
+        )}
+        <li className="text-xs text-slate-500 dark:text-slate-400">
+          Or pick one of the keyword chips at the top of the page — those are
+          tuned to the assignment.
+        </li>
+      </ul>
+    </div>
   );
 }
