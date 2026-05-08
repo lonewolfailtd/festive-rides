@@ -183,7 +183,7 @@ export default function CoachClient() {
 
   const draftWords = countWords(draft);
   const target = Number(wordTarget) || 0;
-  const targetTolerance = target * 0.1; // Â±10% per most NZ uni style guides
+  const targetTolerance = target * 0.1; // ±10% per most NZ uni style guides
   const wordStatus: "ok" | "under" | "over" | "none" =
     target === 0
       ? "none"
@@ -324,7 +324,7 @@ export default function CoachClient() {
               </select>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              NZ uni style guides usually allow Â±10% around the target.
+              NZ uni style guides usually allow ±10% around the target.
             </p>
           </div>
 
@@ -350,7 +350,7 @@ export default function CoachClient() {
                   <>
                     {" / "}
                     {target.toLocaleString("en-NZ")} words
-                    {wordStatus === "ok" && " âœ“"}
+                    {wordStatus === "ok" && " ✓"}
                     {wordStatus === "under" && ` (need ~${Math.max(0, Math.round(target - targetTolerance) - draftWords)} more)`}
                     {wordStatus === "over" && ` (over by ~${draftWords - Math.round(target + targetTolerance)})`}
                   </>

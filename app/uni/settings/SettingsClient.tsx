@@ -595,7 +595,7 @@ function ThemeSection() {
                 </span>
                 {selected && (
                   <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    âœ“ Active
+                    ✓ Active
                   </span>
                 )}
               </div>

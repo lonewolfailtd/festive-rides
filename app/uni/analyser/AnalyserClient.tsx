@@ -1372,7 +1372,7 @@ export default function AnalyserClient() {
                             }`}
                           >
                             {wc.toLocaleString("en-NZ")} words
-                            {status === "ok" && ` âœ“ on target (within Â±10%)`}
+                            {status === "ok" && ` ✓ on target (within ±10%)`}
                             {status === "under" && ` ” need ~${Math.max(0, Math.round(s.words - tol) - wc)} more`}
                             {status === "over" && ` ” over by ~${wc - Math.round(s.words + tol)}`}
                             {status === "none" && " ” paste your draft above to track"}

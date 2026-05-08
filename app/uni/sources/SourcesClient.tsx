@@ -774,7 +774,7 @@ export default function SourcesClient() {
                         className={`${buttonPrimary} ml-auto`}
                       >
                         {isAdded
-                          ? "Added âœ“"
+                          ? "Added ✓"
                           : isAdding
                             ? "Adding…"
                             : "Add to references"}

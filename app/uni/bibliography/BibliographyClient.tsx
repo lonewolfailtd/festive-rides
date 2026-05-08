@@ -440,12 +440,12 @@ export default function BibliographyClient() {
                         </span>
                         {status?.status === "done" && (
                           <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
-                            âœ“ Imported
+                            ✓ Imported
                           </span>
                         )}
                         {status?.status === "failed" && (
                           <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs font-medium text-white">
-                            âœ— Failed
+                            ✗ Failed
                           </span>
                         )}
                         {status?.status === "importing" && (

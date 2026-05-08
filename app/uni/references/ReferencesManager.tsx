@@ -369,7 +369,7 @@ function CopyChip({ text, label }: { text: string; label: string }) {
         copied ? "ring-1 ring-emerald-500/60 text-emerald-700 dark:text-emerald-200" : ""
       }`}
     >
-      {copied ? "âœ“ Copied" : text}
+      {copied ? "✓ Copied" : text}
     </button>
   );
 }
@@ -2434,7 +2434,7 @@ i { font-style:italic; font-weight:normal; }
               }`}
               title="Toggle select mode (s) ” pick refs and quick-cite them as a group"
             >
-              {selectMode ? "âœ• Exit select" : "Multi-cite"}
+              {selectMode ? "✕ Exit select" : "Multi-cite"}
             </button>
           </div>
 
@@ -2815,7 +2815,7 @@ i { font-style:italic; font-weight:normal; }
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-slate-500 dark:text-slate-400">
                         {savedFlash[r._id] ? (
-                          <span className="text-emerald-600 dark:text-emerald-400">âœ“ Saved</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">✓ Saved</span>
                         ) : (
                           "Saves automatically when you click out of the box"
                         )}
