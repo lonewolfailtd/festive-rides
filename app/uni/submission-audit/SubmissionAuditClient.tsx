@@ -127,6 +127,16 @@ export default function SubmissionAuditClient() {
   const [error, setError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hideCovered, setHideCovered] = useState(false);
+  // Model picker: Flash (fast, ~80s) is default; Pro (thorough, ~3-4 min)
+  // is an opt-in second opinion. Stored in localStorage so the choice
+  // sticks per browser.
+  const [model, setModel] = useState<"flash" | "pro">("flash");
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("uni-submission-audit-model");
+      if (stored === "flash" || stored === "pro") setModel(stored);
+    } catch {}
+  }, []);
 
   // File-upload state — separate target so the user can upload a draft
   // AND a rubric without clashing.
@@ -325,6 +335,10 @@ export default function SubmissionAuditClient() {
         rubricText: rubric,
         briefText: brief.trim() ? brief : undefined,
         assignmentName: activeAssignment?.name,
+        model:
+          model === "pro"
+            ? "deepseek/deepseek-v4-pro"
+            : "deepseek/deepseek-v4-flash",
       })) as AuditResult;
       setResult(r);
     } catch (err) {
@@ -544,6 +558,45 @@ export default function SubmissionAuditClient() {
             >
               Clear draft
             </button>
+
+            {/* Model picker. Flash is the sane default; Pro is the
+                opt-in slower second opinion. */}
+            <div className="ml-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-700 dark:bg-slate-900">
+              <button
+                type="button"
+                onClick={() => {
+                  setModel("flash");
+                  try {
+                    window.localStorage.setItem("uni-submission-audit-model", "flash");
+                  } catch {}
+                }}
+                className={`rounded-full px-2.5 py-1 transition-colors ${
+                  model === "flash"
+                    ? "bg-sky-100 font-medium text-sky-800 dark:bg-sky-950/60 dark:text-sky-200"
+                    : "text-slate-600 hover:text-sky-700 dark:text-slate-400 dark:hover:text-sky-300"
+                }`}
+                title="DeepSeek V4 Flash — ~80–120s, recommended"
+              >
+                Flash · ~80s
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModel("pro");
+                  try {
+                    window.localStorage.setItem("uni-submission-audit-model", "pro");
+                  } catch {}
+                }}
+                className={`rounded-full px-2.5 py-1 transition-colors ${
+                  model === "pro"
+                    ? "bg-sky-100 font-medium text-sky-800 dark:bg-sky-950/60 dark:text-sky-200"
+                    : "text-slate-600 hover:text-sky-700 dark:text-slate-400 dark:hover:text-sky-300"
+                }`}
+                title="DeepSeek V4 Pro — slower (3–4 min) second opinion"
+              >
+                Pro · ~3m
+              </button>
+            </div>
           </div>
 
           {/* Indeterminate slider — Pro can take 30-60s, no chunked progress here */}

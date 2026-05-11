@@ -69,7 +69,9 @@ NON-NEGOTIABLE RULES:
    - "Explain what 'object permanence' was tested for in the study you cited — what task did the infants perform?" ✓
    - "Add 2-3 sentences positioning Skinner's behaviourism relative to the cognitive revolution of the 1960s-70s." ✓
 
-2. BAND ESTIMATES MUST BE RANGES, NOT EXACT NUMBERS. Use the rubric's own band labels where possible. "7.5-9.5 (mid)" not "8.5". The model isn't actually marking — it's estimating which band a marker would land in.
+2. BAND ESTIMATES MUST BE RANGES, NOT EXACT NUMBERS. Use the rubric's own band labels VERBATIM where possible.
+   - GOOD: "7.5-9.5 marks" or "10-11.5 marks" — straight from the rubric.
+   - BAD: "8.5", "9", "Band B" (made up), "7.5-9.5 (mid)" (avoid the "(mid)" tag — it was being applied incorrectly to bands that aren't the middle of their scale, e.g. 3.5 on the 5-mark Writing rubric isn't the middle band).
 
 3. QUOTE THE EVIDENCE VERBATIM. For 'covered' or 'partial' status, quote 5-15 words from the draft EXACTLY. If you can't quote it verbatim, set status to 'missing'.
 
@@ -77,11 +79,15 @@ NON-NEGOTIABLE RULES:
 
 5. NZ ENGLISH. Use -ise, -our, -re spellings. NO Oxford commas. Use 'whānau', 'Māori', 'Pākehā' with macrons.
 
-6. BE HONEST. If a section is weak, say so. If the rubric requires a study and the draft has none, that's 'missing', not 'partial'. Markers don't pad praise; neither should you.
+6. BE HONEST. If a section is weak, say so. If the rubric requires a study and the draft has none, that's 'missing', not 'partial'. Markers don't pad praise; neither should you. BUT also don't mark down for things the rubric doesn't ask about — judge against what the rubric actually says, not your idea of an ideal answer.
 
 7. PREDICTED SCORE: sum the midpoints of your section band estimates. Express as a RANGE (min/max), not a single number. If you've never seen the rubric awarding more than 100 marks, the 'outOf' is what the rubric explicitly totals.
 
-8. QUICK WINS: rank by mark impact, not by ease. The 5 things that would gain the most marks if addressed. Each should be one line + name the section + give direction (not words).`;
+8. QUICK WINS: rank by mark impact, not by ease. The 5 things that would gain the most marks if addressed. Each should be one line + name the section + give direction (not words).
+
+9. DO NOT THINK OUT LOUD IN THE JSON. If you're uncertain about a citation, a date, or whether something is in the reference list, EITHER omit the issue OR state it as a clear flag for the student to check — never narrate your own verification ("2021 vs 2021 — actually correct, but..."). The output must read like a marker's notes, not your reasoning process.
+
+10. KEEP GAP + DIRECTION TIGHT. Aim for 2-3 sentences each. The student is scanning 8-15 criteria; long prose blocks per criterion buries the actionable bits.`;
 
 export const audit = action({
   args: {
@@ -121,9 +127,12 @@ export const audit = action({
 
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
 
-    // Pro by default: this is high-stakes (predicts the mark) and slower
-    // is acceptable. Falls back to Flash if Pro hiccups.
-    const primaryModel = args.model ?? "deepseek/deepseek-v4-pro";
+    // Flash by default: a real-world test on AS1 had Pro running 4m+ on
+    // an 11-criterion rubric. Flash produces equivalent-quality output
+    // on this structured-JSON task in ~80-100s. Pro stays available via
+    // the `model` arg for users who want a slower / arguably more
+    // thorough second opinion. Falls back to Pro on transient errors.
+    const primaryModel = args.model ?? "deepseek/deepseek-v4-flash";
 
     // Build a structured user message that keeps draft / rubric / brief
     // visually separated so the model doesn't conflate them.
@@ -146,7 +155,7 @@ export const audit = action({
         model: primaryModel,
         responseFormatJson: true,
         temperature: 0.2,
-        maxTokens: 8000,
+        maxTokens: 6000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },
@@ -162,7 +171,8 @@ export const audit = action({
         msg.includes("no content") ||
         msg.includes("timed out");
       if (!isTransient) throw err;
-      // Fall back to Flash if Pro hiccups.
+      // Symmetric fallback: if Flash hiccups → try Pro; if Pro hiccups
+      // (because the user explicitly requested it) → try Flash.
       const fallbackModel =
         primaryModel === "deepseek/deepseek-v4-pro"
           ? "deepseek/deepseek-v4-flash"
@@ -171,7 +181,7 @@ export const audit = action({
         model: fallbackModel,
         responseFormatJson: true,
         temperature: 0.2,
-        maxTokens: 8000,
+        maxTokens: 6000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },
