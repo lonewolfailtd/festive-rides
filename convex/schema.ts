@@ -51,6 +51,11 @@ export default defineSchema({
     dueDate: v.optional(v.number()),
     wordCountTarget: v.optional(v.number()),
     brief: v.optional(v.string()),
+    // Verbatim rubric / marking schedule text, extracted from the brief
+    // PDF or pasted manually. Stored separately from brief so the
+    // Submission Audit and Analyser can auto-load it without re-parsing
+    // the full brief on every run.
+    rubric: v.optional(v.string()),
     notes: v.optional(v.string()),
     // Submission + grade tracker
     submittedAt: v.optional(v.number()), // epoch ms

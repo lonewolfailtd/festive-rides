@@ -22,6 +22,7 @@ const PROPAGATE_TO = new Set([
   "/uni/sources",
   "/uni/citations",
   "/uni/bibliography",
+  "/uni/submission-audit",
 ]);
 
 interface Card {
@@ -51,6 +52,7 @@ const GROUPS: { eyebrow: string; tagline: string; hrefs: string[] }[] = [
       "/uni/checker",
       "/uni/citations",
       "/uni/plagiarism",
+      "/uni/submission-audit",
     ],
   },
 ];

@@ -39,6 +39,7 @@ export const create = mutation({
     dueDate: v.optional(v.number()),
     wordCountTarget: v.optional(v.number()),
     brief: v.optional(v.string()),
+    rubric: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -64,6 +65,7 @@ export const update = mutation({
     dueDate: v.optional(v.number()),
     wordCountTarget: v.optional(v.number()),
     brief: v.optional(v.string()),
+    rubric: v.optional(v.string()),
     notes: v.optional(v.string()),
     submittedAt: v.optional(v.number()),
     grade: v.optional(v.number()),

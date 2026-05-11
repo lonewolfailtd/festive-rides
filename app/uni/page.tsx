@@ -62,6 +62,12 @@ const cards = [
     blurb:
       "Grammarly-style proofreader tuned for NZ English: catches US spellings, missing macrons on te reo Māori, Oxford comma slips, and weak essay structure. Tells you what's wrong, what to change it to, and why.",
   },
+  {
+    href: "/uni/submission-audit",
+    title: "Submission Audit",
+    blurb:
+      "Right before you submit: checks your finished draft against the rubric, criterion by criterion. Highlights covered / partial / missing — points to what to add and where, without writing it for you. Predicts your mark band.",
+  },
 ];
 
 export default function UniHomePage() {

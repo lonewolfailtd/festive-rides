@@ -52,6 +52,7 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
     }
   ],
   "taskVerbs": [{ "verb": "string", "meaning": "string — what this verb requires the student to actually do" }],
+  "rubricText": "string|null — VERBATIM rubric / marking schedule extracted from the brief. Copy the rubric table rows / criteria descriptors as plain text (don't paraphrase). This is what the Submission Audit tool will check the student's draft against. If the brief has no rubric, return null.",
   "rubricBreakdown": [{ "criterion": "string", "weightPercent": number, "focus": "string — what the marker is looking for" }],
   "wordCountSplit": [{ "section": "string", "words": number, "purpose": "string" }],
   "outline": [{ "section": "string", "bullets": ["string"] }],
@@ -174,6 +175,7 @@ export const importBrief = action({
       totalMarks?: number | null;
       totalWordCount?: number | null;
       dueDateIso?: string | null;
+      rubricText?: string | null;
       tasks?: { wordCountGuideline?: number | null }[];
     };
     try {
@@ -249,6 +251,16 @@ export const importBrief = action({
     // ---- Parse due date if the AI extracted one ------------------------
     const dueDate = parseDueDateIso(result.dueDateIso);
 
+    // ---- Extract the verbatim rubric so downstream tools can use it ----
+    // The AI returns rubricText as the marking-schedule prose copied from
+    // the brief. If empty/whitespace, treat as missing rather than
+    // saving an empty string. Saves the Submission Audit and Analyser a
+    // round-trip later.
+    const rubricExtracted =
+      typeof result.rubricText === "string" && result.rubricText.trim().length > 50
+        ? result.rubricText.trim()
+        : undefined;
+
     // ---- Create the assignment -----------------------------------------
     const assignmentId = (await ctx.runMutation(api.assignments.create, {
       name: assignmentName,
@@ -256,6 +268,7 @@ export const importBrief = action({
       courseId: courseId ?? undefined,
       wordCountTarget: wordCountTarget ?? undefined,
       brief: trimmed,
+      rubric: rubricExtracted,
       dueDate,
     })) as Id<"assignments">;
 
@@ -266,7 +279,7 @@ export const importBrief = action({
         userId,
         assignmentId,
         brief: trimmed,
-        rubric: undefined,
+        rubric: rubricExtracted,
         wordCountTarget: wordCountTarget ?? undefined,
         result,
         modelUsed,

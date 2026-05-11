@@ -33,6 +33,7 @@ import type * as quickImport from "../quickImport.js";
 import type * as references from "../references.js";
 import type * as reverseLookup from "../reverseLookup.js";
 import type * as sources from "../sources.js";
+import type * as submissionAudit from "../submissionAudit.js";
 import type * as usage from "../usage.js";
 import type * as userSettings from "../userSettings.js";
 
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   references: typeof references;
   reverseLookup: typeof reverseLookup;
   sources: typeof sources;
+  submissionAudit: typeof submissionAudit;
   usage: typeof usage;
   userSettings: typeof userSettings;
 }>;
