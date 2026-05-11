@@ -52,7 +52,7 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
     }
   ],
   "taskVerbs": [{ "verb": "string", "meaning": "string — what this verb requires the student to actually do" }],
-  "rubricText": "string|null — VERBATIM rubric / marking schedule extracted from the brief. Copy the rubric table rows / criteria descriptors as plain text (don't paraphrase). This is what the Submission Audit tool will check the student's draft against. If the brief has no rubric, return null.",
+  "rubricText": "string|null — COMPLETE VERBATIM rubric / marking schedule extracted from the brief. CRITICAL: copy the ENTIRE marking schedule including EVERY band descriptor (12-15 marks, 10-11.5 marks, 7.5-9.5 marks, 6-7 marks, 1-5.5 marks etc) for EVERY criterion, and EVERY repeated rubric (e.g. Paragraph 1, Paragraph 2, Paragraph 3 each with their own table). Do NOT paraphrase, do NOT skip bands, do NOT skip repeated tables. The Submission Audit tool needs the full band descriptors to judge which mark band the draft lands in. Format as plain text — section headings on their own lines, then bands as labeled paragraphs. If the brief has no marking schedule, return null. Return null only if there is genuinely no rubric — don't return null because the rubric is long.",
   "rubricBreakdown": [{ "criterion": "string", "weightPercent": number, "focus": "string — what the marker is looking for" }],
   "wordCountSplit": [{ "section": "string", "words": number, "purpose": "string" }],
   "outline": [{ "section": "string", "bullets": ["string"] }],
@@ -133,9 +133,14 @@ export const importBrief = action({
         "That doesn't look like a full assignment brief. Try pasting more of the document.",
       );
     }
-    if (trimmed.length > 14000) {
+    // 30,000 char cap. Open Polytech 7-page briefs with full
+    // multi-table marking schedules routinely hit 18-22k. Was 14k
+    // which truncated the rubric portion before the AI saw it; the
+    // Submission Audit then auto-loaded a half-rubric. Generous cap
+    // here is fine — DeepSeek V4's 1M context handles it cheaply.
+    if (trimmed.length > 30000) {
       throw new Error(
-        "Brief is too long — trim to under 14,000 characters or just keep the first few pages.",
+        "Brief is too long — trim to under 30,000 characters. If it's a multi-assessment brochure, keep just the assessment you're working on.",
       );
     }
 
@@ -149,10 +154,11 @@ export const importBrief = action({
       temperature: 0.2,
       // 5-task NZ Open Polytech briefs (with scenario + subQuestions +
       // searchableQueries + outline + suggestedSources per task PLUS
-      // top-level fields) routinely exceed 6000 tokens. Bumped to 12000
-      // so we don't truncate mid-JSON. V4 Flash's 1M context handles
-      // this fine cost-wise; output tokens are the variable.
-      maxTokens: 12000,
+      // top-level fields PLUS verbatim rubricText) can hit 14k tokens
+      // when the marking schedule is a 5-band × 5-criterion table —
+      // each band descriptor is ~50 words. Bumped to 16k so the
+      // rubric extraction is never the thing that truncates.
+      maxTokens: 16000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: `ASSIGNMENT BRIEF:\n${trimmed}` },

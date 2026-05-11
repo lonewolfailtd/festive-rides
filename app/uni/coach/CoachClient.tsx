@@ -426,9 +426,39 @@ export default function CoachClient() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
-          className="space-y-6"
+          className="space-y-8"
         >
-          <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
+          {/* Jump-to nav: lets you skip past info you've already read. */}
+          <nav
+            aria-label="Coach sections"
+            className="-mx-1 flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-white/60 px-3 py-2 text-xs backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/60"
+          >
+            <span className="self-center text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Jump to:
+            </span>
+            {[
+              { href: "#coach-summary", label: "Summary" },
+              { href: "#coach-scores", label: "Scores" },
+              result.missingElements.length > 0
+                ? { href: "#coach-missing", label: "Missing" }
+                : null,
+              result.specificImprovements.length > 0
+                ? { href: "#coach-improvements", label: "Improvements" }
+                : null,
+            ]
+              .filter((x): x is { href: string; label: string } => Boolean(x))
+              .map((c) => (
+                <a
+                  key={c.href}
+                  href={c.href}
+                  className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-slate-700 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300"
+                >
+                  {c.label}
+                </a>
+              ))}
+          </nav>
+
+          <section id="coach-summary" className="scroll-mt-20 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Overall summary
             </h2>
@@ -437,7 +467,7 @@ export default function CoachClient() {
             </p>
           </section>
 
-          <section>
+          <section id="coach-scores" className="scroll-mt-20">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Scores
             </h2>
@@ -449,7 +479,7 @@ export default function CoachClient() {
           </section>
 
           {result.missingElements.length > 0 && (
-            <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+            <section id="coach-missing" className="scroll-mt-20 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 Missing elements
               </h2>
@@ -462,7 +492,7 @@ export default function CoachClient() {
           )}
 
           {result.specificImprovements.length > 0 && (
-            <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
+            <section id="coach-improvements" className="scroll-mt-20 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Specific improvements
               </h2>
@@ -493,39 +523,60 @@ export default function CoachClient() {
             </section>
           )}
 
+          {/* NZ English + Oxford comma flags collapsed by default — the
+              NZ Editor catches these in detail; here they're a quick
+              reference, not the primary feedback. */}
           {result.nzEnglishFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                NZ English flags
-              </h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {result.nzEnglishFlags.map((f, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs text-sky-800 dark:text-sky-200"
-                  >
-                    {f}
-                  </span>
-                ))}
-              </div>
+            <section className="scroll-mt-20 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
+              <details className="group">
+                <summary className="flex cursor-pointer items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    NZ English flags
+                    <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                      {result.nzEnglishFlags.length} found
+                    </span>
+                  </h2>
+                  <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
+                  <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {result.nzEnglishFlags.map((f, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs text-sky-800 dark:text-sky-200"
+                    >
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </details>
             </section>
           )}
 
           {result.oxfordCommaFlags.length > 0 && (
-            <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                Oxford comma flags
-              </h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {result.oxfordCommaFlags.map((f, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-800 dark:text-amber-200"
-                  >
-                    {f}
-                  </span>
-                ))}
-              </div>
+            <section className="scroll-mt-20 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
+              <details className="group">
+                <summary className="flex cursor-pointer items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    Oxford comma flags
+                    <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                      {result.oxfordCommaFlags.length} found
+                    </span>
+                  </h2>
+                  <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
+                  <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {result.oxfordCommaFlags.map((f, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-800 dark:text-amber-200"
+                    >
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </details>
             </section>
           )}
         </motion.div>

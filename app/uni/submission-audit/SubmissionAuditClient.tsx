@@ -29,7 +29,10 @@ const STORAGE_KEY = "uni-active-assignment-v1";
 const DRAFT_MIN = 500;
 const DRAFT_MAX = 40000;
 const RUBRIC_MIN = 100;
-const RUBRIC_MAX = 15000;
+// 25,000 chars. A 5-band × 5-criterion repeated rubric (e.g. Para 1/2/3
+// each with the same 3-criterion 5-band table = 15 band descriptors)
+// hits ~18-22k. Was 15k which truncated full marking schedules.
+const RUBRIC_MAX = 25000;
 
 interface Criterion {
   name: string;

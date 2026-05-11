@@ -304,16 +304,28 @@ export default function PlagiarismClient() {
             </section>
           )}
 
+          {/* "What to do next" collapsed by default — it's generic
+              advice the student probably already knows; the flagged
+              phrases above are the actionable part. */}
           {result.advice.length > 0 && (
             <section className={sectionCard}>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                What to do next
-              </h3>
-              <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700 dark:text-slate-300">
-                {result.advice.map((a, i) => (
-                  <li key={i}>{a}</li>
-                ))}
-              </ul>
+              <details className="group">
+                <summary className="flex cursor-pointer items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    What to do next
+                    <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                      {result.advice.length} suggestions
+                    </span>
+                  </h3>
+                  <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
+                  <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+                </summary>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700 dark:text-slate-300">
+                  {result.advice.map((a, i) => (
+                    <li key={i}>{a}</li>
+                  ))}
+                </ul>
+              </details>
             </section>
           )}
         </motion.div>

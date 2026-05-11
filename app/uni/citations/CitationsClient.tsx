@@ -369,52 +369,66 @@ export default function CitationsClient() {
             </section>
           )}
 
+          {/* All citations table — collapsed by default. Useful as a
+              full audit reference but takes up serious vertical space
+              on a 30-citation draft. The actionable sections above
+              (missing / unused / no-citation paragraphs) are what you
+              act on; this is the receipts. */}
           {result.citations.length > 0 && (
             <section className={sectionCard}>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                All citations
-              </h2>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                      <th className="py-2 pr-3 font-medium">Citation</th>
-                      <th className="py-2 pr-3 font-medium">Type</th>
-                      <th className="py-2 pr-3 font-medium">Author</th>
-                      <th className="py-2 pr-3 font-medium">Year</th>
-                      <th className="py-2 pr-3 font-medium">Page</th>
-                      <th className="py-2 pr-3 font-medium">¶</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.citations.map((c, i) => (
-                      <tr
-                        key={i}
-                        className="border-b border-slate-100 last:border-0 dark:border-slate-900"
-                      >
-                        <td className="py-2 pr-3 font-mono text-slate-900 dark:text-slate-100">
-                          {c.text}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-                          {c.type}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-900 dark:text-slate-100">
-                          {c.authorLast}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-900 dark:text-slate-100">
-                          {c.year}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-                          {c.page ?? "”"}
-                        </td>
-                        <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-                          {c.paragraphIndex + 1}
-                        </td>
+              <details className="group">
+                <summary className="flex cursor-pointer items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    All citations
+                    <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                      {result.citations.length} found
+                    </span>
+                  </h2>
+                  <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show full table</span>
+                  <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+                </summary>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                        <th className="py-2 pr-3 font-medium">Citation</th>
+                        <th className="py-2 pr-3 font-medium">Type</th>
+                        <th className="py-2 pr-3 font-medium">Author</th>
+                        <th className="py-2 pr-3 font-medium">Year</th>
+                        <th className="py-2 pr-3 font-medium">Page</th>
+                        <th className="py-2 pr-3 font-medium">¶</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {result.citations.map((c, i) => (
+                        <tr
+                          key={i}
+                          className="border-b border-slate-100 last:border-0 dark:border-slate-900"
+                        >
+                          <td className="py-2 pr-3 font-mono text-slate-900 dark:text-slate-100">
+                            {c.text}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
+                            {c.type}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-900 dark:text-slate-100">
+                            {c.authorLast}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-900 dark:text-slate-100">
+                            {c.year}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
+                            {c.page ?? "”"}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
+                            {c.paragraphIndex + 1}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             </section>
           )}
         </motion.div>

@@ -616,12 +616,24 @@ export default function CheckerClient() {
         </motion.div>
       )}
 
-      {/* Humanise sub-tool */}
+      {/* Humanise sub-tool — collapsed by default. It's a useful
+          deep-dive feature for rewriting flagged passages, but having
+          it permanently expanded at the bottom of the page made the
+          Checker result feel longer than it really was. */}
       <section className={`${sectionCard} mt-8`}>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-            Humanise a passage
-          </h2>
+        <details className="group">
+          <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+              Humanise a passage
+              <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                · rewrite flagged text to sound less AI
+              </span>
+            </h2>
+            <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Open tool</span>
+            <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+          </summary>
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
+          <span></span>
           {/* Quick-fill button: copy the main draft into the humanise box.
               Disabled if there's no draft pasted yet. Saves the student
               from manually copy-pasting between the two textareas. */}
@@ -704,6 +716,7 @@ export default function CheckerClient() {
             </div>
           )}
         </div>
+        </details>
       </section>
     </main>
   );

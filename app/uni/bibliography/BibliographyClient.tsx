@@ -381,13 +381,23 @@ export default function BibliographyClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="space-y-6"
         >
+          {/* Parse summary collapsed by default. The student's actual
+              focus is the list of parsed references below — the
+              summary is metadata about the parse run, useful to glance
+              at but not the headline. */}
           <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.5)]">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Parse summary
-            </h2>
-            <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-900 dark:text-slate-100">
-              {result.summary}
-            </p>
+            <details className="group">
+              <summary className="flex cursor-pointer items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Parse summary
+                </h2>
+                <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
+                <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+              </summary>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-900 dark:text-slate-100">
+                {result.summary}
+              </p>
+            </details>
           </section>
 
           {result.references.length > 0 && (

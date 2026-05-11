@@ -113,7 +113,7 @@ export const audit = action({
         "The rubric is too short — paste the full marking schedule (band descriptors per criterion).",
       );
     }
-    if (rubric.length > 15000) {
+    if (rubric.length > 25000) {
       throw new Error(
         "Rubric is very long. Trim to the marking schedule rows / criteria descriptors only.",
       );
