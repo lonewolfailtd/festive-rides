@@ -939,7 +939,7 @@ export default function AnalyserClient() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
-          className="space-y-6"
+          className="space-y-8"
         >
           {(result.courseCode || result.assessmentNumber || result.weightingPercent != null || result.totalMarks != null) && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
@@ -963,6 +963,45 @@ export default function AnalyserClient() {
               )}
             </div>
           )}
+
+          {/* Jump-to nav. A single-row strip of clickable chips that
+              scroll-into-view their target section. Skips conditional
+              sections (Warnings, Tasks) if the data isn't there.
+              All sections have scroll-mt-20 so the chip click lands with
+              breathing room from the top of the viewport. */}
+          <nav
+            aria-label="Plan sections"
+            className="-mx-1 flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-white/60 px-3 py-2 text-xs backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/60"
+          >
+            <span className="self-center text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Jump to:
+            </span>
+            {[
+              { href: "#plan-summary", label: "Summary" },
+              { href: "#plan-question", label: "The question" },
+              result.warnings.length > 0
+                ? { href: "#plan-warnings", label: "Warnings" }
+                : null,
+              result.tasks && result.tasks.length > 0
+                ? { href: "#plan-tasks", label: `Tasks (${result.tasks.length})` }
+                : null,
+              { href: "#plan-rubric", label: "Marking criteria" },
+              { href: "#plan-word-count", label: "Word counts" },
+              { href: "#plan-outline", label: "Outline" },
+              { href: "#plan-keywords", label: "Keywords" },
+              { href: "#plan-next-step", label: "Next step" },
+            ]
+              .filter((x): x is { href: string; label: string } => Boolean(x))
+              .map((c) => (
+                <a
+                  key={c.href}
+                  href={c.href}
+                  className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-slate-700 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300"
+                >
+                  {c.label}
+                </a>
+              ))}
+          </nav>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold tracking-tight">
@@ -1010,7 +1049,7 @@ export default function AnalyserClient() {
             </div>
           </div>
 
-          <section className={sectionCard}>
+          <section id="plan-summary" className={`${sectionCard} scroll-mt-20`}>
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Summary
@@ -1060,7 +1099,7 @@ export default function AnalyserClient() {
             )}
           </section>
 
-          <section className={sectionCard}>
+          <section id="plan-question" className={`${sectionCard} scroll-mt-20`}>
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 The actual question
@@ -1111,7 +1150,7 @@ export default function AnalyserClient() {
           </section>
 
           {result.warnings.length > 0 && (
-            <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-700/60 dark:bg-amber-950/30">
+            <section id="plan-warnings" className="scroll-mt-20 rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-700/60 dark:bg-amber-950/30">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 Warnings
               </h3>
@@ -1124,7 +1163,7 @@ export default function AnalyserClient() {
           )}
 
           {result.tasks && result.tasks.length > 0 && (
-            <section className={sectionCard}>
+            <section id="plan-tasks" className={`${sectionCard} scroll-mt-20`}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                   Tasks
@@ -1257,29 +1296,43 @@ export default function AnalyserClient() {
             </section>
           )}
 
-          <section className={sectionCard}>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Task verbs
-            </h3>
-            {result.taskVerbs.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                No task verbs identified.
-              </p>
-            ) : (
-              <dl className="mt-3 space-y-3">
-                {result.taskVerbs.map((t, i) => (
-                  <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3">
-                    <dt className="text-sm font-semibold text-sky-700 dark:text-sky-300">
-                      {t.verb}
-                    </dt>
-                    <dd className="mt-1 text-sm text-slate-800 dark:text-slate-200">{t.meaning}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+          {/* Task verbs — collapsed by default. Useful reference but not
+              something the student needs on first scan. <details> gives
+              native disclosure with zero state plumbing. */}
+          <section id="plan-task-verbs" className={`${sectionCard} scroll-mt-20`}>
+            <details className="group">
+              <summary className="flex cursor-pointer items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Task verbs
+                  {result.taskVerbs.length > 0 && (
+                    <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                      {result.taskVerbs.length} identified
+                    </span>
+                  )}
+                </h3>
+                <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
+                <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+              </summary>
+              {result.taskVerbs.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  No task verbs identified.
+                </p>
+              ) : (
+                <dl className="mt-3 space-y-3">
+                  {result.taskVerbs.map((t, i) => (
+                    <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3">
+                      <dt className="text-sm font-semibold text-sky-700 dark:text-sky-300">
+                        {t.verb}
+                      </dt>
+                      <dd className="mt-1 text-sm text-slate-800 dark:text-slate-200">{t.meaning}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </details>
           </section>
 
-          <section className={sectionCard}>
+          <section id="plan-rubric" className={`${sectionCard} scroll-mt-20`}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Marking criteria
@@ -1427,7 +1480,7 @@ export default function AnalyserClient() {
             )}
           </section>
 
-          <section className={sectionCard}>
+          <section id="plan-word-count" className={`${sectionCard} scroll-mt-20`}>
             <div className="flex items-baseline justify-between">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Word-count split
@@ -1514,7 +1567,7 @@ export default function AnalyserClient() {
             )}
           </section>
 
-          <section className={sectionCard}>
+          <section id="plan-outline" className={`${sectionCard} scroll-mt-20`}>
             <div className="flex items-baseline justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
@@ -1595,29 +1648,43 @@ export default function AnalyserClient() {
             )}
           </section>
 
-          <section className={sectionCard}>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Source types needed
-            </h3>
-            {result.sourceTypesNeeded.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Nothing specific suggested.
-              </p>
-            ) : (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {result.sourceTypesNeeded.map((s, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-1 text-xs text-slate-800 dark:text-slate-200"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
+          {/* Source types — collapsed by default. Useful reference but
+              not first-scan info; the Research keywords section below
+              is the actionable companion. */}
+          <section id="plan-source-types" className={`${sectionCard} scroll-mt-20`}>
+            <details className="group">
+              <summary className="flex cursor-pointer items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Source types needed
+                  {result.sourceTypesNeeded.length > 0 && (
+                    <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                      {result.sourceTypesNeeded.length} types
+                    </span>
+                  )}
+                </h3>
+                <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
+                <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+              </summary>
+              {result.sourceTypesNeeded.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  Nothing specific suggested.
+                </p>
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {result.sourceTypesNeeded.map((s, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-1 text-xs text-slate-800 dark:text-slate-200"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </details>
           </section>
 
-          <section className={sectionCard}>
+          <section id="plan-keywords" className={`${sectionCard} scroll-mt-20`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Research keywords
@@ -1660,7 +1727,7 @@ export default function AnalyserClient() {
           </section>
 
           {/* Workflow: send to Coach when ready to draft */}
-          <section className={sectionCard}>
+          <section id="plan-next-step" className={`${sectionCard} scroll-mt-20`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
