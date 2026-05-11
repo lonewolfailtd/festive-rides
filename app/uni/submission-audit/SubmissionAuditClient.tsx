@@ -352,6 +352,32 @@ export default function SubmissionAuditClient() {
 
   const wordCount = draft.trim() ? draft.trim().split(/\s+/).filter(Boolean).length : 0;
 
+  // Build a single section's audit as markdown — shared by the per-
+  // section copy buttons and the full-document copy below. Keeps the
+  // output format consistent so a student can paste either a single
+  // criterion's worth of feedback or the whole audit into their notes.
+  const buildSectionMarkdown = (s: Section): string => {
+    const lines: string[] = [];
+    lines.push(`### ${s.sectionName}`);
+    if (s.sectionScoreRange) {
+      lines.push(
+        `_Predicted: ${s.sectionScoreRange.min}–${s.sectionScoreRange.max} / ${s.sectionScoreRange.outOf}_\n`,
+      );
+    }
+    for (const c of s.criteria) {
+      lines.push(`**${c.name}** — ${c.status.toUpperCase()} (Band: ${c.bandEstimate})`);
+      // Same rule as the UI: skip Evidence on COVERED — it's clutter.
+      if (c.evidence && c.status !== "covered") {
+        lines.push(`> Evidence: "${c.evidence}"`);
+      }
+      if (c.gap) lines.push(`- Gap: ${c.gap}`);
+      if (c.direction) lines.push(`- Direction: ${c.direction}`);
+      if (c.potentialMarkGain) lines.push(`- Potential: ${c.potentialMarkGain}`);
+      lines.push("");
+    }
+    return lines.join("\n");
+  };
+
   // Status filter — hide criteria already covered to focus on gaps.
   const filteredSections = result
     ? result.sections.map((s) => ({
@@ -667,9 +693,20 @@ export default function SubmissionAuditClient() {
             <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
               {result.overall.summary}
             </p>
-            <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-              ⓘ Predicted score is the AI&apos;s estimate based on rubric band descriptors — not a guaranteed mark. Markers vary.
-            </p>
+            {/* Calibration footer — the predicted score is a rubric-
+                compliance FLOOR, not a guaranteed mark. Real markers
+                round up on coherent work; they reward intent and
+                writing quality the audit can't see. Adding ~5-10 to
+                this floor lands you in the typical actual-mark range. */}
+            <div className="mt-3 rounded-md border border-sky-200 bg-sky-50/60 p-3 text-[12px] leading-relaxed text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">
+              <p>
+                <strong>How to read this number:</strong> the predicted range is a <em>rubric-compliance floor</em> — what the draft would score if a marker checked off rubric boxes literally. Real markers typically add <strong>~5–10 marks</strong> on top for coherent writing and clear intent. So <strong>{result.overall.predictedScoreRange.min}&ndash;{result.overall.predictedScoreRange.max}</strong> usually lands around{" "}
+                <strong>
+                  {result.overall.predictedScoreRange.min + 5}&ndash;{result.overall.predictedScoreRange.max + 10}
+                </strong>{" "}
+                in practice. Treat gaps below as a guide for revision, not a verdict.
+              </p>
+            </div>
           </section>
 
           {/* Quick wins */}
@@ -723,11 +760,35 @@ export default function SubmissionAuditClient() {
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {s.sectionName}
                     </h3>
-                    {s.sectionScoreRange && (
-                      <span className="text-xs text-slate-600 dark:text-slate-400">
-                        Predicted: {s.sectionScoreRange.min}&ndash;{s.sectionScoreRange.max} / {s.sectionScoreRange.outOf}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {s.sectionScoreRange && (
+                        <span className="text-xs text-slate-600 dark:text-slate-400">
+                          Predicted: {s.sectionScoreRange.min}&ndash;{s.sectionScoreRange.max} / {s.sectionScoreRange.outOf}
+                        </span>
+                      )}
+                      {/* Per-section copy: paste just this paragraph's
+                          feedback next to your draft as you revise it.
+                          We copy the ORIGINAL (unfiltered) section, not
+                          the filtered one, so "Hide covered criteria"
+                          doesn't strip data from the clipboard. */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const original = result.sections[si];
+                          if (!original) return;
+                          try {
+                            await navigator.clipboard.writeText(buildSectionMarkdown(original));
+                            toast.success(`Copied "${s.sectionName}" feedback`);
+                          } catch {
+                            toast.error("Couldn't copy");
+                          }
+                        }}
+                        className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600 transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300"
+                        title="Copy this section's feedback as markdown"
+                      >
+                        Copy section
+                      </button>
+                    </div>
                   </div>
                   {s.criteria.length === 0 ? (
                     <p className="mt-2 text-xs italic text-slate-500 dark:text-slate-400">
@@ -756,7 +817,13 @@ export default function SubmissionAuditClient() {
                                 Band: {c.bandEstimate}
                               </span>
                             </div>
-                            {c.evidence && (
+                            {/* Evidence quote hidden on COVERED items —
+                                for fully-covered criteria the verbatim
+                                quote is just noise; the ✓ tag already
+                                tells you it's fine. Partial/missing
+                                still show it so you know where the
+                                gap is in the draft. */}
+                            {c.evidence && c.status !== "covered" && (
                               <p className="mt-2 text-xs italic text-emerald-800 dark:text-emerald-300">
                                 Evidence: &ldquo;{c.evidence}&rdquo;
                               </p>
@@ -792,7 +859,8 @@ export default function SubmissionAuditClient() {
             </div>
           </section>
 
-          {/* Copy audit as markdown */}
+          {/* Copy full audit as markdown — reuses buildSectionMarkdown
+              so the same Evidence-on-non-covered rule applies. */}
           <div className="flex justify-end">
             <button
               type="button"
@@ -804,23 +872,14 @@ export default function SubmissionAuditClient() {
                 );
                 lines.push("");
                 lines.push(result.overall.summary);
+                lines.push(
+                  `\n_Note: this is a rubric-compliance floor. Real markers typically add ~5–10 on top, so the realistic range is around ${result.overall.predictedScoreRange.min + 5}–${result.overall.predictedScoreRange.max + 10} / ${result.overall.predictedScoreRange.outOf}._`,
+                );
                 lines.push("\n## Quick wins\n");
                 result.quickWins.forEach((w, i) => lines.push(`${i + 1}. ${w}`));
                 lines.push("\n## Coverage\n");
                 for (const s of result.sections) {
-                  lines.push(`### ${s.sectionName}`);
-                  if (s.sectionScoreRange)
-                    lines.push(
-                      `_Predicted: ${s.sectionScoreRange.min}–${s.sectionScoreRange.max} / ${s.sectionScoreRange.outOf}_\n`,
-                    );
-                  for (const c of s.criteria) {
-                    lines.push(`**${c.name}** — ${c.status.toUpperCase()} (Band: ${c.bandEstimate})`);
-                    if (c.evidence) lines.push(`> Evidence: "${c.evidence}"`);
-                    if (c.gap) lines.push(`- Gap: ${c.gap}`);
-                    if (c.direction) lines.push(`- Direction: ${c.direction}`);
-                    if (c.potentialMarkGain) lines.push(`- Potential: ${c.potentialMarkGain}`);
-                    lines.push("");
-                  }
+                  lines.push(buildSectionMarkdown(s));
                 }
                 try {
                   await navigator.clipboard.writeText(lines.join("\n"));
