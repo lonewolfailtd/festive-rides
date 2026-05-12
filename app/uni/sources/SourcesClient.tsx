@@ -507,9 +507,12 @@ export default function SourcesClient() {
               >
                 <option value="all">All types</option>
                 <option value="journalArticle">Journal article</option>
+                <option value="reviewArticle">Review article (literature review)</option>
                 <option value="book">Book</option>
                 <option value="bookChapter">Book chapter</option>
+                <option value="report">Report (gov / NGO / technical)</option>
                 <option value="thesis">Thesis / dissertation</option>
+                <option value="preprint">Preprint (pre-peer-review)</option>
               </select>
             </div>
             <div>

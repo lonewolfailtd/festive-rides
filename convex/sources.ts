@@ -63,6 +63,14 @@ const SOURCE_TYPE_FILTER: Record<string, string | null> = {
   book: "type:book|monograph",
   bookChapter: "type:book-chapter",
   thesis: "type:dissertation",
+  // Government / NGO / technical reports. Often the best NZ source for
+  // policy and health topics (Te Whatu Ora, MoH, Stats NZ etc).
+  report: "type:report",
+  // Review articles — secondary sources that synthesise primary studies.
+  // High-leverage citation type for student writing.
+  reviewArticle: "type:review",
+  // Pre-peer-review research papers — useful when the topic is brand-new.
+  preprint: "type:preprint",
 };
 
 const SORT_BY_FILTER: Record<string, string | null> = {
@@ -80,7 +88,7 @@ export const search = action({
     onlyPeerReviewed: v.optional(v.boolean()),
     yearFrom: v.optional(v.number()),
     // New filters
-    sourceType: v.optional(v.string()), // "all" | "journalArticle" | "book" | "bookChapter" | "thesis"
+    sourceType: v.optional(v.string()), // "all" | "journalArticle" | "book" | "bookChapter" | "thesis" | "report" | "reviewArticle" | "preprint"
     openAccessOnly: v.optional(v.boolean()),
     nzAuthoredOnly: v.optional(v.boolean()),
     sortBy: v.optional(v.string()), // "relevance" | "cited" | "newest" | "oldest"
