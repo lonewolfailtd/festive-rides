@@ -32,6 +32,7 @@ import type * as plagiarism from "../plagiarism.js";
 import type * as quickImport from "../quickImport.js";
 import type * as references from "../references.js";
 import type * as reverseLookup from "../reverseLookup.js";
+import type * as sourceLens from "../sourceLens.js";
 import type * as sources from "../sources.js";
 import type * as submissionAudit from "../submissionAudit.js";
 import type * as usage from "../usage.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   quickImport: typeof quickImport;
   references: typeof references;
   reverseLookup: typeof reverseLookup;
+  sourceLens: typeof sourceLens;
   sources: typeof sources;
   submissionAudit: typeof submissionAudit;
   usage: typeof usage;

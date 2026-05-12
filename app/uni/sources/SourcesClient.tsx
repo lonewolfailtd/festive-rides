@@ -169,10 +169,28 @@ function filterSearchable(items: string[]): string[] {
   });
 }
 
+// Shape of the Source Lens analysis returned by the Convex action.
+// Optional fields because the AI may legitimately omit them (e.g. no
+// rubric context → empty rubricFit).
+type LensResult = {
+  relevance: { score: number; verdict: string };
+  keyClaims: string[];
+  quotablePhrases: string[];
+  rubricFit: {
+    criterion: string;
+    howItHelps: string;
+    confidence: "high" | "medium" | "low";
+  }[];
+  suggestedCitation: string;
+  skipIfRubricRequires: string[];
+  abstractLimitation: string;
+};
+
 export default function SourcesClient() {
   const assignments = useQuery(api.assignments.list);
   const search = useAction(api.sources.search);
   const createRef = useMutation(api.references.create);
+  const sourceLens = useAction(api.sourceLens.analyse);
 
   const [selectedAssignment, setSelectedAssignment] = useState<
     Id<"assignments"> | "all"
@@ -192,6 +210,15 @@ export default function SourcesClient() {
   const [added, setAdded] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState<Record<string, boolean>>({});
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Source Lens state — keyed by result key (same scheme as `expanded`).
+  // `lensOpen` toggles the inline panel; `lensResults` caches the
+  // analyses so a re-toggle doesn't re-run the AI; `lensRunning` shows
+  // a loading state per-card; `lensErrors` surfaces failures inline.
+  const [lensOpen, setLensOpen] = useState<Record<string, boolean>>({});
+  const [lensResults, setLensResults] = useState<Record<string, LensResult>>({});
+  const [lensRunning, setLensRunning] = useState<Record<string, boolean>>({});
+  const [lensErrors, setLensErrors] = useState<Record<string, string>>({});
 
   // Pull the most recent analysis for the active assignment so we can
   // suggest research keywords / sub-questions one click away. "skip" when
@@ -808,6 +835,64 @@ export default function SourcesClient() {
                           DOI: {r.doi}
                         </a>
                       )}
+                      {/* Source Lens — assignment-aware analysis. Only
+                          shown when there's enough abstract to analyse
+                          (the action throws otherwise). Caches the
+                          result per-card so re-toggling is free. */}
+                      {r.abstract && r.abstract.length >= 50 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const open = lensOpen[key] ?? false;
+                            // Toggle the panel
+                            setLensOpen((s) => ({ ...s, [key]: !open }));
+                            // If we have a cached result, no work needed.
+                            if (lensResults[key] || lensRunning[key]) return;
+                            // Find the active assignment's brief + rubric
+                            // to ground the analysis. If no assignment is
+                            // selected the action still runs in generic mode.
+                            const activeAss =
+                              selectedAssignment !== "all"
+                                ? assignments?.find((a) => a._id === selectedAssignment)
+                                : undefined;
+                            setLensRunning((s) => ({ ...s, [key]: true }));
+                            setLensErrors((s) => ({ ...s, [key]: "" }));
+                            try {
+                              const result = (await sourceLens({
+                                sourceTitle: r.title,
+                                // Authors are objects; the action wants
+                                // strings. authorLabel does "Surname, G."
+                                // which is what an APA-flavoured AI prompt
+                                // can work with directly.
+                                sourceAuthors: (r.authors ?? []).map(authorLabel),
+                                sourceYear: r.year ?? undefined,
+                                sourceJournal: r.journal ?? undefined,
+                                sourceAbstract: r.abstract ?? "",
+                                sourceDoi: r.doi ?? undefined,
+                                sourceType: r.type ?? undefined,
+                                assignmentBrief: activeAss?.brief ?? undefined,
+                                assignmentRubric: activeAss?.rubric ?? undefined,
+                                assignmentName: activeAss?.name ?? undefined,
+                              })) as LensResult;
+                              setLensResults((s) => ({ ...s, [key]: result }));
+                            } catch (err) {
+                              setLensErrors((s) => ({
+                                ...s,
+                                [key]:
+                                  err instanceof Error
+                                    ? err.message
+                                    : "Lens analysis failed",
+                              }));
+                            } finally {
+                              setLensRunning((s) => ({ ...s, [key]: false }));
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800 transition-colors hover:border-violet-500 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
+                          title="Analyse this source against your active assignment"
+                        >
+                          🔍 {lensRunning[key] ? "Analysing…" : lensOpen[key] ? "Hide Lens" : "Source Lens"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleAdd(r, idx)}
@@ -821,6 +906,20 @@ export default function SourcesClient() {
                             : "Add to references"}
                       </button>
                     </div>
+
+                    {/* Source Lens inline panel. Renders below the
+                        action row when toggled open. */}
+                    {lensOpen[key] && (
+                      <LensPanel
+                        running={lensRunning[key] ?? false}
+                        result={lensResults[key]}
+                        error={lensErrors[key]}
+                        hasAssignmentContext={
+                          selectedAssignment !== "all" &&
+                          !!assignments?.find((a) => a._id === selectedAssignment)
+                        }
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -1033,6 +1132,179 @@ function ZeroResultsHelp(props: {
           tuned to the assignment.
         </li>
       </ul>
+    </div>
+  );
+}
+
+// Source Lens inline panel. Renders below a Source Finder result card
+// when the student clicks the Lens button. Shows the AI's analysis of
+// "is this source useful for your active assignment, and which bits?"
+function LensPanel(props: {
+  running: boolean;
+  result: LensResult | undefined;
+  error: string | undefined;
+  hasAssignmentContext: boolean;
+}) {
+  if (props.running) {
+    return (
+      <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 text-sm text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200">
+        <div className="flex items-center gap-2">
+          <svg
+            className="h-3.5 w-3.5 animate-spin"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          <span>Analysing this source against your assignment…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (props.error) {
+    return (
+      <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200">
+        Lens couldn&apos;t analyse this source: {props.error}
+      </div>
+    );
+  }
+
+  if (!props.result) return null;
+
+  const r = props.result;
+  const scoreColor =
+    r.relevance.score >= 7
+      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+      : r.relevance.score >= 4
+        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
+        : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200";
+
+  const confidenceColor: Record<"high" | "medium" | "low", string> = {
+    high: "text-emerald-700 dark:text-emerald-300",
+    medium: "text-amber-700 dark:text-amber-300",
+    low: "text-slate-600 dark:text-slate-400",
+  };
+
+  return (
+    <div className="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 text-sm dark:border-violet-900/40 dark:bg-violet-950/20">
+      {/* Header: lens icon + relevance score + verdict */}
+      <div className="flex items-baseline gap-2">
+        <span className="text-base">🔍</span>
+        <span className="font-semibold uppercase tracking-wide text-xs text-violet-900 dark:text-violet-200">
+          Source Lens
+        </span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${scoreColor}`}
+          title="0 = not relevant; 10 = strongly relevant"
+        >
+          Relevance {r.relevance.score}/10
+        </span>
+        {!props.hasAssignmentContext && (
+          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            No assignment selected — generic analysis
+          </span>
+        )}
+      </div>
+      <p className="text-slate-800 dark:text-slate-200">{r.relevance.verdict}</p>
+
+      {/* Key claims */}
+      {r.keyClaims.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Key claims (from abstract)
+          </p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-800 dark:text-slate-200">
+            {r.keyClaims.map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Quotable phrases */}
+      {r.quotablePhrases.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Quotable phrases
+          </p>
+          <ul className="mt-1 space-y-1 text-slate-900 dark:text-slate-100">
+            {r.quotablePhrases.map((q, i) => (
+              <li
+                key={i}
+                className="rounded-md border-l-2 border-violet-400 bg-white px-2 py-1 italic dark:border-violet-500 dark:bg-slate-900"
+              >
+                {q}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Rubric fit */}
+      {r.rubricFit.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Helps with these rubric criteria
+          </p>
+          <ul className="mt-1 space-y-1.5">
+            {r.rubricFit.map((f, i) => (
+              <li
+                key={i}
+                className="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                    {f.criterion}
+                  </span>
+                  <span className={`text-[11px] uppercase tracking-wide ${confidenceColor[f.confidence]}`}>
+                    {f.confidence} confidence
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-700 dark:text-slate-300">
+                  {f.howItHelps}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Suggested in-text citation */}
+      {r.suggestedCitation && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Suggested in-text citation example
+          </p>
+          <p className="mt-1 rounded-md border border-slate-200 bg-white p-2 font-mono text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+            {r.suggestedCitation}
+          </p>
+        </div>
+      )}
+
+      {/* Skip-if list — when this source can't help with X */}
+      {r.skipIfRubricRequires.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            This source <em>doesn&apos;t</em> help with
+          </p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-slate-600 dark:text-slate-400">
+            {r.skipIfRubricRequires.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Abstract-only caveat */}
+      {r.abstractLimitation && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+          ⚠ {r.abstractLimitation}
+        </p>
+      )}
     </div>
   );
 }
