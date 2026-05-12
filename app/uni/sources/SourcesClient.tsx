@@ -310,7 +310,8 @@ export default function SourcesClient() {
                 <li>Type a topic, author, or set of keywords into the search box.</li>
                 <li>Optionally tick &ldquo;peer-reviewed only&rdquo; or set a &ldquo;from year&rdquo; filter.</li>
                 <li>Click Search ” you&rsquo;ll get up to 25 results from OpenAlex (250M+ scholarly works).</li>
-                <li>Click &ldquo;View&rdquo; on any result to see it on the publisher&rsquo;s page.</li>
+                <li>Look for the <span className="font-medium text-emerald-700 dark:text-emerald-300">🔓 Free to read</span> badge — those won&rsquo;t hit a paywall. The <span className="font-medium text-amber-700 dark:text-amber-300">🔒 May be paywalled</span> ones show a <em>Find free copy</em> button that searches Google Scholar for an author preprint.</li>
+                <li>Click &ldquo;Read free&rdquo; or &ldquo;View&rdquo; to open the paper.</li>
                 <li>Click &ldquo;Add as reference&rdquo; to import it as a properly formatted APA 7 reference.</li>
               </ol>
             </div>
@@ -701,6 +702,26 @@ export default function SourcesClient() {
                       {!r.journal && r.publisher ? ` · ${r.publisher}` : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {/* Paywall indicator. OpenAlex's open_access.is_oa
+                          is True when there's a confirmed free version
+                          somewhere (publisher OA, repository, preprint
+                          server etc). When it's True we always have an
+                          openAccessUrl too. */}
+                      {r.openAccessUrl ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-400/60 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+                          title="Free to read — open-access version available"
+                        >
+                          <span aria-hidden>🔓</span> Free to read
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+                          title="No open-access version detected — may be paywalled"
+                        >
+                          <span aria-hidden>🔒</span> May be paywalled
+                        </span>
+                      )}
                       <span className="rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-300">
                         Cited {r.citedByCount.toLocaleString()} times
                       </span>
@@ -729,25 +750,51 @@ export default function SourcesClient() {
                       </div>
                     )}
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      {/* Primary "View" link. Prefers DOI (resolves to
-                          publisher's landing page), then the OpenAlex
-                          landing-page URL, then the open-access PDF.
-                          One of these is virtually always present. */}
-                      {(r.doi || r.url || r.openAccessUrl) && (
+                      {/* Primary "View" link. Prefers the OA URL when one
+                          exists so the user lands on the FREE PDF, not
+                          the publisher's paywalled DOI page. Falls back
+                          to DOI then landing URL. Previously DOI was
+                          first, which sent the user to a paywall even
+                          when a free copy existed. */}
+                      {(r.openAccessUrl || r.doi || r.url) && (
                         <a
                           href={
-                            r.doi
-                              ? `https://doi.org/${r.doi}`
-                              : (r.url ?? r.openAccessUrl)
+                            r.openAccessUrl
+                              ? r.openAccessUrl
+                              : r.doi
+                                ? `https://doi.org/${r.doi}`
+                                : r.url
                           }
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:border-sky-500 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:border-sky-500 dark:hover:bg-sky-900/40"
+                          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${
+                            r.openAccessUrl
+                              ? "border border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+                              : "border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:bg-sky-900/40"
+                          }`}
+                          title={
+                            r.openAccessUrl
+                              ? "Open the free open-access version"
+                              : "Open the publisher's page (may be paywalled)"
+                          }
                         >
-                          View
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M7 17l10-10M9 7h8v8" />
-                          </svg>
+                          {r.openAccessUrl ? "Read free →" : "View →"}
+                        </a>
+                      )}
+                      {/* Find-a-free-copy fallback for paywalled results.
+                          Google Scholar often surfaces author-uploaded
+                          preprints, institutional-repo copies, or
+                          ResearchGate uploads that bypass the paywall.
+                          Only shown when there's no confirmed OA URL. */}
+                      {!r.openAccessUrl && r.title && (
+                        <a
+                          href={`https://scholar.google.com/scholar?q=${encodeURIComponent(r.title)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300"
+                          title="Search Google Scholar — often surfaces a free copy on an author's site"
+                        >
+                          🔍 Find free copy
                         </a>
                       )}
                       {r.doi && (
@@ -756,18 +803,9 @@ export default function SourcesClient() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
+                          title="Permanent canonical link (publisher page — may be paywalled)"
                         >
                           DOI: {r.doi}
-                        </a>
-                      )}
-                      {r.openAccessUrl && (
-                        <a
-                          href={r.openAccessUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60"
-                        >
-                          Open-access PDF
                         </a>
                       )}
                       <button
