@@ -49,8 +49,11 @@ export default function QuickImport() {
   // We ramp 0 → 99% linearly over that estimate, hold at 99% if we
   // overshot, and snap to 100% the instant the response lands. No
   // ease-out, no 95% wall — what you see is what's happening.
-  const [analysingPct, setAnalysingPct] = useState(0);
-  const [estimatedSeconds, setEstimatedSeconds] = useState(12);
+  // Honest elapsed-seconds counter. We used to show "~Xs left" based on
+  // a fake duration estimate, which lied whenever the AI ran slower
+  // than estimated. Elapsed time is always correct, and the stage
+  // label below ticks based on elapsed seconds (not fake percent).
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const rafRef = useRef<number | null>(null);
 
   const stopProgressTimer = () => {
@@ -60,26 +63,12 @@ export default function QuickImport() {
     }
   };
 
-  const estimateSecondsFor = (textLength: number): number => {
-    if (textLength < 3000) return 10;
-    if (textLength < 7000) return 13;
-    return 16;
-  };
-
-  const startProgressTimer = (textLength: number) => {
+  const startProgressTimer = () => {
     stopProgressTimer();
-    const seconds = estimateSecondsFor(textLength);
-    setEstimatedSeconds(seconds);
-    setAnalysingPct(0);
+    setElapsedSeconds(0);
     const startedAt = performance.now();
-    const totalMs = seconds * 1000;
     const tick = (now: number) => {
-      const elapsedMs = now - startedAt;
-      // Linear ramp 0 → 99 over the estimated duration. Hold at 99 if
-      // we're past the estimate but the response hasn't arrived yet.
-      const linear = (elapsedMs / totalMs) * 99;
-      const pct = Math.min(99, linear);
-      setAnalysingPct(pct);
+      setElapsedSeconds((now - startedAt) / 1000);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -90,22 +79,19 @@ export default function QuickImport() {
     return () => stopProgressTimer();
   }, []);
 
-  // Stage-aware label, linearly tied to percent.
+  // Stage-aware label, advanced by elapsed time. Thresholds chosen to
+  // match the typical Open Polytech brief analyse duration (~12-16s);
+  // past 20s we hold on "Almost there" rather than guess.
   const analysingLabel =
-    analysingPct < 25
+    elapsedSeconds < 3
       ? "Reading the brief"
-      : analysingPct < 55
+      : elapsedSeconds < 8
         ? "Finding tasks and concepts"
-        : analysingPct < 85
+        : elapsedSeconds < 14
           ? "Setting up your workspace"
-          : "Finalising";
-
-  // Seconds remaining = estimated duration × (1 - pct/100). Lets the
-  // user see "8s left" rather than guessing.
-  const secondsLeft = Math.max(
-    0,
-    Math.ceil((estimatedSeconds * (100 - analysingPct)) / 100),
-  );
+          : elapsedSeconds < 20
+            ? "Finalising"
+            : "Almost there — longer than usual";
 
   const reset = () => {
     stopProgressTimer();
@@ -113,7 +99,7 @@ export default function QuickImport() {
     setProgress(null);
     setError(null);
     setResult(null);
-    setAnalysingPct(0);
+    setElapsedSeconds(0);
   };
 
   const handleText = async (text: string, fileName?: string) => {
@@ -127,16 +113,15 @@ export default function QuickImport() {
     }
     if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT);
     setStage("analysing");
-    startProgressTimer(text.length);
+    startProgressTimer();
     try {
       const r = (await importBrief({
         text,
         fileName,
       })) as ImportSuccess & { courseId: string | null; analysisId: string };
-      // Stop the simulated ramp and snap to 100. The CSS transition on
-      // the bar's width gives a satisfying final glide.
+      // Stop the rAF tick. The indeterminate slider disappears with
+      // the analysing-stage container; no "snap to 100%" needed.
       stopProgressTimer();
-      setAnalysingPct(100);
       setResult({
         assignmentId: r.assignmentId,
         courseCode: r.courseCode,
@@ -345,7 +330,7 @@ export default function QuickImport() {
                   ? `Reading PDF ${progress.done}/${progress.total}…`
                   : "Reading file…"
                 : stage === "analysing"
-                  ? `Analysing… ${Math.floor(analysingPct)}%`
+                  ? `Analysing… ${Math.floor(elapsedSeconds)}s`
                   : "Choose a file"}
             </span>
           </label>
@@ -364,26 +349,25 @@ export default function QuickImport() {
           <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
             <span className="font-medium">{analysingLabel}…</span>
             <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400">
-              {Math.floor(analysingPct)}%
-              {analysingPct < 99 && secondsLeft > 0 && (
-                <span className="ml-2 text-slate-500 dark:text-slate-400">
-                  · ~{secondsLeft}s left
-                </span>
-              )}
+              {Math.floor(elapsedSeconds)}s elapsed
             </span>
           </div>
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
+          {/* Indeterminate sliding bar — we don't actually know how long
+              the AI will take, and fake percentages mislead. Sliding
+              gradient communicates "in progress" honestly. */}
+          <div className="relative mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/80">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
-              style={{
-                width: `${analysingPct}%`,
-                // Short transition smooths the bar between rAF updates
-                // without lagging behind the linear ramp. The final
-                // 99→100 jump uses the same transition for a clean snap.
-                transition: "width 100ms linear",
-              }}
+              className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.4)]"
+              style={{ animation: "quickimport-slide 1.4s ease-in-out infinite" }}
             />
           </div>
+          <style>{`
+            @keyframes quickimport-slide {
+              0% { left: -33%; }
+              50% { left: 50%; }
+              100% { left: 100%; }
+            }
+          `}</style>
         </div>
       )}
     </section>
