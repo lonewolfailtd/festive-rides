@@ -181,6 +181,7 @@ export default function SourcesClient() {
   const search = useAction(api.sources.search);
   const createRef = useMutation(api.references.create);
   const sourceLens = useAction(api.sourceLens.analyse);
+  const sourceLensDeep = useAction(api.sourceLens.deepRead);
 
   const [selectedAssignment, setSelectedAssignment] = useState<
     Id<"assignments"> | "all"
@@ -1080,6 +1081,58 @@ export default function SourcesClient() {
                           title="Analyse this source against your active assignment"
                         >
                           🔍 {lensRunning[key] ? "Analysing…" : lensOpen[key] ? "Hide Lens" : "Source Lens"}
+                        </button>
+                      )}
+                      {/* Deep Read — Tier 2. Only available on results
+                          with an open-access URL (no PDF = no deep
+                          read). Replaces the existing Lens analysis
+                          with a richer full-paper one when clicked. */}
+                      {r.openAccessUrl && r.abstract && r.abstract.length >= 50 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (lensRunning[key]) return;
+                            const activeAss =
+                              selectedAssignment !== "all"
+                                ? assignments?.find((a) => a._id === selectedAssignment)
+                                : undefined;
+                            setLensOpen((s) => ({ ...s, [key]: true }));
+                            setLensRunning((s) => ({ ...s, [key]: true }));
+                            setLensErrors((s) => ({ ...s, [key]: "" }));
+                            try {
+                              const result = (await sourceLensDeep({
+                                sourceTitle: r.title,
+                                sourceAuthors: (r.authors ?? []).map(authorLabel),
+                                sourceYear: r.year ?? undefined,
+                                sourceJournal: r.journal ?? undefined,
+                                sourcePdfUrl: r.openAccessUrl!,
+                                sourceDoi: r.doi ?? undefined,
+                                sourceType: r.type ?? undefined,
+                                assignmentBrief: activeAss?.brief ?? undefined,
+                                assignmentRubric: activeAss?.rubric ?? undefined,
+                                assignmentName: activeAss?.name ?? undefined,
+                              })) as LensDeepResult;
+                              // Cast into the same lensResults map so
+                              // sort / filter / hide-low logic Just Works.
+                              // LensDeepResult is a superset of LensResult.
+                              setLensResults((s) => ({ ...s, [key]: result as LensResult }));
+                            } catch (err) {
+                              setLensErrors((s) => ({
+                                ...s,
+                                [key]:
+                                  err instanceof Error
+                                    ? err.message
+                                    : "Deep read failed",
+                              }));
+                            } finally {
+                              setLensRunning((s) => ({ ...s, [key]: false }));
+                            }
+                          }}
+                          disabled={lensRunning[key]}
+                          className="inline-flex items-center gap-1 rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:border-emerald-500 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+                          title="Fetch the full PDF and run a deeper analysis — section-level relevance, page-numbered quotes (~1 minute)"
+                        >
+                          📖 Deep Read PDF
                         </button>
                       )}
                       <button
