@@ -147,6 +147,23 @@ export const search = action({
       },
     });
     if (!res.ok) {
+      // OpenAlex sometimes goes down for short periods (Heroku-style
+      // 5xx with an "Application Error" HTML page). Surface that as a
+      // clear "their problem, try again later" message rather than
+      // leaking the raw HTML to the user. Distinguish:
+      //   5xx → OpenAlex's outage, retry later
+      //   429 → we're being rate-limited, wait briefly
+      //   other 4xx → something wrong with our request
+      if (res.status >= 500) {
+        throw new Error(
+          "OpenAlex (the academic search engine we use) is temporarily down. This is on their end. Try again in a few minutes — the rest of the app is fine.",
+        );
+      }
+      if (res.status === 429) {
+        throw new Error(
+          "OpenAlex is rate-limiting us. Wait about 30 seconds and try again.",
+        );
+      }
       const text = await res.text().catch(() => "");
       throw new Error(`OpenAlex ${res.status}: ${text.slice(0, 300)}`);
     }
