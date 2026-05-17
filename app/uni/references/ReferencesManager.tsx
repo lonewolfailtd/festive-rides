@@ -2947,6 +2947,23 @@ i { font-style:italic; font-weight:normal; }
                             🔍 {isOpen ? "Hide" : "Show"} Lens · {savedAnalysis.relevance.score}/10
                           </button>
                         ) : null}
+                        {/* Read with highlights — only available when
+                            the reference has a stored sourceText (i.e.
+                            it was saved AFTER a Tier 2 Deep Read).
+                            Opens the reader in a new tab. */}
+                        {savedAnalysis &&
+                          (r as { sourceText?: string }).sourceText &&
+                          savedAnalysis.deepRead && (
+                            <a
+                              href={`/uni/sources/reader?refId=${encodeURIComponent(r._id)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md border border-amber-400 bg-amber-50 px-2 py-0.5 text-amber-900 hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:border-amber-500 dark:hover:bg-amber-900/40"
+                              title="Open the paper with AI highlights overlaid (new tab)"
+                            >
+                              📖 Read with highlights
+                            </a>
+                          )}
                         {canRun && (
                           <button
                             type="button"

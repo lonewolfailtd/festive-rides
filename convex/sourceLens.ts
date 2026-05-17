@@ -352,7 +352,14 @@ Analyse this paper as a general academic resource.`;
 
     // Mark this analysis as a deep read so the UI can surface the
     // section breakdown and suppress the abstract-only caveat.
-    return { ...(result as Record<string, unknown>), deepRead: true };
+    // Also return the extracted text so the in-app reader can render
+    // the paper with the AI highlights overlaid without re-fetching
+    // and re-extracting on every open.
+    return {
+      ...(result as Record<string, unknown>),
+      deepRead: true,
+      extractedText: fullText,
+    };
   },
 });
 

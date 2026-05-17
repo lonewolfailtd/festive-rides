@@ -95,12 +95,17 @@ export default defineSchema({
     notes: v.optional(v.string()),
     annotation: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
-    // Source Lens analysis (Tier 1 abstract-based). Stored as v.any()
-    // because the analysis shape is complex/nested and may evolve;
-    // we don't want to force a schema migration on every prompt tweak.
-    // The shape is enforced by the TypeScript LensResult type in
-    // app/uni/SourceLensPanel.tsx.
+    // Source Lens analysis (Tier 1 abstract-based or Tier 2 deep read).
+    // Stored as v.any() because the analysis shape is complex/nested
+    // and may evolve; we don't want to force a schema migration on
+    // every prompt tweak. The shape is enforced by the TypeScript
+    // LensResult / LensDeepResult types in app/uni/SourceLensPanel.tsx.
     lensAnalysis: v.optional(v.any()),
+    // Full extracted text of the PDF, captured during Tier 2 Deep Read.
+    // Persisted so the in-app reader (/uni/sources/reader) can render
+    // the paper with AI highlights overlaid without re-fetching and
+    // re-extracting the PDF on every open. ~100-300KB per saved paper.
+    sourceText: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_assignment", ["userId", "assignmentId"])

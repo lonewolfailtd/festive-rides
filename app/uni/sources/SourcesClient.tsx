@@ -344,6 +344,11 @@ export default function SourcesClient() {
         // (References → Coach → Editor) — the analysis is right there
         // when the student comes back to use the source.
         lensAnalysis: lensResults[key],
+        // If a Tier 2 Deep Read produced the analysis, also persist
+        // the extracted PDF text so the in-app reader can open it
+        // from the References tab later without re-fetching the PDF.
+        sourceText: (lensResults[key] as LensDeepResult | undefined)
+          ?.extractedText,
       });
       setAdded((s) => ({ ...s, [key]: true }));
     } catch (err) {
@@ -1083,6 +1088,61 @@ export default function SourcesClient() {
                           🔍 {lensRunning[key] ? "Analysing…" : lensOpen[key] ? "Hide Lens" : "Source Lens"}
                         </button>
                       )}
+                      {/* Read with highlights — opens the in-app reader.
+                          Only shown when this result already has a Deep
+                          Read analysis (which carries the extracted
+                          text). Uses sessionStorage to hand the text +
+                          analysis off to the reader page across the
+                          navigation. */}
+                      {(() => {
+                        const ana = lensResults[key] as LensDeepResult | undefined;
+                        if (!ana?.deepRead || !ana.extractedText) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sessionKey = `uni-source-reader-${key}-${Date.now()}`;
+                              const payload = {
+                                sourceTitle: r.title,
+                                sourceAuthors: (r.authors ?? []).map(authorLabel),
+                                sourceYear: r.year ?? undefined,
+                                sourceJournal: r.journal ?? undefined,
+                                sourceDoi: r.doi ?? undefined,
+                                sourcePdfUrl: r.openAccessUrl,
+                                sourceText: ana.extractedText,
+                                analysis: ana,
+                                assignmentName:
+                                  selectedAssignment !== "all"
+                                    ? assignments?.find(
+                                        (a) => a._id === selectedAssignment,
+                                      )?.name
+                                    : undefined,
+                              };
+                              try {
+                                window.sessionStorage.setItem(
+                                  sessionKey,
+                                  JSON.stringify(payload),
+                                );
+                              } catch {
+                                toast.error(
+                                  "Browser storage full — can't open reader.",
+                                );
+                                return;
+                              }
+                              window.open(
+                                `/uni/sources/reader?session=${encodeURIComponent(sessionKey)}`,
+                                "_blank",
+                                "noopener",
+                              );
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:border-amber-500 dark:hover:bg-amber-900/40"
+                            title="Open the paper with AI highlights overlaid (new tab)"
+                          >
+                            📖 Read with highlights
+                          </button>
+                        );
+                      })()}
+
                       {/* Deep Read — Tier 2. Only available on results
                           with an open-access URL (no PDF = no deep
                           read). Replaces the existing Lens analysis

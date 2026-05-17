@@ -46,6 +46,10 @@ export type LensDeepResult = LensResult & {
     quote: string;
     whyItMatters: string;
   }[];
+  // Full extracted PDF text, used by the in-app reader to render the
+  // paper with highlights overlaid. Only present when the analysis
+  // was produced from a Tier 2 Deep Read.
+  extractedText?: string;
 };
 
 export function LensPanel(props: {
