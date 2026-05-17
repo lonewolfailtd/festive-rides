@@ -129,14 +129,21 @@ Analyse this source as a general academic resource — relevance, key claims, an
     const userContent = `${sourceBlock}${assignmentBlock}\n\nProduce the JSON output. Be honest about what you can and can't tell from the abstract alone.`;
 
     // Flash by default — small structured output, no need for Pro.
-    // Pro fallback on transient errors.
+    // Pro fallback on transient errors AND on JSON parse errors (Flash
+    // occasionally returns empty or truncated output, which manifests
+    // as a parse failure rather than an HTTP-level error).
     const primaryModel = args.model ?? "deepseek/deepseek-v4-flash";
-    let raw: string;
-    let modelUsed: string;
-    let usage: { inputTokens: number; outputTokens: number };
-    try {
+
+    // Single-shot call helper — runs the model, returns parsed result.
+    // Throws either an HTTP-level error or a parse error; the caller
+    // decides whether to retry on the other model.
+    async function callAndParse(model: string): Promise<{
+      result: unknown;
+      modelUsed: string;
+      usage: { inputTokens: number; outputTokens: number };
+    }> {
       const r = await callOpenRouterDetailed({
-        model: primaryModel,
+        model,
         responseFormatJson: true,
         temperature: 0.2,
         maxTokens: 2500,
@@ -145,40 +152,54 @@ Analyse this source as a general academic resource — relevance, key claims, an
           { role: "user", content: userContent },
         ],
       });
-      raw = r.content;
+      // Treat empty / whitespace-only content the same as a parse
+      // failure (Flash sometimes returns "" with status 200).
+      if (!r.content || !r.content.trim()) {
+        throw new Error("empty response");
+      }
+      const parsed = safeJsonParse(r.content);
+      return { result: parsed, modelUsed: r.modelUsed, usage: r.usage };
+    }
+
+    function shouldRetryOnOtherModel(err: unknown): boolean {
+      const msg = err instanceof Error ? err.message : "";
+      return (
+        msg.includes("empty response") ||
+        msg.includes("no content") ||
+        msg.includes("timed out") ||
+        // Parse failures: Flash returned partial / malformed JSON.
+        msg.includes("Could not parse model output as JSON") ||
+        msg.includes("Unexpected end of JSON") ||
+        msg.includes("Unterminated string")
+      );
+    }
+
+    let result: unknown;
+    let modelUsed: string;
+    let usage: { inputTokens: number; outputTokens: number };
+    try {
+      const r = await callAndParse(primaryModel);
+      result = r.result;
       modelUsed = r.modelUsed;
       usage = r.usage;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      const isTransient =
-        msg.includes("empty response") ||
-        msg.includes("no content") ||
-        msg.includes("timed out");
-      if (!isTransient) throw err;
+      if (!shouldRetryOnOtherModel(err)) throw err;
       const fallbackModel =
         primaryModel === "deepseek/deepseek-v4-pro"
           ? "deepseek/deepseek-v4-flash"
           : "deepseek/deepseek-v4-pro";
-      const r = await callOpenRouterDetailed({
-        model: fallbackModel,
-        responseFormatJson: true,
-        temperature: 0.2,
-        maxTokens: 2500,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-      });
-      raw = r.content;
-      modelUsed = r.modelUsed;
-      usage = r.usage;
-    }
-
-    let result: unknown;
-    try {
-      result = safeJsonParse(raw);
-    } catch (err) {
-      throw err;
+      try {
+        const r = await callAndParse(fallbackModel);
+        result = r.result;
+        modelUsed = r.modelUsed;
+        usage = r.usage;
+      } catch (secondErr) {
+        // Both models failed. Friendly user-facing message — the
+        // student doesn't need to see "Unexpected end of JSON input."
+        throw new Error(
+          "Source Lens couldn't analyse this source — the AI returned an incomplete response on both attempts. The abstract may be too short or hard to parse. Try a different result, or open the paper directly.",
+        );
+      }
     }
 
     await ctx.runMutation(internal.usage.recordUsage, {
