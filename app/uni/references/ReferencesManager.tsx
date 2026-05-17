@@ -15,6 +15,11 @@ import {
   type SourceFields,
   type SourceType,
 } from "@/lib/apa7/types";
+import {
+  LensPanel,
+  lensResultToMarkdown,
+  type LensDeepResult,
+} from "../SourceLensPanel";
 
 const SOURCE_TYPES: SourceType[] = [
   "book",
@@ -512,6 +517,18 @@ export default function ReferencesManager() {
   const lookupIsbn = useAction(api.lookup.isbn);
   const lookupIssn = useAction(api.lookup.issn);
   const lookupUrl = useAction(api.lookup.url);
+  // Source Lens action — used to re-run Lens analysis for refs that
+  // didn't already have one when they were added.
+  const sourceLens = useAction(api.sourceLens.analyse);
+
+  // Per-reference Lens UI state. `lensOpen` toggles the panel; if the
+  // reference already has a saved `lensAnalysis`, opening just shows
+  // it. If not, opening triggers a Run if abstract is available.
+  // `lensRunning` shows a per-card loading state; `lensErrors` shows
+  // per-card failure messages.
+  const [lensOpen, setLensOpen] = useState<Record<string, boolean>>({});
+  const [lensRunning, setLensRunning] = useState<Record<string, boolean>>({});
+  const [lensErrors, setLensErrors] = useState<Record<string, string>>({});
 
   const [selectedAssignment, setSelectedAssignment] = useState<
     Id<"assignments"> | "all"
@@ -2831,6 +2848,154 @@ i { font-style:italic; font-weight:normal; }
                     </div>
                   </div>
                 )}
+
+                {/* Source Lens area. Three states:
+                    A) Reference has a saved analysis → small toggle to
+                       show/hide the saved panel. Re-run option too.
+                    B) Reference has an abstract but no analysis → "Run
+                       Source Lens" button.
+                    C) Reference has neither → nothing rendered (no
+                       way to analyse it). */}
+                {(() => {
+                  const savedAnalysis = (r as { lensAnalysis?: LensDeepResult })
+                    .lensAnalysis;
+                  const refFields = r.fields as { _abstract?: string } | undefined;
+                  const abstract =
+                    typeof refFields?._abstract === "string"
+                      ? refFields._abstract
+                      : "";
+                  const canRun = abstract.length >= 50;
+                  if (!savedAnalysis && !canRun) return null;
+                  const isOpen = lensOpen[r._id] ?? false;
+                  const isRunning = lensRunning[r._id] ?? false;
+                  const error = lensErrors[r._id];
+                  // Active assignment for re-running with context
+                  const activeAss =
+                    selectedAssignment !== "all"
+                      ? assignments?.find((a) => a._id === selectedAssignment)
+                      : undefined;
+                  const runLens = async () => {
+                    if (!canRun) return;
+                    setLensRunning((s) => ({ ...s, [r._id]: true }));
+                    setLensErrors((s) => ({ ...s, [r._id]: "" }));
+                    try {
+                      const fields = r.fields as {
+                        title?: string;
+                        authors?: { given?: string; surname?: string }[];
+                        year?: string;
+                        journal?: string;
+                        doi?: string;
+                      };
+                      const authors = (fields.authors ?? [])
+                        .map((a) => {
+                          const s = a.surname ?? "";
+                          const g = a.given ?? "";
+                          return `${s}${g ? ", " + g : ""}`.trim();
+                        })
+                        .filter((x) => x.length > 0);
+                      const yearNum =
+                        fields.year && /^\d{4}$/.test(fields.year)
+                          ? Number(fields.year)
+                          : undefined;
+                      const result = (await sourceLens({
+                        sourceTitle: fields.title ?? "(untitled)",
+                        sourceAuthors: authors,
+                        sourceYear: yearNum,
+                        sourceJournal: fields.journal,
+                        sourceAbstract: abstract,
+                        sourceDoi: fields.doi,
+                        sourceType: r.sourceType,
+                        assignmentBrief: activeAss?.brief ?? undefined,
+                        assignmentRubric: activeAss?.rubric ?? undefined,
+                        assignmentName: activeAss?.name ?? undefined,
+                      })) as LensDeepResult;
+                      // Persist the analysis on the reference so it
+                      // survives page refresh + next session.
+                      await updateRef({
+                        id: r._id,
+                        lensAnalysis: result,
+                      });
+                      setLensOpen((s) => ({ ...s, [r._id]: true }));
+                      toast.success("Source Lens analysis saved");
+                    } catch (err) {
+                      setLensErrors((s) => ({
+                        ...s,
+                        [r._id]:
+                          err instanceof Error
+                            ? err.message
+                            : "Lens analysis failed",
+                      }));
+                    } finally {
+                      setLensRunning((s) => ({ ...s, [r._id]: false }));
+                    }
+                  };
+                  return (
+                    <div className="mt-3 pl-[1.27cm]">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {savedAnalysis ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLensOpen((s) => ({
+                                ...s,
+                                [r._id]: !(s[r._id] ?? false),
+                              }))
+                            }
+                            className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 py-0.5 text-violet-800 hover:border-violet-500 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
+                            title="Show / hide saved Source Lens analysis"
+                          >
+                            🔍 {isOpen ? "Hide" : "Show"} Lens · {savedAnalysis.relevance.score}/10
+                          </button>
+                        ) : null}
+                        {canRun && (
+                          <button
+                            type="button"
+                            onClick={runLens}
+                            disabled={isRunning}
+                            className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-white px-2 py-0.5 text-violet-800 hover:border-violet-500 hover:bg-violet-50 disabled:opacity-60 dark:border-violet-700 dark:bg-slate-900 dark:text-violet-200 dark:hover:bg-violet-950/30"
+                            title={
+                              savedAnalysis
+                                ? "Re-run Lens against the currently active assignment"
+                                : "Analyse this source against your active assignment"
+                            }
+                          >
+                            {isRunning
+                              ? "Analysing…"
+                              : savedAnalysis
+                                ? "Re-run Lens"
+                                : "🔍 Run Source Lens"}
+                          </button>
+                        )}
+                        {savedAnalysis && isOpen && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(
+                                  lensResultToMarkdown(savedAnalysis),
+                                );
+                                toast.success("Copied analysis as markdown");
+                              } catch {
+                                toast.error("Couldn't copy");
+                              }
+                            }}
+                            className="text-violet-600 hover:text-violet-500 dark:text-violet-300 dark:hover:text-violet-200"
+                          >
+                            Copy analysis
+                          </button>
+                        )}
+                      </div>
+                      {(isOpen || isRunning || error) && (
+                        <LensPanel
+                          running={isRunning}
+                          result={isOpen ? savedAnalysis : undefined}
+                          error={error}
+                          hasAssignmentContext={!!activeAss}
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
               </motion.li>
             ))}
             </AnimatePresence>

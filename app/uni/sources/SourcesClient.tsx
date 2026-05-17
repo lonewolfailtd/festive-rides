@@ -9,6 +9,12 @@ import { useEffect, useState } from "react";
 import { formatReference } from "@/lib/apa7/format";
 import type { Author, SourceFields, SourceType } from "@/lib/apa7/types";
 import { useStoredState } from "@/lib/useStoredState";
+import {
+  LensPanel,
+  lensResultToMarkdown,
+  type LensResult,
+  type LensDeepResult,
+} from "../SourceLensPanel";
 
 type SearchResult = {
   id?: string;
@@ -169,23 +175,6 @@ function filterSearchable(items: string[]): string[] {
   });
 }
 
-// Shape of the Source Lens analysis returned by the Convex action.
-// Optional fields because the AI may legitimately omit them (e.g. no
-// rubric context → empty rubricFit).
-type LensResult = {
-  relevance: { score: number; verdict: string };
-  keyClaims: string[];
-  quotablePhrases: string[];
-  rubricFit: {
-    criterion: string;
-    howItHelps: string;
-    confidence: "high" | "medium" | "low";
-  }[];
-  suggestedCitation: string;
-  skipIfRubricRequires: string[];
-  abstractLimitation: string;
-};
-
 export default function SourcesClient() {
   const assignments = useQuery(api.assignments.list);
   const search = useAction(api.sources.search);
@@ -219,6 +208,20 @@ export default function SourcesClient() {
   const [lensResults, setLensResults] = useState<Record<string, LensResult>>({});
   const [lensRunning, setLensRunning] = useState<Record<string, boolean>>({});
   const [lensErrors, setLensErrors] = useState<Record<string, string>>({});
+
+  // Hide-low-relevance filter. When on, results that have been Lens-
+  // analysed and scored below `hideLowThreshold` are hidden from the
+  // list. Un-analysed results stay visible (we can't filter what we
+  // haven't judged). Default threshold 4 means we hide clear nos but
+  // keep borderline cases on screen.
+  const [hideLowLens, setHideLowLens] = useStoredState<boolean>(
+    "uni-sources-hide-low-lens",
+    false,
+  );
+  const [hideLowThreshold, setHideLowThreshold] = useStoredState<number>(
+    "uni-sources-hide-low-threshold",
+    4,
+  );
 
   // Pull the most recent analysis for the active assignment so we can
   // suggest research keywords / sub-questions one click away. "skip" when
@@ -281,7 +284,14 @@ export default function SourcesClient() {
         yearFrom: yf && !Number.isNaN(yf) ? yf : undefined,
         openAccessOnly: openAccessOnly || undefined,
         nzAuthoredOnly: nzAuthoredOnly || undefined,
-        sortBy: sortBy !== "relevance" ? sortBy : undefined,
+        // "lensRelevance" is a CLIENT-side sort (depends on local Lens
+        // analyses that OpenAlex doesn't know about). Don't pass it.
+        // "relevance" is OpenAlex's default and also doesn't need to
+        // be passed.
+        sortBy:
+          sortBy !== "relevance" && sortBy !== "lensRelevance"
+            ? sortBy
+            : undefined,
       })) as SearchResponse;
       setResponse(result);
       setLastQuery(q);
@@ -306,11 +316,25 @@ export default function SourcesClient() {
         assignmentId:
           selectedAssignment === "all" ? undefined : selectedAssignment,
         sourceType,
-        fields: built.fields,
+        // Spread the formatter's fields, then add a `_abstract` field
+        // so the References tool can re-run Source Lens later. The
+        // underscore prefix signals "metadata, not for citation
+        // rendering" — the APA formatter only reads its known fields
+        // so this extra entry is ignored at format time. The abstract
+        // is what Source Lens needs to analyse a paper after the fact.
+        fields: result.abstract
+          ? { ...built.fields, _abstract: result.abstract }
+          : built.fields,
         formatted: formatted.formattedHtml,
         inTextShort: formatted.inTextShort,
         inTextNarrative: formatted.inTextNarrative,
         sortKey: formatted.sortKey,
+        // If this result has been Lens-analysed, carry the analysis
+        // into the reference so it persists in the References tool.
+        // Closes the loop between research (Source Finder) and writing
+        // (References → Coach → Editor) — the analysis is right there
+        // when the student comes back to use the source.
+        lensAnalysis: lensResults[key],
       });
       setAdded((s) => ({ ...s, [key]: true }));
     } catch (err) {
@@ -319,6 +343,43 @@ export default function SourcesClient() {
       setAdding((s) => ({ ...s, [key]: false }));
     }
   };
+
+  // Derived display list — apply CLIENT-side sort + filter based on
+  // Lens analyses. The original `response.results` stays untouched
+  // (so we can recompute if the user toggles filters off). For small
+  // result sets (≤25) this is cheap; no useMemo needed.
+  const displayResults: { r: SearchResult; idx: number; key: string }[] = (() => {
+    if (!response) return [];
+    let list = response.results.map((r, idx) => ({
+      r,
+      idx,
+      key: resultKey(r, idx),
+    }));
+    if (hideLowLens) {
+      // Keep un-analysed results (score === undefined) — only hide
+      // ones we've explicitly judged as below threshold.
+      list = list.filter(({ key }) => {
+        const score = lensResults[key]?.relevance?.score;
+        return score === undefined || score >= hideLowThreshold;
+      });
+    }
+    if (sortBy === "lensRelevance") {
+      // Un-analysed results sort to the bottom (score = -1). Analysed
+      // results sort by score descending. Within equal scores, OpenAlex's
+      // original order is preserved (Array.sort is stable in modern JS).
+      list.sort((a, b) => {
+        const sa = lensResults[a.key]?.relevance?.score ?? -1;
+        const sb = lensResults[b.key]?.relevance?.score ?? -1;
+        return sb - sa;
+      });
+    }
+    return list;
+  })();
+
+  // For the toggle's label — how many results are currently filtered out.
+  const hiddenByLensCount = response
+    ? response.results.length - displayResults.length
+    : 0;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
@@ -550,7 +611,8 @@ export default function SourcesClient() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className={inputStyle}
               >
-                <option value="relevance">Relevance</option>
+                <option value="relevance">Relevance (OpenAlex default)</option>
+                <option value="lensRelevance">Lens relevance (after Lens analysis)</option>
                 <option value="cited">Most cited</option>
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -640,10 +702,43 @@ export default function SourcesClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-950 dark:shadow-none shadow-sm"
         >
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-            {response.results.length} of {response.total.toLocaleString()} results
-            for &ldquo;{lastQuery}&rdquo;
-          </h2>
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+              {response.results.length} of {response.total.toLocaleString()} results
+              for &ldquo;{lastQuery}&rdquo;
+              {hideLowLens && hiddenByLensCount > 0 && (
+                <span className="ml-2 font-normal text-slate-500 dark:text-slate-400">
+                  · {hiddenByLensCount} hidden by Lens filter
+                </span>
+              )}
+            </h2>
+            {/* Hide-low-relevance filter. Only shows up once at least
+                one result has been Lens-analysed — there's nothing for
+                it to filter until then. */}
+            {Object.keys(lensResults).length > 0 && (
+              <label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={hideLowLens}
+                  onChange={(e) => setHideLowLens(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-slate-400 text-violet-600 focus:ring-violet-500"
+                />
+                <span>Hide Lens scores below</span>
+                <select
+                  value={hideLowThreshold}
+                  onChange={(e) => setHideLowThreshold(Number(e.target.value))}
+                  className="rounded border border-slate-300 bg-white px-1 py-0 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  aria-label="Lens score threshold"
+                >
+                  {[2, 3, 4, 5, 6, 7].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
           {response.results.length === 0 ? (
             <ZeroResultsHelp
               lastQuery={lastQuery}
@@ -702,8 +797,7 @@ export default function SourcesClient() {
             />
           ) : (
             <ul className="space-y-4">
-              {response.results.map((r, idx) => {
-                const key = resultKey(r, idx);
+              {displayResults.map(({ r, idx, key }) => {
                 const isExpanded = expanded[key] ?? false;
                 const isAdded = added[key] ?? false;
                 const isAdding = adding[key] ?? false;
@@ -1136,175 +1230,3 @@ function ZeroResultsHelp(props: {
   );
 }
 
-// Source Lens inline panel. Renders below a Source Finder result card
-// when the student clicks the Lens button. Shows the AI's analysis of
-// "is this source useful for your active assignment, and which bits?"
-function LensPanel(props: {
-  running: boolean;
-  result: LensResult | undefined;
-  error: string | undefined;
-  hasAssignmentContext: boolean;
-}) {
-  if (props.running) {
-    return (
-      <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 text-sm text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200">
-        <div className="flex items-center gap-2">
-          <svg
-            className="h-3.5 w-3.5 animate-spin"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            aria-hidden
-          >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-          </svg>
-          <span>Analysing this source against your assignment…</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (props.error) {
-    return (
-      <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200">
-        Lens couldn&apos;t analyse this source: {props.error}
-      </div>
-    );
-  }
-
-  if (!props.result) return null;
-
-  const r = props.result;
-  const scoreColor =
-    r.relevance.score >= 7
-      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
-      : r.relevance.score >= 4
-        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
-        : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200";
-
-  const confidenceColor: Record<"high" | "medium" | "low", string> = {
-    high: "text-emerald-700 dark:text-emerald-300",
-    medium: "text-amber-700 dark:text-amber-300",
-    low: "text-slate-600 dark:text-slate-400",
-  };
-
-  return (
-    <div className="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 text-sm dark:border-violet-900/40 dark:bg-violet-950/20">
-      {/* Header: lens icon + relevance score + verdict */}
-      <div className="flex items-baseline gap-2">
-        <span className="text-base">🔍</span>
-        <span className="font-semibold uppercase tracking-wide text-xs text-violet-900 dark:text-violet-200">
-          Source Lens
-        </span>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${scoreColor}`}
-          title="0 = not relevant; 10 = strongly relevant"
-        >
-          Relevance {r.relevance.score}/10
-        </span>
-        {!props.hasAssignmentContext && (
-          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-            No assignment selected — generic analysis
-          </span>
-        )}
-      </div>
-      <p className="text-slate-800 dark:text-slate-200">{r.relevance.verdict}</p>
-
-      {/* Key claims */}
-      {r.keyClaims.length > 0 && (
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Key claims (from abstract)
-          </p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-800 dark:text-slate-200">
-            {r.keyClaims.map((c, i) => (
-              <li key={i}>{c}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Quotable phrases */}
-      {r.quotablePhrases.length > 0 && (
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Quotable phrases
-          </p>
-          <ul className="mt-1 space-y-1 text-slate-900 dark:text-slate-100">
-            {r.quotablePhrases.map((q, i) => (
-              <li
-                key={i}
-                className="rounded-md border-l-2 border-violet-400 bg-white px-2 py-1 italic dark:border-violet-500 dark:bg-slate-900"
-              >
-                {q}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Rubric fit */}
-      {r.rubricFit.length > 0 && (
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Helps with these rubric criteria
-          </p>
-          <ul className="mt-1 space-y-1.5">
-            {r.rubricFit.map((f, i) => (
-              <li
-                key={i}
-                className="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900"
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {f.criterion}
-                  </span>
-                  <span className={`text-[11px] uppercase tracking-wide ${confidenceColor[f.confidence]}`}>
-                    {f.confidence} confidence
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs text-slate-700 dark:text-slate-300">
-                  {f.howItHelps}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Suggested in-text citation */}
-      {r.suggestedCitation && (
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Suggested in-text citation example
-          </p>
-          <p className="mt-1 rounded-md border border-slate-200 bg-white p-2 font-mono text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
-            {r.suggestedCitation}
-          </p>
-        </div>
-      )}
-
-      {/* Skip-if list — when this source can't help with X */}
-      {r.skipIfRubricRequires.length > 0 && (
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            This source <em>doesn&apos;t</em> help with
-          </p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-slate-600 dark:text-slate-400">
-            {r.skipIfRubricRequires.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Abstract-only caveat */}
-      {r.abstractLimitation && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-          ⚠ {r.abstractLimitation}
-        </p>
-      )}
-    </div>
-  );
-}

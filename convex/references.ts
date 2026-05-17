@@ -50,6 +50,7 @@ export const create = mutation({
     notes: v.optional(v.string()),
     annotation: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
+    lensAnalysis: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -77,6 +78,7 @@ export const update = mutation({
     notes: v.optional(v.string()),
     annotation: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
+    lensAnalysis: v.optional(v.any()),
   },
   handler: async (ctx, { id, ...patch }) => {
     const userId = await requireUserId(ctx);
