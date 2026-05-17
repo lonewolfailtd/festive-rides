@@ -15,6 +15,7 @@ import {
   type LensResult,
   type LensDeepResult,
 } from "../SourceLensPanel";
+import { toast } from "sonner";
 
 type SearchResult = {
   id?: string;
@@ -223,6 +224,13 @@ export default function SourcesClient() {
     4,
   );
 
+  // Batch Lens — analyses N visible results in parallel via
+  // Promise.allSettled. `batchProgress` exposes "X of N done" so the
+  // UI can show real-time completion. `batchRunning` flips off when
+  // every promise has settled (success OR error).
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
+
   // Pull the most recent analysis for the active assignment so we can
   // suggest research keywords / sub-questions one click away. "skip" when
   // no assignment is active — Convex hooks accept that to no-op.
@@ -342,6 +350,76 @@ export default function SourcesClient() {
     } finally {
       setAdding((s) => ({ ...s, [key]: false }));
     }
+  };
+
+  // Batch Lens — analyse the top N visible results in parallel.
+  // Skips results that are already analysed, are currently running,
+  // or have no abstract. Settles each promise independently so one
+  // bad apple doesn't fail the rest (Promise.allSettled). Updates
+  // `lensResults` as each completes for live feedback.
+  const runBatchLens = async (max: number = 10) => {
+    if (!response || batchRunning) return;
+    // Build the candidate set from the SORTED+FILTERED display order,
+    // not the raw OpenAlex order — students filtered for a reason.
+    const candidates = displayResults
+      .filter(({ r, key }) => {
+        if (lensResults[key] || lensRunning[key]) return false;
+        if (!r.abstract || r.abstract.length < 50) return false;
+        return true;
+      })
+      .slice(0, max);
+    if (candidates.length === 0) {
+      toast.info("No new results to analyse — they're all done already.");
+      return;
+    }
+    const activeAss =
+      selectedAssignment !== "all"
+        ? assignments?.find((a) => a._id === selectedAssignment)
+        : undefined;
+    setBatchRunning(true);
+    setBatchProgress({ done: 0, total: candidates.length });
+    // Mark all as running up front so UI buttons disable.
+    setLensRunning((s) => {
+      const next = { ...s };
+      for (const c of candidates) next[c.key] = true;
+      return next;
+    });
+    const promises = candidates.map(async ({ r, key }) => {
+      try {
+        const result = (await sourceLens({
+          sourceTitle: r.title,
+          sourceAuthors: (r.authors ?? []).map(authorLabel),
+          sourceYear: r.year ?? undefined,
+          sourceJournal: r.journal ?? undefined,
+          sourceAbstract: r.abstract ?? "",
+          sourceDoi: r.doi ?? undefined,
+          sourceType: r.type ?? undefined,
+          assignmentBrief: activeAss?.brief ?? undefined,
+          assignmentRubric: activeAss?.rubric ?? undefined,
+          assignmentName: activeAss?.name ?? undefined,
+        })) as LensResult;
+        setLensResults((s) => ({ ...s, [key]: result }));
+        // Auto-open the panel so the analysis is visible without
+        // an extra click. (In batch mode, the user wants to see all
+        // analyses at once — that's the point of running batch.)
+        setLensOpen((s) => ({ ...s, [key]: true }));
+      } catch (err) {
+        setLensErrors((s) => ({
+          ...s,
+          [key]:
+            err instanceof Error ? err.message : "Lens analysis failed",
+        }));
+      } finally {
+        setLensRunning((s) => ({ ...s, [key]: false }));
+        setBatchProgress((p) =>
+          p ? { ...p, done: p.done + 1 } : null,
+        );
+      }
+    });
+    await Promise.allSettled(promises);
+    setBatchRunning(false);
+    setBatchProgress(null);
+    toast.success(`Lens batch complete — ${candidates.length} analysed.`);
   };
 
   // Derived display list — apply CLIENT-side sort + filter based on
@@ -712,32 +790,49 @@ export default function SourcesClient() {
                 </span>
               )}
             </h2>
-            {/* Hide-low-relevance filter. Only shows up once at least
-                one result has been Lens-analysed — there's nothing for
-                it to filter until then. */}
-            {Object.keys(lensResults).length > 0 && (
-              <label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={hideLowLens}
-                  onChange={(e) => setHideLowLens(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-slate-400 text-violet-600 focus:ring-violet-500"
-                />
-                <span>Hide Lens scores below</span>
-                <select
-                  value={hideLowThreshold}
-                  onChange={(e) => setHideLowThreshold(Number(e.target.value))}
-                  className="rounded border border-slate-300 bg-white px-1 py-0 text-xs dark:border-slate-700 dark:bg-slate-900"
-                  aria-label="Lens score threshold"
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Batch Lens — fires Lens on the top N visible
+                  un-analysed results in parallel. Uses Promise.allSettled
+                  so one failure doesn't sink the whole batch. */}
+              {response.results.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void runBatchLens(10)}
+                  disabled={batchRunning}
+                  className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800 transition-colors hover:border-violet-500 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
+                  title="Analyse the top 10 results in parallel against your active assignment"
                 >
-                  {[2, 3, 4, 5, 6, 7].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+                  {batchRunning && batchProgress
+                    ? `Lens batch: ${batchProgress.done}/${batchProgress.total}…`
+                    : "🔍 Lens top 10"}
+                </button>
+              )}
+              {/* Hide-low-relevance filter. Only shows up once at least
+                  one result has been Lens-analysed. */}
+              {Object.keys(lensResults).length > 0 && (
+                <label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={hideLowLens}
+                    onChange={(e) => setHideLowLens(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-slate-400 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span>Hide Lens scores below</span>
+                  <select
+                    value={hideLowThreshold}
+                    onChange={(e) => setHideLowThreshold(Number(e.target.value))}
+                    className="rounded border border-slate-300 bg-white px-1 py-0 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    aria-label="Lens score threshold"
+                  >
+                    {[2, 3, 4, 5, 6, 7].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
           </div>
           {response.results.length === 0 ? (
             <ZeroResultsHelp
