@@ -94,6 +94,123 @@ function playChime(forPhase: Phase, volume = DEFAULT_VOLUME) {
   }
 }
 
+// Whip-crack synth + "Get back to work" voice line. Fires ONLY when a
+// break ends — i.e. forPhase === "focus". Designed to be jolting, not
+// pleasant: loud, sharp, and unmistakable. Skips entirely if volume is
+// 0 (muted) so a quiet study environment isn't punished.
+//
+// Whip anatomy (acoustically): short pre-crack (mid-frequency snap) +
+// main supersonic crack (high-frequency noise burst with downward
+// pitch sweep) + brief tail. We approximate this with:
+//   - Filtered noise burst (high-pass swept down) for the crack body
+//   - Sharp amplitude envelope (fast attack, short decay)
+//   - A second softer burst 60ms before for the windup
+// Speech follows ~400ms after the whip so the user registers them as
+// two events, not one mushed sound.
+function playWhipAndShout(volume = DEFAULT_VOLUME) {
+  if (volume <= 0) return;
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    // We're explicitly told the user wants this LOUD. Peak gain is set
+    // close to 1.0 (clip-line) with the slider modulating downward.
+    // The chime function caps at 0.6; this one goes higher.
+    const peakGain = Math.max(0.05, Math.min(0.95, volume));
+
+    // Build one whip "crack" centered at startTime. The crack is a
+    // noise burst routed through a bandpass that sweeps from high to
+    // low — gives the characteristic falling whoosh.
+    const buildCrack = (startTime: number, durationS: number, gainScale: number) => {
+      // Noise buffer (2400 samples ≈ 50ms at 48kHz; enough for a
+      // crack body, short enough to feel sharp).
+      const noiseSamples = Math.floor(ctx.sampleRate * durationS);
+      const buffer = ctx.createBuffer(1, noiseSamples, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < noiseSamples; i++) {
+        // White noise scaled by an aggressive amplitude envelope
+        // (fast attack, exponential decay) so the crack pops then
+        // dies quickly.
+        const t = i / noiseSamples;
+        const env = Math.exp(-6 * t); // exponential decay
+        data[i] = (Math.random() * 2 - 1) * env;
+      }
+      const noiseNode = ctx.createBufferSource();
+      noiseNode.buffer = buffer;
+      // Bandpass filter that sweeps from ~6kHz down to ~1kHz over
+      // the duration — that downward whoosh is the signature whip.
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.Q.value = 0.8;
+      filter.frequency.setValueAtTime(6000, startTime);
+      filter.frequency.exponentialRampToValueAtTime(
+        900,
+        startTime + durationS,
+      );
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(
+        peakGain * gainScale,
+        startTime + 0.005, // 5ms attack — VERY sharp
+      );
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        startTime + durationS,
+      );
+      noiseNode.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      noiseNode.start(startTime);
+      noiseNode.stop(startTime + durationS + 0.02);
+    };
+
+    // Two-stage whip: a softer windup, then the main crack.
+    buildCrack(now, 0.06, 0.45);          // windup snap (60ms, quieter)
+    buildCrack(now + 0.08, 0.18, 1.0);    // main crack (180ms, full volume)
+
+    // Speech: "Get back to work!" — fires ~400ms after the crack so
+    // the two events don't blur together. Uses the browser's built-in
+    // TTS so no asset is needed.
+    setTimeout(() => {
+      try {
+        if (!("speechSynthesis" in window)) return;
+        const utter = new SpeechSynthesisUtterance("Get back to work!");
+        utter.rate = 1.05; // slightly clipped, like a drill instructor
+        utter.pitch = 0.85; // a touch lower than default — more authoritative
+        utter.volume = Math.min(1, peakGain + 0.1);
+        // Try to pick an assertive English voice. Browsers return an
+        // empty list on first call sometimes — falling back to the
+        // default voice is fine.
+        const voices = window.speechSynthesis.getVoices();
+        const preferred =
+          voices.find((v) => /Daniel/i.test(v.name) && /en/i.test(v.lang)) ??
+          voices.find((v) => /David/i.test(v.name) && /en/i.test(v.lang)) ??
+          voices.find(
+            (v) => /Google.*UK.*English.*Male/i.test(v.name),
+          ) ??
+          voices.find((v) => /en-GB|en-NZ|en-AU/i.test(v.lang)) ??
+          null;
+        if (preferred) utter.voice = preferred;
+        window.speechSynthesis.cancel(); // clear any queued speech
+        window.speechSynthesis.speak(utter);
+      } catch {
+        // speech is best-effort; whip is the main event
+      }
+    }, 400);
+
+    // Close the context once everything's played out.
+    setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, 600);
+  } catch {
+    // ignore — audio is best-effort
+  }
+}
+
 function fireNotification(forPhase: Phase, completedFocus: number): void {
   if (typeof window === "undefined") return;
   if (!("Notification" in window)) return;
@@ -221,8 +338,16 @@ export default function PomodoroTimer() {
               : prev.breakMins * 60_000;
           const newCompleted =
             prev.phase === "focus" ? prev.completedFocus + 1 : prev.completedFocus;
-          // 3-note arpeggio at the user's chosen volume
-          playChime(nextPhase, prev.volume);
+          // Audio cue: a gentle arpeggio when entering a break, but a
+          // whip-crack + "Get back to work!" voice line when the break
+          // is over and we're heading back into focus. The drama is
+          // intentional and asked-for — going INTO a break should feel
+          // earned, coming back OUT should feel like getting marched.
+          if (nextPhase === "focus" && prev.phase === "break") {
+            playWhipAndShout(prev.volume);
+          } else {
+            playChime(nextPhase, prev.volume);
+          }
           // OS-level notification (require interaction so it doesn't auto-dismiss)
           if (prev.notificationsEnabled) {
             fireNotification(nextPhase, newCompleted);
