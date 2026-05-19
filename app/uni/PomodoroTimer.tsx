@@ -274,6 +274,57 @@ export default function PomodoroTimer() {
   const tickRef = useRef<number | null>(null);
   const [expanded, setExpanded] = useState(false);
 
+  // "Boss mode" — when a break ends, we open a blocking modal AND
+  // loop the whip+voice on an interval until the student clicks
+  // "Yes, boss". The interval ID lives in a ref so re-renders don't
+  // clobber it. Cancelling stops both the timer AND any in-flight
+  // speech-synthesis utterance.
+  const [bossModalOpen, setBossModalOpen] = useState(false);
+  const bossLoopRef = useRef<number | null>(null);
+
+  const stopBossLoop = () => {
+    if (bossLoopRef.current !== null) {
+      window.clearInterval(bossLoopRef.current);
+      bossLoopRef.current = null;
+    }
+    // Cancel any in-flight or queued speech immediately — otherwise
+    // "Get back to work!" would finish even after dismiss.
+    try {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const startBossLoop = (volume: number) => {
+    stopBossLoop(); // defensive — in case a stale interval lingers
+    setBossModalOpen(true);
+    // Fire once immediately, then loop every 3.5s. The cycle covers:
+    //   0-180ms  whip crack
+    //   400-~1500ms speech "Get back to work!"
+    //   1500-3500ms silence
+    // Long enough that the speech actually completes before the next
+    // crack; short enough to feel relentless.
+    playWhipAndShout(volume);
+    bossLoopRef.current = window.setInterval(() => {
+      playWhipAndShout(volume);
+    }, 3500);
+  };
+
+  const dismissBossModal = () => {
+    stopBossLoop();
+    setBossModalOpen(false);
+  };
+
+  // Cleanup the boss loop on unmount so a tab close / navigation
+  // doesn't leave a zombie interval (though in practice it'd die with
+  // the page anyway, this is the polite pattern).
+  useEffect(() => {
+    return () => stopBossLoop();
+  }, []);
+
   // Hydration flag is STATE not ref. Refs update synchronously, which means
   // when both effects run in the same commit, the persist effect would see
   // hydrated.current=true (just set by the load effect) but state=defaultState
@@ -339,12 +390,12 @@ export default function PomodoroTimer() {
           const newCompleted =
             prev.phase === "focus" ? prev.completedFocus + 1 : prev.completedFocus;
           // Audio cue: a gentle arpeggio when entering a break, but a
-          // whip-crack + "Get back to work!" voice line when the break
-          // is over and we're heading back into focus. The drama is
-          // intentional and asked-for — going INTO a break should feel
-          // earned, coming back OUT should feel like getting marched.
+          // LOOPING whip-crack + "Get back to work!" voice line when
+          // the break is over. The break-end version keeps firing
+          // until the student dismisses the blocking modal — no
+          // sleeping through this one.
           if (nextPhase === "focus" && prev.phase === "break") {
-            playWhipAndShout(prev.volume);
+            startBossLoop(prev.volume);
           } else {
             playChime(nextPhase, prev.volume);
           }
@@ -521,6 +572,7 @@ export default function PomodoroTimer() {
 
   // Expanded panel
   return (
+    <>
     <div className="fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -691,5 +743,44 @@ export default function PomodoroTimer() {
         </button>
       </div>
     </div>
+
+    {/* Boss-mode modal — appears when a break ends, blocks the rest
+        of the page, and keeps the whip+voice looping until the
+        student clicks "Yes, boss". Higher z-index than the timer
+        widget so it covers everything else on the page. */}
+    {bossModalOpen && (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="boss-modal-title"
+      >
+        {/* Animated red ring for extra urgency. Pure CSS, no JS frame
+            loop needed. */}
+        <div className="relative w-full max-w-md rounded-2xl border-2 border-rose-500 bg-white p-8 text-center shadow-2xl dark:bg-slate-900">
+          <div className="pointer-events-none absolute inset-0 animate-pulse rounded-2xl ring-4 ring-rose-500/40" />
+          <p className="text-5xl">🐎</p>
+          <h2
+            id="boss-modal-title"
+            className="mt-3 text-3xl font-extrabold tracking-tight text-rose-700 dark:text-rose-300"
+          >
+            GET BACK TO WORK!
+          </h2>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
+            Your break is over. The whip won&apos;t stop until you
+            confirm you&apos;re back at it.
+          </p>
+          <button
+            type="button"
+            onClick={dismissBossModal}
+            autoFocus
+            className="mt-6 inline-flex items-center justify-center rounded-xl bg-gradient-to-b from-rose-500 to-rose-600 px-6 py-3 text-base font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:from-rose-400 hover:to-rose-500 active:translate-y-0"
+          >
+            Yes, boss
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
