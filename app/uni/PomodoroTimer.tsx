@@ -94,19 +94,21 @@ function playChime(forPhase: Phase, volume = DEFAULT_VOLUME) {
   }
 }
 
-// Whip-crack synth + "Get back to work" voice line. Fires ONLY when a
-// break ends — i.e. forPhase === "focus". Designed to be jolting, not
-// pleasant: loud, sharp, and unmistakable. Skips entirely if volume is
-// 0 (muted) so a quiet study environment isn't punished.
+// Wild-western whip-crack synth + "Get back to work" voice line.
+// Designed to sound theatrical/cartoonish, not realistic — the kind of
+// whip-crack you'd hear in an old spaghetti western. Four layered
+// audio events:
 //
-// Whip anatomy (acoustically): short pre-crack (mid-frequency snap) +
-// main supersonic crack (high-frequency noise burst with downward
-// pitch sweep) + brief tail. We approximate this with:
-//   - Filtered noise burst (high-pass swept down) for the crack body
-//   - Sharp amplitude envelope (fast attack, short decay)
-//   - A second softer burst 60ms before for the windup
-// Speech follows ~400ms after the whip so the user registers them as
-// two events, not one mushed sound.
+//   1. Whoosh   — rising-pitch noise sweep, ~150ms. The "incoming".
+//   2. Crack    — broadband noise burst, ~40ms, very sharp envelope.
+//   3. Snap     — square-wave oscillator click pitched 2.2kHz→800Hz.
+//                 THIS is the spaghetti-western punch — pitched, not
+//                 just noise.
+//   4. Tail     — low-pass filtered noise, ~200ms, slow decay. The
+//                 canyon-echo tail.
+//
+// Speech ("Get back to work!") fires ~500ms after the layers settle.
+// Skips entirely if volume is 0 (muted).
 function playWhipAndShout(volume = DEFAULT_VOLUME) {
   if (volume <= 0) return;
   try {
@@ -117,95 +119,160 @@ function playWhipAndShout(volume = DEFAULT_VOLUME) {
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
     const now = ctx.currentTime;
-    // We're explicitly told the user wants this LOUD. Peak gain is set
-    // close to 1.0 (clip-line) with the slider modulating downward.
-    // The chime function caps at 0.6; this one goes higher.
+    // Peak gain can go up near 1.0 (clip line). The slider modulates
+    // downward. Chime caps at 0.6; this is meant to be jolting.
     const peakGain = Math.max(0.05, Math.min(0.95, volume));
 
-    // Build one whip "crack" centered at startTime. The crack is a
-    // noise burst routed through a bandpass that sweeps from high to
-    // low — gives the characteristic falling whoosh.
-    const buildCrack = (startTime: number, durationS: number, gainScale: number) => {
-      // Noise buffer (2400 samples ≈ 50ms at 48kHz; enough for a
-      // crack body, short enough to feel sharp).
-      const noiseSamples = Math.floor(ctx.sampleRate * durationS);
-      const buffer = ctx.createBuffer(1, noiseSamples, ctx.sampleRate);
+    // Helper: noise-buffer source through a filter chain with envelope.
+    const playFilteredNoise = (opts: {
+      start: number;
+      duration: number;
+      filterType: BiquadFilterType;
+      freqStart: number;
+      freqEnd: number;
+      Q: number;
+      gainScale: number;
+      attack: number;
+      decayShape?: number; // exp decay multiplier inside the buffer
+    }) => {
+      const samples = Math.max(64, Math.floor(ctx.sampleRate * opts.duration));
+      const buffer = ctx.createBuffer(1, samples, ctx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < noiseSamples; i++) {
-        // White noise scaled by an aggressive amplitude envelope
-        // (fast attack, exponential decay) so the crack pops then
-        // dies quickly.
-        const t = i / noiseSamples;
-        const env = Math.exp(-6 * t); // exponential decay
-        data[i] = (Math.random() * 2 - 1) * env;
+      const decay = opts.decayShape ?? 6;
+      for (let i = 0; i < samples; i++) {
+        const t = i / samples;
+        // White noise * exponential decay envelope baked into the buffer
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-decay * t);
       }
-      const noiseNode = ctx.createBufferSource();
-      noiseNode.buffer = buffer;
-      // Bandpass filter that sweeps from ~6kHz down to ~1kHz over
-      // the duration — that downward whoosh is the signature whip.
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
       const filter = ctx.createBiquadFilter();
-      filter.type = "bandpass";
-      filter.Q.value = 0.8;
-      filter.frequency.setValueAtTime(6000, startTime);
-      filter.frequency.exponentialRampToValueAtTime(
-        900,
-        startTime + durationS,
-      );
+      filter.type = opts.filterType;
+      filter.Q.value = opts.Q;
+      filter.frequency.setValueAtTime(opts.freqStart, opts.start);
+      if (opts.freqEnd !== opts.freqStart) {
+        filter.frequency.exponentialRampToValueAtTime(
+          opts.freqEnd,
+          opts.start + opts.duration,
+        );
+      }
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.setValueAtTime(0.0001, opts.start);
       gain.gain.exponentialRampToValueAtTime(
-        peakGain * gainScale,
-        startTime + 0.005, // 5ms attack — VERY sharp
+        peakGain * opts.gainScale,
+        opts.start + opts.attack,
       );
       gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        startTime + durationS,
+        opts.start + opts.duration,
       );
-      noiseNode.connect(filter);
+      src.connect(filter);
       filter.connect(gain);
       gain.connect(ctx.destination);
-      noiseNode.start(startTime);
-      noiseNode.stop(startTime + durationS + 0.02);
+      src.start(opts.start);
+      src.stop(opts.start + opts.duration + 0.02);
     };
 
-    // Two-stage whip: a softer windup, then the main crack.
-    buildCrack(now, 0.06, 0.45);          // windup snap (60ms, quieter)
-    buildCrack(now + 0.08, 0.18, 1.0);    // main crack (180ms, full volume)
+    // Layer 1: WHOOSH — rising-pitch filtered noise, 150ms.
+    // Bandpass sweeps 300Hz → 3500Hz over the whoosh, climbing toward
+    // the crack. Slightly amplitude-rising to imply "approaching".
+    const whooshDuration = 0.15;
+    playFilteredNoise({
+      start: now,
+      duration: whooshDuration,
+      filterType: "bandpass",
+      freqStart: 300,
+      freqEnd: 3500,
+      Q: 2.5,
+      gainScale: 0.5,
+      attack: 0.04,
+      decayShape: 0, // flat envelope inside the buffer — overall envelope handles shaping
+    });
 
-    // Speech: "Get back to work!" — fires ~400ms after the crack so
-    // the two events don't blur together. Uses the browser's built-in
-    // TTS so no asset is needed.
+    // Layer 2: CRACK — broadband noise burst at the moment of impact.
+    const crackStart = now + whooshDuration;
+    const crackDuration = 0.04;
+    playFilteredNoise({
+      start: crackStart,
+      duration: crackDuration,
+      filterType: "highpass",
+      freqStart: 1500,
+      freqEnd: 1500,
+      Q: 0.5,
+      gainScale: 1.0,
+      attack: 0.002, // 2ms — sharpest attack
+      decayShape: 10,
+    });
+
+    // Layer 3: SNAP — square-wave oscillator pitched 2.2kHz → 800Hz
+    // over 25ms. This is the *pitched* element that distinguishes a
+    // western whip from a realistic one. Square wave for extra
+    // harmonic content (more "cartoonish" timbre).
+    const snapStart = crackStart + 0.005;
+    {
+      const snap = ctx.createOscillator();
+      snap.type = "square";
+      snap.frequency.setValueAtTime(2200, snapStart);
+      snap.frequency.exponentialRampToValueAtTime(800, snapStart + 0.025);
+      const snapGain = ctx.createGain();
+      snapGain.gain.setValueAtTime(0.0001, snapStart);
+      snapGain.gain.exponentialRampToValueAtTime(
+        peakGain * 0.6,
+        snapStart + 0.001,
+      );
+      snapGain.gain.exponentialRampToValueAtTime(0.0001, snapStart + 0.04);
+      snap.connect(snapGain);
+      snapGain.connect(ctx.destination);
+      snap.start(snapStart);
+      snap.stop(snapStart + 0.05);
+    }
+
+    // Layer 4: TAIL — canyon-echo. Low-pass filtered noise sweeping
+    // 2.5kHz → 600Hz over 200ms, gentle decay. Gives the "wide open
+    // space" feeling after the crack.
+    const tailStart = crackStart + 0.03;
+    playFilteredNoise({
+      start: tailStart,
+      duration: 0.2,
+      filterType: "lowpass",
+      freqStart: 2500,
+      freqEnd: 600,
+      Q: 0.7,
+      gainScale: 0.25,
+      attack: 0.01,
+      decayShape: 4,
+    });
+
+    // Speech: "Get back to work!" — fires after all layers have
+    // played (~500ms in). Cancel any queued utterance so we don't
+    // stack on rapid retriggers.
+    const speechDelayMs = (whooshDuration + crackDuration + 0.2) * 1000;
     setTimeout(() => {
       try {
         if (!("speechSynthesis" in window)) return;
         const utter = new SpeechSynthesisUtterance("Get back to work!");
-        utter.rate = 1.05; // slightly clipped, like a drill instructor
-        utter.pitch = 0.85; // a touch lower than default — more authoritative
+        utter.rate = 1.05;
+        utter.pitch = 0.85;
         utter.volume = Math.min(1, peakGain + 0.1);
-        // Try to pick an assertive English voice. Browsers return an
-        // empty list on first call sometimes — falling back to the
-        // default voice is fine.
         const voices = window.speechSynthesis.getVoices();
         const preferred =
           voices.find((v) => /Daniel/i.test(v.name) && /en/i.test(v.lang)) ??
           voices.find((v) => /David/i.test(v.name) && /en/i.test(v.lang)) ??
-          voices.find(
-            (v) => /Google.*UK.*English.*Male/i.test(v.name),
-          ) ??
+          voices.find((v) => /Google.*UK.*English.*Male/i.test(v.name)) ??
           voices.find((v) => /en-GB|en-NZ|en-AU/i.test(v.lang)) ??
           null;
         if (preferred) utter.voice = preferred;
-        window.speechSynthesis.cancel(); // clear any queued speech
+        window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utter);
       } catch {
-        // speech is best-effort; whip is the main event
+        // speech is best-effort
       }
-    }, 400);
+    }, speechDelayMs);
 
-    // Close the context once everything's played out.
+    // Close the audio context after everything's played out.
     setTimeout(() => {
       ctx.close().catch(() => {});
-    }, 600);
+    }, speechDelayMs + 2500);
   } catch {
     // ignore — audio is best-effort
   }
@@ -472,6 +539,13 @@ export default function PomodoroTimer() {
     }));
   };
   const skipPhase = () => {
+    // User explicitly asked: fire the boss mode on EVERY skip,
+    // regardless of direction (skip-from-focus and skip-from-break
+    // both). Pull the trigger OUT of the setState updater so React's
+    // StrictMode (which double-invokes updaters in dev) doesn't fire
+    // two cracks. Reading state.volume here is safe — even if a stale
+    // value, audio volume is a perceptual knob not a logic one.
+    startBossLoop(state.volume);
     setState((prev) => {
       const nextPhase: Phase = prev.phase === "focus" ? "break" : "focus";
       return {
