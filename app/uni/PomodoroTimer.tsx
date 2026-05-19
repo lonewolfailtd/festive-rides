@@ -742,6 +742,25 @@ export default function PomodoroTimer() {
           Skip to {state.phase === "focus" ? "break" : "focus"}
         </button>
       </div>
+
+      {/* Test button for the break→focus boss mode. Lets you trigger
+          the whip+voice+modal without waiting for an actual break to
+          end. Tucked at the bottom of the expanded panel — only
+          visible when the user has explicitly opened the timer up. */}
+      <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+        <button
+          type="button"
+          onClick={() => startBossLoop(state.volume)}
+          className="inline-flex items-center justify-center gap-1 rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-800 transition-colors hover:border-rose-500 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-200 dark:hover:border-rose-500 dark:hover:bg-rose-900/40"
+          title="Trigger the whip + Get-back-to-work modal right now"
+        >
+          🧪 Test boss mode
+        </button>
+        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+          Boss mode auto-fires at the end of a BREAK. Use this to test
+          without waiting.
+        </p>
+      </div>
     </div>
 
     {/* Boss-mode modal — appears when a break ends, blocks the rest
