@@ -74,6 +74,12 @@ const cards = [
     blurb:
       "For 'read this article and answer questions' assessment tasks. Upload the article PDF, paste your assignment questions, and get factual answers with verbatim supporting quotes from the article + an auto-generated APA reference. You write the answer; the tool just hands you the research notes.",
   },
+  {
+    href: "/uni/unpack",
+    title: "Question Unpacker",
+    blurb:
+      "Stuck on a question? Paste it (or pick one from your assignment brief) and we break it down — what the command word really wants, what's in and out of scope, hidden assumptions to define, two or three approaches you could take with trade-offs, what evidence to find, and questions to sit with before you write. We won't draft the answer.",
+  },
 ];
 
 export default function UniHomePage() {

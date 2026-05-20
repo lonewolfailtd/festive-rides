@@ -30,6 +30,7 @@ import type * as nzEditor from "../nzEditor.js";
 import type * as openrouter from "../openrouter.js";
 import type * as passwordReset from "../passwordReset.js";
 import type * as plagiarism from "../plagiarism.js";
+import type * as questionUnpacker from "../questionUnpacker.js";
 import type * as quickImport from "../quickImport.js";
 import type * as references from "../references.js";
 import type * as reverseLookup from "../reverseLookup.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   openrouter: typeof openrouter;
   passwordReset: typeof passwordReset;
   plagiarism: typeof plagiarism;
+  questionUnpacker: typeof questionUnpacker;
   quickImport: typeof quickImport;
   references: typeof references;
   reverseLookup: typeof reverseLookup;
