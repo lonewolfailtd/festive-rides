@@ -75,6 +75,94 @@ NON-NEGOTIABLE RULES:
 
 8. SECTION REFERENCES — when the extracted text has [Page N] markers, USE them. Otherwise give the section heading ("Methods", "Discussion") or a paragraph reference.`;
 
+// Companion action: given a stored assignment brief, extract the list
+// of questions the student needs to answer. Cheap Flash-tier task —
+// pure structure recognition (find the bullet lists, the question
+// sentences in Part A / B etc), no judgement. ~$0.0002 per call.
+const EXTRACT_SYSTEM_PROMPT = `You are reading an academic assignment brief. Identify every distinct question the student needs to answer when reading their assigned research article. Return them as a flat list — one question per array item, in the order they appear.
+
+INCLUDE:
+- Direct questions ("What is the aim of the research?")
+- Imperative prompts that require an answer ("Summarise the method used in the article", "Identify one key finding", "Identify one limitation")
+- Sub-points under a main bullet, broken out so each becomes its own item ("Number of participants", "Demographics", "Name of one material and two example items")
+
+EXCLUDE:
+- Formatting / structural instructions ("Write one paragraph", "Use APA format")
+- Word count guidance
+- Citation instructions
+- General writing advice
+- Instructions to generate the student's own research question or original content (those aren't extractable from the article)
+
+OUTPUT (JSON, no markdown):
+{
+  "questions": [
+    "string — one question per item, phrased clearly enough that the AI can answer it from a research article",
+    ...
+  ]
+}
+
+If the assignment has no article-related questions, return an empty array. Don't invent questions.
+
+Use NZ English. No Oxford commas.`;
+
+export const extractQuestions = action({
+  args: {
+    assignmentBrief: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+
+    const brief = args.assignmentBrief.trim();
+    if (brief.length < 100) {
+      throw new Error(
+        "Assignment brief is too short — make sure the brief was loaded into the assignment via Quick Import.",
+      );
+    }
+
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+
+    // Cap brief input — most Open Polytech briefs are 5-20k chars.
+    const briefCapped = brief.length > 30000 ? brief.slice(0, 30000) : brief;
+
+    const userContent = `=== ASSIGNMENT BRIEF ===
+${briefCapped}
+
+Extract the questions the student needs to answer when reading their research article.`;
+
+    const r = await callOpenRouterDetailed({
+      model: "deepseek/deepseek-v4-flash",
+      responseFormatJson: true,
+      temperature: 0.1, // very low — we want consistent extraction
+      maxTokens: 2000,
+      messages: [
+        { role: "system", content: EXTRACT_SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+    });
+
+    if (!r.content || !r.content.trim()) {
+      throw new Error(
+        "Couldn't extract questions from the brief — the AI returned an empty response. Try pasting the questions manually instead.",
+      );
+    }
+
+    const parsed = safeJsonParse(r.content) as { questions?: string[] };
+
+    await ctx.runMutation(internal.usage.recordUsage, {
+      userId,
+      action: "articleQA.extractQuestions",
+      model: r.modelUsed,
+      inputTokens: r.usage.inputTokens,
+      outputTokens: r.usage.outputTokens,
+    });
+
+    return {
+      questions: parsed.questions ?? [],
+    };
+  },
+});
+
 export const answer = action({
   args: {
     extractedText: v.string(),

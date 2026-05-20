@@ -89,6 +89,7 @@ const CONFIDENCE_TONE: Record<QuestionAnswer["confidence"], string> = {
 
 export default function ArticleQAClient() {
   const answerAction = useAction(api.articleQA.answer);
+  const extractQuestionsAction = useAction(api.articleQA.extractQuestions);
   const assignments = useQuery(api.assignments.list);
 
   const [activeId, setActiveId] = useState<Id<"assignments"> | "">("");
@@ -103,6 +104,10 @@ export default function ArticleQAClient() {
     done: number;
     total: number;
   } | null>(null);
+
+  // Separate loading flag for the 'extract questions from brief' button.
+  // Independent from the PDF extraction flag so they don't collide.
+  const [extractingQuestions, setExtractingQuestions] = useState(false);
 
   // Honest elapsed timer.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -362,13 +367,55 @@ export default function ArticleQAClient() {
               <span className={labelStyle}>
                 Questions (one per line, copy from your assignment)
               </span>
-              <button
-                type="button"
-                onClick={() => setQuestions(DEFAULT_QUESTIONS)}
-                className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-300"
-              >
-                Reset to default questions
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Extract questions from active assignment's brief.
+                    Only shown when the assignment has a stored brief
+                    (came from Quick Import). Cheap Flash-tier call. */}
+                {activeAssignment?.brief && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (extractingQuestions) return;
+                      setExtractingQuestions(true);
+                      try {
+                        const r = (await extractQuestionsAction({
+                          assignmentBrief: activeAssignment.brief!,
+                        })) as { questions: string[] };
+                        if (r.questions.length === 0) {
+                          toast.info(
+                            "No article-related questions found in the brief. Paste them manually.",
+                          );
+                          return;
+                        }
+                        setQuestions(r.questions.join("\n"));
+                        toast.success(
+                          `Extracted ${r.questions.length} question${r.questions.length === 1 ? "" : "s"} from the brief.`,
+                        );
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error
+                            ? err.message
+                            : "Couldn't extract questions",
+                        );
+                      } finally {
+                        setExtractingQuestions(false);
+                      }
+                    }}
+                    disabled={extractingQuestions}
+                    className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800 transition-colors hover:border-violet-500 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
+                    title="Auto-extract the article-related questions from your active assignment's brief"
+                  >
+                    {extractingQuestions ? "Extracting…" : "🪄 From brief"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setQuestions(DEFAULT_QUESTIONS)}
+                  className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-300"
+                >
+                  Reset to default
+                </button>
+              </div>
             </div>
             <textarea
               value={questions}
