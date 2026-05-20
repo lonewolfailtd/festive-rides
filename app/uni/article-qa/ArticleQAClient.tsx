@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { loadPdfjs } from "@/lib/pdfjs";
+import { buildCitations } from "@/lib/apaCitations";
 
 const ACTIVE_EVENT = "uni:active-assignment-changed";
 const STORAGE_KEY = "uni-active-assignment-v1";
@@ -894,6 +895,22 @@ export default function ArticleQAClient() {
                           const context = isContextOpen
                             ? findContext(lastRunText, q.quote)
                             : null;
+                          // Build APA in-text citations for this quote.
+                          // Year extracted from the apaReference string
+                          // since QAResult doesn't carry a standalone
+                          // year field — the AI puts it inside the
+                          // full reference like "Brown, C. (2003)...".
+                          const yearMatch = result.apaReference?.match(
+                            /\((\d{4})\)/,
+                          );
+                          const articleYear = yearMatch
+                            ? Number(yearMatch[1])
+                            : null;
+                          const cite = buildCitations({
+                            authors: result.authors.names,
+                            year: articleYear,
+                            section: q.section,
+                          });
                           return (
                             <li
                               key={j}
@@ -959,6 +976,73 @@ export default function ArticleQAClient() {
                                   )}
                                 </div>
                               )}
+                              {/* In-text citation copy buttons — same
+                                  three forms as in the Reader sidebar.
+                                  Per-quote so page numbers extracted
+                                  from THIS quote's section apply. */}
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-amber-200 pt-1 dark:border-amber-900/40">
+                                <span className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                  Cite:
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(
+                                        cite.parenthetical,
+                                      );
+                                      toast.success(
+                                        `Copied: ${cite.parenthetical}`,
+                                      );
+                                    } catch {
+                                      toast.error("Couldn't copy");
+                                    }
+                                  }}
+                                  className="rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-50 dark:border-amber-700/60 dark:bg-slate-900 dark:text-amber-200"
+                                  title="Copy parenthetical citation"
+                                >
+                                  📋 {cite.parenthetical}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(
+                                        cite.narrative,
+                                      );
+                                      toast.success(
+                                        `Copied: ${cite.narrative}`,
+                                      );
+                                    } catch {
+                                      toast.error("Couldn't copy");
+                                    }
+                                  }}
+                                  className="rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-50 dark:border-amber-700/60 dark:bg-slate-900 dark:text-amber-200"
+                                  title="Copy narrative citation (authors in your sentence)"
+                                >
+                                  📋 {cite.narrative}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const block = `"${q.quote}" ${cite.parenthetical}`;
+                                      await navigator.clipboard.writeText(
+                                        block,
+                                      );
+                                      toast.success(
+                                        "Copied quote + citation",
+                                      );
+                                    } catch {
+                                      toast.error("Couldn't copy");
+                                    }
+                                  }}
+                                  className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900 transition-colors hover:border-emerald-500 hover:bg-emerald-100 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+                                  title="Copy the verbatim quote with parenthetical citation appended"
+                                >
+                                  📋 Quote + cite
+                                </button>
+                              </div>
                             </li>
                           );
                         })}

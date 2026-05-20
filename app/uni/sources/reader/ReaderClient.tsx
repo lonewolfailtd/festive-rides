@@ -41,6 +41,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LensDeepResult } from "../../SourceLensPanel";
 import { toast } from "sonner";
+import { buildCitations } from "@/lib/apaCitations";
 
 // Shape of the data the reader needs, regardless of source.
 type ReaderInput = {
@@ -111,77 +112,6 @@ function referenceToReaderInput(
     sourceText,
     analysis,
     assignmentName,
-  };
-}
-
-// Build ready-to-paste APA 7 in-text citations from the source
-// metadata plus an optional section/page string. Returns both forms
-// (parenthetical + narrative) so the reader UI can offer them
-// independently. Pulls page numbers from section strings like
-// "Results, p. 422" or "Methods (p. 4)".
-function buildCitations(opts: {
-  authors: string[]; // raw display strings — may be "Lastname, F." or "First Last"
-  year: number | null | undefined;
-  section?: string;
-}): {
-  parenthetical: string;
-  narrative: string;
-  page: string | null;
-} {
-  // Pull just the last name from each author entry. Two common shapes:
-  //   "Brown, Cynthia"  → "Brown"
-  //   "Cynthia Brown"   → "Brown" (last whitespace-separated token)
-  const lastNames = opts.authors
-    .map((a) => {
-      const trimmed = a.trim();
-      if (!trimmed) return "";
-      if (trimmed.includes(",")) {
-        return trimmed.split(",")[0].trim();
-      }
-      const parts = trimmed.split(/\s+/);
-      return parts[parts.length - 1];
-    })
-    .filter((n) => n.length > 0);
-
-  // Page extraction from a "section" hint. Looks for "p. 422", "pp. 415-426",
-  // "(p. 4)" patterns. Falls back to null when no page found.
-  let page: string | null = null;
-  if (opts.section) {
-    const m = opts.section.match(/pp?\.?\s*(\d+(?:[-–]\d+)?)/i);
-    if (m) page = m[1];
-  }
-
-  // APA 7 author formatting:
-  //   1 author    → "Smith"
-  //   2 authors   → "Smith & Jones" (parens) / "Smith and Jones" (narrative)
-  //   3+ authors  → "Smith et al." (both)
-  let parenAuthor: string;
-  let narAuthor: string;
-  if (lastNames.length === 0) {
-    parenAuthor = "[author]";
-    narAuthor = "[author]";
-  } else if (lastNames.length === 1) {
-    parenAuthor = lastNames[0];
-    narAuthor = lastNames[0];
-  } else if (lastNames.length === 2) {
-    parenAuthor = `${lastNames[0]} & ${lastNames[1]}`;
-    narAuthor = `${lastNames[0]} and ${lastNames[1]}`;
-  } else {
-    parenAuthor = `${lastNames[0]} et al.`;
-    narAuthor = `${lastNames[0]} et al.`;
-  }
-
-  const yearStr = opts.year ? String(opts.year) : "n.d.";
-  const pageSuffix = page ? `, p. ${page}` : "";
-
-  return {
-    parenthetical: `(${parenAuthor}, ${yearStr}${pageSuffix})`,
-    // Narrative: page goes in parens after the year — e.g.
-    // "Brown and Lowis (2003, p. 422)" — when a page is present.
-    narrative: page
-      ? `${narAuthor} (${yearStr}, p. ${page})`
-      : `${narAuthor} (${yearStr})`,
-    page,
   };
 }
 
