@@ -273,16 +273,13 @@ Answer each question with facts from the article and verbatim supporting quotes.
       return { result: parsed, modelUsed: r.modelUsed, usage: r.usage };
     }
 
-    function shouldRetry(err: unknown): boolean {
-      const msg = err instanceof Error ? err.message : "";
-      return (
-        msg.includes("empty response") ||
-        msg.includes("no content") ||
-        msg.includes("timed out") ||
-        msg.includes("Could not parse model output as JSON") ||
-        msg.includes("Unexpected end of JSON") ||
-        msg.includes("Unterminated string")
-      );
+    // Always retry on the fallback model. Anything thrown by
+     // callAndParse came from OpenRouter (rate-limits, 5xx errors,
+     // content filters, malformed JSON, timeouts) or our own empty-
+     // response self-throw — none of these are user-fixable, so a
+     // silent tier-drop is better than throwing in the user's face.
+    function shouldRetry(_err: unknown): boolean {
+      return true;
     }
 
     let result: unknown;

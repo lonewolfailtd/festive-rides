@@ -97,17 +97,19 @@ export const check = action({
       modelUsed = r.modelUsed;
       usage = r.usage;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      // Only retry on the specific "no content" failure mode, not on
-      // rate-limit / quota / auth errors. Fall back to V4 Pro (more
-      // thorough so more likely to produce output) if Flash hiccups.
-      const isEmptyResponse =
-        msg.includes("empty response") ||
-        msg.includes("no content") ||
-        msg.includes("timed out");
-      if (!isEmptyResponse || primaryModel === "deepseek/deepseek-v4-pro") {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Fall back to V4 Pro on ANY error from the AI call (auth /
+      // quota / input-size errors throw before this try block, so
+      // anything here came from OpenRouter — rate-limits, server
+      // errors, content filters, malformed JSON, timeouts). Don't
+      // fall back if Pro was already the primary.
+      if (primaryModel === "deepseek/deepseek-v4-pro") {
         throw err;
       }
+      // eslint-disable-next-line no-console
+      console.warn(
+        `aiChecker.check: primary ${primaryModel} failed (${msg}). Falling back to deepseek-v4-pro.`,
+      );
       const r = await callOpenRouterDetailed({
         model: "deepseek/deepseek-v4-pro",
         responseFormatJson: true,

@@ -166,15 +166,17 @@ export const audit = action({
       modelUsed = r.modelUsed;
       usage = r.usage;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      const isTransient =
-        msg.includes("empty response") ||
-        msg.includes("no content") ||
-        msg.includes("timed out");
-      if (!isTransient) throw err;
-      // Symmetric fallback. Map between Pro<->Flash within the same
-      // family (Gemini or DeepSeek), so a transient error doesn't fall
-      // back to a model with very different behaviour.
+      // Fall back to Flash on ANY error from the AI call. We're already
+      // past input validation and auth/quota gates, so anything thrown
+      // here came from OpenRouter — rate limits (429), provider down
+      // (500/503), model overloaded, content filter, malformed JSON, or
+      // timeouts. None of these are user-fixable; silently dropping a
+      // model tier is better than throwing in the student's face.
+      // (Earlier version only retried on three specific error strings
+      // and missed everything else.)
+      const msg = err instanceof Error ? err.message : String(err);
+      // Symmetric fallback within the same model family (Gemini or
+      // DeepSeek) so output style stays consistent.
       const fallbackModel =
         primaryModel === "google/gemini-2.5-pro"
           ? "google/gemini-2.5-flash"
@@ -183,6 +185,10 @@ export const audit = action({
             : primaryModel === "deepseek/deepseek-v4-pro"
               ? "deepseek/deepseek-v4-flash"
               : "deepseek/deepseek-v4-pro";
+      // eslint-disable-next-line no-console
+      console.warn(
+        `submissionAudit.audit: primary ${primaryModel} failed (${msg}). Falling back to ${fallbackModel}.`,
+      );
       const r = await callOpenRouterDetailed({
         model: fallbackModel,
         responseFormatJson: true,

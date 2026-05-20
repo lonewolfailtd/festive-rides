@@ -209,12 +209,14 @@ async function callWithFallback(args: {
     });
     return { raw: r.content, modelUsed: r.modelUsed, usage: r.usage };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "";
-    const isTransient =
-      msg.includes("empty response") ||
-      msg.includes("no content") ||
-      msg.includes("timed out");
-    if (!isTransient) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    // Fall back to V4 Pro on ANY error from the AI call. Auth/quota/
+    // input-size errors throw before this try block — anything here
+    // came from OpenRouter, so a tier-drop is the right response.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `nzEditor: primary ${primaryModel} failed (${msg}). Falling back to deepseek-v4-pro.`,
+    );
     const r = await callOpenRouterDetailed({
       model: "deepseek/deepseek-v4-pro",
       responseFormatJson: true,
@@ -399,22 +401,19 @@ export const edit = action({
       modelUsed = r.modelUsed;
       usage = r.usage;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      const isEmptyResponse =
-        msg.includes("empty response") ||
-        msg.includes("no content") ||
-        msg.includes("timed out");
-      // Don't retry rate-limit / quota / auth errors. Don't retry if
-      // they were already on Flash (already the fallback target if Pro
-      // failed; second-tier fallback to Flash makes sense as a last
-      // resort even though it's less reliable).
-      if (!isEmptyResponse) {
-        throw err;
-      }
+      const msg = err instanceof Error ? err.message : String(err);
+      // Fall back to the sibling tier on ANY error from the AI call —
+      // auth/quota/input-size errors throw before this try block, so
+      // anything here came from OpenRouter (rate-limits, 5xx, content
+      // filters, malformed JSON, timeouts). Tier-drop beats throwing.
       const fallbackModel =
         primaryModel === "deepseek/deepseek-v4-pro"
           ? "deepseek/deepseek-v4-flash"
           : "deepseek/deepseek-v4-pro";
+      // eslint-disable-next-line no-console
+      console.warn(
+        `nzEditor.analyseStructure: primary ${primaryModel} failed (${msg}). Falling back to ${fallbackModel}.`,
+      );
       const r = await callOpenRouterDetailed({
         model: fallbackModel,
         responseFormatJson: true,

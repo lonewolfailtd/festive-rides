@@ -406,16 +406,12 @@ Analyse this paper as a general academic resource.`;
     return { result: parsed, modelUsed: r.modelUsed, usage: r.usage };
   }
 
-  function shouldRetry(err: unknown): boolean {
-    const msg = err instanceof Error ? err.message : "";
-    return (
-      msg.includes("empty response") ||
-      msg.includes("no content") ||
-      msg.includes("timed out") ||
-      msg.includes("Could not parse model output as JSON") ||
-      msg.includes("Unexpected end of JSON") ||
-      msg.includes("Unterminated string")
-    );
+  // Always retry on the sibling model. Anything thrown by callAndParse
+   // came from OpenRouter (rate-limits, 5xx, content filters, malformed
+   // JSON, timeouts) or our own empty-response self-throw. None of
+   // these are user-fixable — silent tier-drop beats erroring out.
+  function shouldRetry(_err: unknown): boolean {
+    return true;
   }
 
   let result: unknown;
@@ -608,17 +604,11 @@ Analyse this source as a general academic resource — relevance, key claims, an
       return { result: parsed, modelUsed: r.modelUsed, usage: r.usage };
     }
 
-    function shouldRetryOnOtherModel(err: unknown): boolean {
-      const msg = err instanceof Error ? err.message : "";
-      return (
-        msg.includes("empty response") ||
-        msg.includes("no content") ||
-        msg.includes("timed out") ||
-        // Parse failures: Flash returned partial / malformed JSON.
-        msg.includes("Could not parse model output as JSON") ||
-        msg.includes("Unexpected end of JSON") ||
-        msg.includes("Unterminated string")
-      );
+    // Always retry on the sibling model. Anything thrown by
+    // callAndParse came from OpenRouter or our own empty-response
+    // self-throw — silent tier-drop beats erroring out.
+    function shouldRetryOnOtherModel(_err: unknown): boolean {
+      return true;
     }
 
     let result: unknown;
