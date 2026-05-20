@@ -729,7 +729,30 @@ export default function ArticleQAClient() {
                         assignmentName: activeAssignment?.name,
                       };
                       try {
-                        window.sessionStorage.setItem(
+                        // Clean up reader-handoff entries older than
+                        // 1 hour — keeps localStorage from bloating
+                        // with old article texts.
+                        const now = Date.now();
+                        for (let i = 0; i < window.localStorage.length; i++) {
+                          const k = window.localStorage.key(i);
+                          if (!k || !k.startsWith("uni-source-reader-")) continue;
+                          const tsMatch = k.match(/-(\d{13,})$/);
+                          if (!tsMatch) continue;
+                          const ts = Number(tsMatch[1]);
+                          if (now - ts > 60 * 60 * 1000) {
+                            window.localStorage.removeItem(k);
+                          }
+                        }
+                      } catch {
+                        // ignore cleanup failures
+                      }
+                      try {
+                        // localStorage (NOT sessionStorage) — new tabs
+                        // opened with `noopener` get a fresh
+                        // sessionStorage, breaking the handoff.
+                        // localStorage is shared across all same-
+                        // origin tabs.
+                        window.localStorage.setItem(
                           sessionKey,
                           JSON.stringify(payload),
                         );

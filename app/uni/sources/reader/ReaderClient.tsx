@@ -6,10 +6,15 @@
 //   1. ?refId=<Id<"references">> — reads sourceText + lensAnalysis from
 //      Convex. Used when navigating from References or coming back to
 //      a previously-read paper.
-//   2. ?session=<sessionStorage key> — reads from sessionStorage. Used
-//      when navigating from Source Finder right after Deep Read,
-//      BEFORE the source has been saved as a reference. Survives until
-//      the tab closes.
+//   2. ?session=<storage key> — reads from localStorage. Used when
+//      navigating from Source Finder / Article Q&A in a new tab.
+//      We use localStorage (not sessionStorage) because window.open
+//      with the noopener flag puts the new tab in a separate browser
+//      "agent cluster" that doesn't share sessionStorage with the
+//      opener. localStorage is shared across all tabs of the same
+//      origin regardless of how they were opened. Entries get a
+//      timestamp; older-than-1-hour entries are auto-cleaned on the
+//      next write.
 //
 // UX goal: the student opens this and immediately sees which paragraphs
 // matter (yellow highlights) plus context around them, so they can
@@ -284,7 +289,12 @@ export default function ReaderClient() {
       return;
     }
     try {
-      const raw = window.sessionStorage.getItem(sessionKey);
+      // localStorage, not sessionStorage — see top-of-file note for
+      // why. We also fall back to sessionStorage for legacy keys
+      // written before the localStorage switch (graceful upgrade).
+      const raw =
+        window.localStorage.getItem(sessionKey) ??
+        window.sessionStorage.getItem(sessionKey);
       if (raw) {
         setSessionPayload(JSON.parse(raw) as SessionPayload);
       }
