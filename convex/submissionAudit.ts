@@ -127,12 +127,13 @@ export const audit = action({
 
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
 
-    // Flash by default: a real-world test on AS1 had Pro running 4m+ on
-    // an 11-criterion rubric. Flash produces equivalent-quality output
-    // on this structured-JSON task in ~80-100s. Pro stays available via
-    // the `model` arg for users who want a slower / arguably more
-    // thorough second opinion. Falls back to Pro on transient errors.
-    const primaryModel = args.model ?? "deepseek/deepseek-v4-flash";
+    // Gemini 2.5 Pro by default: this is the one tool that literally
+    // predicts the student's mark, so judgement quality matters most
+    // here. Gemini's calibration is closer to a real marker than
+    // DeepSeek's, and it pushes back on weak claims more honestly.
+    // Falls back to Gemini Flash on transient errors (much cheaper,
+    // still capable on this structured-JSON task).
+    const primaryModel = args.model ?? "google/gemini-2.5-pro";
 
     // Build a structured user message that keeps draft / rubric / brief
     // visually separated so the model doesn't conflate them.
@@ -171,12 +172,17 @@ export const audit = action({
         msg.includes("no content") ||
         msg.includes("timed out");
       if (!isTransient) throw err;
-      // Symmetric fallback: if Flash hiccups → try Pro; if Pro hiccups
-      // (because the user explicitly requested it) → try Flash.
+      // Symmetric fallback. Map between Pro<->Flash within the same
+      // family (Gemini or DeepSeek), so a transient error doesn't fall
+      // back to a model with very different behaviour.
       const fallbackModel =
-        primaryModel === "deepseek/deepseek-v4-pro"
-          ? "deepseek/deepseek-v4-flash"
-          : "deepseek/deepseek-v4-pro";
+        primaryModel === "google/gemini-2.5-pro"
+          ? "google/gemini-2.5-flash"
+          : primaryModel === "google/gemini-2.5-flash"
+            ? "google/gemini-2.5-pro"
+            : primaryModel === "deepseek/deepseek-v4-pro"
+              ? "deepseek/deepseek-v4-flash"
+              : "deepseek/deepseek-v4-pro";
       const r = await callOpenRouterDetailed({
         model: fallbackModel,
         responseFormatJson: true,

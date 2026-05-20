@@ -130,7 +130,11 @@ export default function SubmissionAuditClient() {
   // Model picker: Flash (fast, ~80s) is default; Pro (thorough, ~3-4 min)
   // is an opt-in second opinion. Stored in localStorage so the choice
   // sticks per browser.
-  const [model, setModel] = useState<"flash" | "pro">("flash");
+  // Default is "pro" because Gemini Pro is now the primary model for
+  // Submission Audit — the mark-prediction calibration is meaningfully
+  // better than Flash on this task. Users can downgrade to Flash for
+  // a faster (and cheaper) second opinion if they want.
+  const [model, setModel] = useState<"flash" | "pro">("pro");
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem("uni-submission-audit-model");
@@ -336,9 +340,12 @@ export default function SubmissionAuditClient() {
         briefText: brief.trim() ? brief : undefined,
         assignmentName: activeAssignment?.name,
         model:
+          // Map the UI toggle to actual model IDs. Gemini family by
+          // default — Pro is the mark-prediction default; Flash is the
+          // fast second opinion.
           model === "pro"
-            ? "deepseek/deepseek-v4-pro"
-            : "deepseek/deepseek-v4-flash",
+            ? "google/gemini-2.5-pro"
+            : "google/gemini-2.5-flash",
       })) as AuditResult;
       setResult(r);
     } catch (err) {
@@ -585,8 +592,9 @@ export default function SubmissionAuditClient() {
               Clear draft
             </button>
 
-            {/* Model picker. Flash is the sane default; Pro is the
-                opt-in slower second opinion. */}
+            {/* Model picker. Gemini Pro is the default — best mark-
+                prediction calibration. Gemini Flash is a faster +
+                cheaper second opinion. */}
             <div className="ml-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-700 dark:bg-slate-900">
               <button
                 type="button"
@@ -601,9 +609,9 @@ export default function SubmissionAuditClient() {
                     ? "bg-sky-100 font-medium text-sky-800 dark:bg-sky-950/60 dark:text-sky-200"
                     : "text-slate-600 hover:text-sky-700 dark:text-slate-400 dark:hover:text-sky-300"
                 }`}
-                title="DeepSeek V4 Flash — ~80–120s, recommended"
+                title="Gemini 2.5 Flash — ~30–60s, faster + cheaper second opinion"
               >
-                Flash · ~80s
+                Gemini Flash · fast
               </button>
               <button
                 type="button"
@@ -618,9 +626,9 @@ export default function SubmissionAuditClient() {
                     ? "bg-sky-100 font-medium text-sky-800 dark:bg-sky-950/60 dark:text-sky-200"
                     : "text-slate-600 hover:text-sky-700 dark:text-slate-400 dark:hover:text-sky-300"
                 }`}
-                title="DeepSeek V4 Pro — slower (3–4 min) second opinion"
+                title="Gemini 2.5 Pro — best mark-prediction calibration (default, ~80-120s)"
               >
-                Pro · ~3m
+                Gemini Pro · best
               </button>
             </div>
           </div>

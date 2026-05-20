@@ -277,10 +277,12 @@ Analyse this paper as a general academic resource.`;
 
     const userContent = `${sourceBlock}${assignmentBlock}\n\nProduce the JSON output. Remember: verbatim quotes from the paper, no fabrication.`;
 
-    // Pro by default — full-paper analysis is high-stakes and Pro's
-    // long-context judgement is meaningfully better. Flash fallback
-    // on transient / parse failures.
-    const primaryModel = args.model ?? "deepseek/deepseek-v4-pro";
+    // Gemini 2.5 Pro by default — long-context handling on 30+ page
+    // PDFs is measurably better than DeepSeek Pro (Google has tuned
+    // their 1M context window beyond what DeepSeek's degrades to past
+    // ~100K tokens). Gemini Flash fallback on transient / parse
+    // failures, keeping the family consistent.
+    const primaryModel = args.model ?? "google/gemini-2.5-pro";
 
     async function callAndParse(model: string): Promise<{
       result: unknown;
@@ -326,10 +328,17 @@ Analyse this paper as a general academic resource.`;
       usage = r.usage;
     } catch (err) {
       if (!shouldRetry(err)) throw err;
+      // Symmetric in-family fallback. Pro→Flash within the same
+      // model family keeps behavioural shape consistent so a mid-task
+      // fallback doesn't change calibration / hedging / output style.
       const fallbackModel =
-        primaryModel === "deepseek/deepseek-v4-pro"
-          ? "deepseek/deepseek-v4-flash"
-          : "deepseek/deepseek-v4-pro";
+        primaryModel === "google/gemini-2.5-pro"
+          ? "google/gemini-2.5-flash"
+          : primaryModel === "google/gemini-2.5-flash"
+            ? "google/gemini-2.5-pro"
+            : primaryModel === "deepseek/deepseek-v4-pro"
+              ? "deepseek/deepseek-v4-flash"
+              : "deepseek/deepseek-v4-pro";
       try {
         const r = await callAndParse(fallbackModel);
         result = r.result;
@@ -422,11 +431,14 @@ Analyse this source as a general academic resource — relevance, key claims, an
 
     const userContent = `${sourceBlock}${assignmentBlock}\n\nProduce the JSON output. Be honest about what you can and can't tell from the abstract alone.`;
 
-    // Flash by default — small structured output, no need for Pro.
-    // Pro fallback on transient errors AND on JSON parse errors (Flash
-    // occasionally returns empty or truncated output, which manifests
-    // as a parse failure rather than an HTTP-level error).
-    const primaryModel = args.model ?? "deepseek/deepseek-v4-flash";
+    // DeepSeek V4 Pro by default — Flash was fine for volume but Pro
+    // gives sharper, less generic verdicts and is still ~10× cheaper
+    // than Gemini Pro on this structured-output task. Falls back to
+    // Flash on transient errors AND on JSON parse errors (Pro can
+    // occasionally return empty or truncated output on edge cases,
+    // which manifests as a parse failure rather than an HTTP-level
+    // error).
+    const primaryModel = args.model ?? "deepseek/deepseek-v4-pro";
 
     // Single-shot call helper — runs the model, returns parsed result.
     // Throws either an HTTP-level error or a parse error; the caller
@@ -478,10 +490,15 @@ Analyse this source as a general academic resource — relevance, key claims, an
       usage = r.usage;
     } catch (err) {
       if (!shouldRetryOnOtherModel(err)) throw err;
+      // Symmetric in-family fallback — keeps calibration consistent.
       const fallbackModel =
-        primaryModel === "deepseek/deepseek-v4-pro"
-          ? "deepseek/deepseek-v4-flash"
-          : "deepseek/deepseek-v4-pro";
+        primaryModel === "google/gemini-2.5-pro"
+          ? "google/gemini-2.5-flash"
+          : primaryModel === "google/gemini-2.5-flash"
+            ? "google/gemini-2.5-pro"
+            : primaryModel === "deepseek/deepseek-v4-pro"
+              ? "deepseek/deepseek-v4-flash"
+              : "deepseek/deepseek-v4-pro";
       try {
         const r = await callAndParse(fallbackModel);
         result = r.result;

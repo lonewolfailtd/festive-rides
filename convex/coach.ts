@@ -67,7 +67,10 @@ export const coach = action({
 
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
     const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
-      model: args.model,
+      // DeepSeek V4 Pro by default — sharper scoring + less generic
+      // critique than Flash, ~10× cheaper than Gemini Pro for this
+      // mid-stakes "draft feedback" job. Caller can override.
+      model: args.model ?? "deepseek/deepseek-v4-pro",
       responseFormatJson: true,
       temperature: 0.3,
       maxTokens: 3500,
