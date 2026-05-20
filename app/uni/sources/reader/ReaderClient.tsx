@@ -114,6 +114,77 @@ function referenceToReaderInput(
   };
 }
 
+// Build ready-to-paste APA 7 in-text citations from the source
+// metadata plus an optional section/page string. Returns both forms
+// (parenthetical + narrative) so the reader UI can offer them
+// independently. Pulls page numbers from section strings like
+// "Results, p. 422" or "Methods (p. 4)".
+function buildCitations(opts: {
+  authors: string[]; // raw display strings — may be "Lastname, F." or "First Last"
+  year: number | null | undefined;
+  section?: string;
+}): {
+  parenthetical: string;
+  narrative: string;
+  page: string | null;
+} {
+  // Pull just the last name from each author entry. Two common shapes:
+  //   "Brown, Cynthia"  → "Brown"
+  //   "Cynthia Brown"   → "Brown" (last whitespace-separated token)
+  const lastNames = opts.authors
+    .map((a) => {
+      const trimmed = a.trim();
+      if (!trimmed) return "";
+      if (trimmed.includes(",")) {
+        return trimmed.split(",")[0].trim();
+      }
+      const parts = trimmed.split(/\s+/);
+      return parts[parts.length - 1];
+    })
+    .filter((n) => n.length > 0);
+
+  // Page extraction from a "section" hint. Looks for "p. 422", "pp. 415-426",
+  // "(p. 4)" patterns. Falls back to null when no page found.
+  let page: string | null = null;
+  if (opts.section) {
+    const m = opts.section.match(/pp?\.?\s*(\d+(?:[-–]\d+)?)/i);
+    if (m) page = m[1];
+  }
+
+  // APA 7 author formatting:
+  //   1 author    → "Smith"
+  //   2 authors   → "Smith & Jones" (parens) / "Smith and Jones" (narrative)
+  //   3+ authors  → "Smith et al." (both)
+  let parenAuthor: string;
+  let narAuthor: string;
+  if (lastNames.length === 0) {
+    parenAuthor = "[author]";
+    narAuthor = "[author]";
+  } else if (lastNames.length === 1) {
+    parenAuthor = lastNames[0];
+    narAuthor = lastNames[0];
+  } else if (lastNames.length === 2) {
+    parenAuthor = `${lastNames[0]} & ${lastNames[1]}`;
+    narAuthor = `${lastNames[0]} and ${lastNames[1]}`;
+  } else {
+    parenAuthor = `${lastNames[0]} et al.`;
+    narAuthor = `${lastNames[0]} et al.`;
+  }
+
+  const yearStr = opts.year ? String(opts.year) : "n.d.";
+  const pageSuffix = page ? `, p. ${page}` : "";
+
+  return {
+    parenthetical: `(${parenAuthor}, ${yearStr}${pageSuffix})`,
+    // Narrative: page goes in parens after the year — e.g.
+    // "Brown and Lowis (2003, p. 422)" — when a page is present.
+    narrative: page
+      ? `${narAuthor} (${yearStr}, p. ${page})`
+      : `${narAuthor} (${yearStr})`,
+    page,
+  };
+}
+
 // Normalise whitespace for fuzzy quote matching. AI-emitted quotes
 // sometimes collapse double spaces or use slightly different em-dash /
 // non-breaking-space handling than the pdfjs text extractor. This
@@ -501,18 +572,34 @@ export default function ReaderClient() {
               <ol className="mt-2 space-y-2">
                 {r.paragraphQuotes.map((q, i) => {
                   const canScroll = highlightRefs.current[i] != null;
+                  // Build APA in-text citations specifically for THIS
+                  // highlight. Page extracted from this quote's section
+                  // string if present — e.g. "Results, p. 422" gives
+                  // "(Brown & Lowis, 2003, p. 422)".
+                  const cite = buildCitations({
+                    authors: input.sourceAuthors,
+                    year: input.sourceYear ?? undefined,
+                    section: q.section,
+                  });
                   return (
-                    <li key={i}>
+                    <li
+                      key={i}
+                      className={`rounded-md border ${
+                        canScroll
+                          ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/30"
+                          : "border-slate-300 bg-slate-100 opacity-60 dark:border-slate-700 dark:bg-slate-900"
+                      }`}
+                    >
                       <button
                         type="button"
                         onClick={() => scrollToQuote(i)}
                         disabled={!canScroll}
-                        className={`w-full rounded-md border p-2 text-left text-xs transition-colors ${
+                        className="w-full p-2 text-left text-xs transition-colors hover:bg-amber-100 dark:hover:bg-amber-900/40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                        title={
                           canScroll
-                            ? "border-amber-300 bg-amber-50 hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:hover:border-amber-500 dark:hover:bg-amber-900/40"
-                            : "cursor-not-allowed border-slate-300 bg-slate-100 opacity-60 dark:border-slate-700 dark:bg-slate-900"
-                        }`}
-                        title={canScroll ? "Jump to this highlight" : "Not found in extracted text"}
+                            ? "Jump to this highlight"
+                            : "Not found in extracted text"
+                        }
                       >
                         <p className="font-medium text-amber-900 dark:text-amber-200">
                           {q.section}
@@ -524,6 +611,67 @@ export default function ReaderClient() {
                           {q.whyItMatters}
                         </p>
                       </button>
+                      {/* In-text citation copy buttons — three forms
+                          for the common assignment patterns. Stops
+                          the click from propagating into the scroll-
+                          to-highlight button above. */}
+                      <div
+                        className="flex flex-wrap gap-1 border-t border-amber-200 px-2 py-1.5 dark:border-amber-900/40"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                cite.parenthetical,
+                              );
+                              toast.success(`Copied: ${cite.parenthetical}`);
+                            } catch {
+                              toast.error("Couldn't copy");
+                            }
+                          }}
+                          className="rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-50 dark:border-amber-700/60 dark:bg-slate-900 dark:text-amber-200 dark:hover:border-amber-500"
+                          title="Copy parenthetical citation"
+                        >
+                          📋 {cite.parenthetical}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                cite.narrative,
+                              );
+                              toast.success(`Copied: ${cite.narrative}`);
+                            } catch {
+                              toast.error("Couldn't copy");
+                            }
+                          }}
+                          className="rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-50 dark:border-amber-700/60 dark:bg-slate-900 dark:text-amber-200 dark:hover:border-amber-500"
+                          title="Copy narrative citation (authors in your sentence)"
+                        >
+                          📋 {cite.narrative}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              // Quote + parenthetical citation — APA
+                              // 7 direct-quote block ready to paste.
+                              const block = `"${q.quote}" ${cite.parenthetical}`;
+                              await navigator.clipboard.writeText(block);
+                              toast.success("Copied quote + citation");
+                            } catch {
+                              toast.error("Couldn't copy");
+                            }
+                          }}
+                          className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900 transition-colors hover:border-emerald-500 hover:bg-emerald-100 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:border-emerald-500"
+                          title="Copy the verbatim quote with parenthetical citation appended"
+                        >
+                          📋 Quote + cite
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
