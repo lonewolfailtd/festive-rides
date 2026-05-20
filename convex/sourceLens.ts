@@ -145,10 +145,21 @@ async function extractPdfText(arrayBuffer: ArrayBuffer): Promise<string> {
   // only on Tier 2 calls. Convex actions cache modules between invocations
   // so this only matters for the first call after a deploy.
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // Point pdfjs at a CDN-hosted worker so it doesn't try to resolve
+  // `pdf.worker.mjs` from a bundled path that doesn't exist on
+  // Convex's serverless runtime. The version interpolation keeps the
+  // worker version in sync with the library version automatically.
+  // If this still fails, the caller will see a clear "use 📤 Upload
+  // PDF" message and the client-side extraction path handles it.
+  try {
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`;
+  } catch {
+    // GlobalWorkerOptions may not be writable in some runtime configs
+    // — ignore and let pdfjs use its default discovery, which falls
+    // through to the upload-PDF fallback.
+  }
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(arrayBuffer),
-    // Disable the worker — we're already in Node, no need for a
-    // separate worker thread. pdfjs handles this gracefully.
     useSystemFonts: true,
     isEvalSupported: false,
   });
@@ -276,8 +287,27 @@ export const deepRead = action({
       clearTimeout(fetchTimeout);
     }
 
-    // 2) Extract text with pdfjs.
-    const fullText = await extractPdfText(arrayBuffer);
+    // 2) Extract text with pdfjs. Wrap to translate the worker-load
+    // failure (a Convex-serverless-runtime quirk where pdfjs's worker
+    // module isn't bundled) into a clear "use Upload PDF" message —
+    // because the client-side pdfjs path (📤 Upload PDF button) is
+    // reliable and works around this entirely.
+    let fullText: string;
+    try {
+      fullText = await extractPdfText(arrayBuffer);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg.includes("fake worker") ||
+        msg.includes("pdf.worker") ||
+        msg.includes("Cannot find module")
+      ) {
+        throw new Error(
+          "Our server can't extract this PDF directly right now. Click the 📤 Upload PDF button on the same result instead — download the PDF in your browser, drop the file, and we'll do the rest. It's the same Deep Read analysis, just done from your end of the connection.",
+        );
+      }
+      throw err;
+    }
 
     // 3) Run the shared AI-analysis step.
     return await runDeepReadAnalysis(ctx, {
