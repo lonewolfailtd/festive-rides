@@ -91,6 +91,73 @@ const CONFIDENCE_TONE: Record<QuestionAnswer["confidence"], string> = {
   low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
+// Whitespace + smart-character normalisation so AI-emitted quotes
+// match against the pdfjs-extracted text even when the AI tweaked
+// spaces, dashes or curly quotes. Same approach as the Source Lens
+// Reader's highlight matcher.
+function normaliseForMatch(s: string): string {
+  return s
+    .replace(/\s+/g, " ")
+    .replace(/[–—]/g, "-")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim();
+}
+
+// Find a quote inside the extracted article text, returning the
+// surrounding context. Returns null if the quote can't be located
+// (rare but possible if the AI paraphrased very slightly).
+function findContext(
+  text: string,
+  quote: string,
+  contextChars = 350,
+): { before: string; match: string; after: string; pageHint: string } | null {
+  if (!text || !quote || quote.length < 10) return null;
+  const normText = normaliseForMatch(text);
+  const normQuote = normaliseForMatch(quote);
+  const idx = normText.indexOf(normQuote);
+  if (idx < 0) return null;
+  // Map normalised idx back to original-text position. Approximate
+  // (collapsed-whitespace runs in original become one space in
+  // normalised), but good enough for "show me ~350 chars around this".
+  let origStart = 0;
+  let normCursor = 0;
+  while (origStart < text.length && normCursor < idx) {
+    if (/\s/.test(text[origStart])) {
+      while (origStart < text.length && /\s/.test(text[origStart])) {
+        origStart++;
+      }
+      normCursor++;
+    } else {
+      origStart++;
+      normCursor++;
+    }
+  }
+  // Find the end of the match similarly. For simplicity, just take
+  // the next N original characters where N = quote length plus some
+  // padding for normalised whitespace collapse.
+  const origEnd = Math.min(
+    text.length,
+    origStart + Math.ceil(normQuote.length * 1.5),
+  );
+  const beforeStart = Math.max(0, origStart - contextChars);
+  const afterEnd = Math.min(text.length, origEnd + contextChars);
+  // Find the nearest [Page N] marker that appears before the match
+  // — gives the student a clear page reference even if the AI's
+  // section label was vague.
+  const beforeText = text.slice(0, origStart);
+  const pageMatches = beforeText.match(/\[Page (\d+)\]/g);
+  const pageHint = pageMatches
+    ? `Around p. ${pageMatches[pageMatches.length - 1].match(/\d+/)?.[0] ?? "?"}`
+    : "";
+  return {
+    before: text.slice(beforeStart, origStart),
+    match: text.slice(origStart, origEnd),
+    after: text.slice(origEnd, afterEnd),
+    pageHint,
+  };
+}
+
 export default function ArticleQAClient() {
   const answerAction = useAction(api.articleQA.answer);
   const extractQuestionsAction = useAction(api.articleQA.extractQuestions);
@@ -108,6 +175,17 @@ export default function ArticleQAClient() {
     done: number;
     total: number;
   } | null>(null);
+
+  // Snapshot of the article text + filename used in the LAST successful
+  // Q&A run. We need this to (a) show context around each quote, and
+  // (b) open the in-app reader with the same text. Stored separately
+  // from `articleText` (the textarea content) because the user might
+  // edit/clear the textarea after running and we still want the
+  // results panel to work.
+  const [lastRunText, setLastRunText] = useState<string>("");
+  const [lastRunSourceLabel, setLastRunSourceLabel] = useState<string>("");
+  // Per-quote 'show context' toggle. Keyed by `${answerIdx}-${quoteIdx}`.
+  const [contextOpen, setContextOpen] = useState<Record<string, boolean>>({});
 
   // Separate loading flag for the 'extract questions from brief' button.
   // Independent from the PDF extraction flag so they don't collide.
@@ -247,6 +325,7 @@ export default function ArticleQAClient() {
     setRunning(true);
     setResult(null);
     setLastRunSeconds(null);
+    setContextOpen({}); // reset per-quote expand state from prior runs
     const startedAt = performance.now();
     startTimer();
     try {
@@ -257,6 +336,15 @@ export default function ArticleQAClient() {
         assignmentName: activeAssignment?.name ?? undefined,
       })) as QAResult;
       setResult(r);
+      // Snapshot the article text so "show context" + the in-app
+      // reader can use exactly what the AI analysed, even if the
+      // student later edits the textarea.
+      setLastRunText(articleText);
+      setLastRunSourceLabel(
+        (r.authors?.names ?? []).slice(0, 2).join(", ") ||
+          activeAssignment?.name ||
+          "Article",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Article Q&A failed.");
     } finally {
@@ -591,13 +679,86 @@ export default function ArticleQAClient() {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Article overview
               </h2>
-              {lastRunSeconds !== null && (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-normal text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {lastRunSeconds < 60
-                    ? `${lastRunSeconds.toFixed(1)}s`
-                    : `${Math.floor(lastRunSeconds / 60)}m ${Math.floor(lastRunSeconds % 60)}s`}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Open the full article reader with all the AI's
+                    supporting quotes highlighted on the article text.
+                    Reuses /uni/sources/reader which already does this
+                    for Source Lens Deep Read — we just transform our
+                    Q&A answers into the paragraphQuote shape it
+                    expects. Handoff is via sessionStorage. */}
+                {lastRunText && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Flatten all supporting quotes across all
+                      // answers into paragraphQuote shape. Tag each
+                      // with "Q{n}: {question}" as the section so
+                      // when the reader shows the sidebar, the
+                      // student can see which question each
+                      // highlight is for.
+                      const paragraphQuotes = result.answers.flatMap(
+                        (a, ai) =>
+                          a.supportingQuotes.map((q) => ({
+                            section: `Q${ai + 1}: ${q.section}`,
+                            quote: q.quote,
+                            whyItMatters: a.answer,
+                          })),
+                      );
+                      const sessionKey = `uni-source-reader-qa-${Date.now()}`;
+                      const payload = {
+                        sourceTitle:
+                          lastRunSourceLabel || "Article (Article Q&A)",
+                        sourceAuthors: result.authors.names ?? [],
+                        sourceJournal: result.journal.name ?? undefined,
+                        sourceText: lastRunText,
+                        analysis: {
+                          relevance: {
+                            score: 8,
+                            verdict:
+                              "Highlights are the verbatim quotes Article Q&A used to answer your questions. Click any item in the sidebar to jump to it in the article.",
+                          },
+                          keyClaims: [],
+                          quotablePhrases: [],
+                          rubricFit: [],
+                          suggestedCitation: result.apaReference ?? "",
+                          skipIfRubricRequires: [],
+                          abstractLimitation: "",
+                          deepRead: true,
+                          paragraphQuotes,
+                        },
+                        assignmentName: activeAssignment?.name,
+                      };
+                      try {
+                        window.sessionStorage.setItem(
+                          sessionKey,
+                          JSON.stringify(payload),
+                        );
+                      } catch {
+                        toast.error(
+                          "Browser storage full — can't open reader.",
+                        );
+                        return;
+                      }
+                      window.open(
+                        `/uni/sources/reader?session=${encodeURIComponent(sessionKey)}`,
+                        "_blank",
+                        "noopener",
+                      );
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:border-amber-500 dark:hover:bg-amber-900/40"
+                    title="Open the article with all supporting quotes highlighted in a new tab"
+                  >
+                    📖 Read article with highlights
+                  </button>
+                )}
+                {lastRunSeconds !== null && (
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-normal text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {lastRunSeconds < 60
+                      ? `${lastRunSeconds.toFixed(1)}s`
+                      : `${Math.floor(lastRunSeconds / 60)}m ${Math.floor(lastRunSeconds % 60)}s`}
+                  </span>
+                )}
+              </div>
             </div>
             <p className="mt-2 text-sm leading-relaxed text-slate-800 dark:text-slate-200">
               {result.articleSummary}
@@ -700,19 +861,84 @@ export default function ArticleQAClient() {
                         Supporting quotes
                       </p>
                       <ul className="mt-1 space-y-1.5">
-                        {a.supportingQuotes.map((q, j) => (
-                          <li
-                            key={j}
-                            className="rounded-md border-l-2 border-amber-400 bg-amber-50/40 px-2 py-1 dark:border-amber-500 dark:bg-amber-950/20"
-                          >
-                            <p className="italic text-xs text-slate-800 dark:text-slate-200">
-                              &ldquo;{q.quote}&rdquo;
-                            </p>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                              — {q.section}
-                            </p>
-                          </li>
-                        ))}
+                        {a.supportingQuotes.map((q, j) => {
+                          const ctxKey = `${i}-${j}`;
+                          const isContextOpen =
+                            contextOpen[ctxKey] ?? false;
+                          // Try to locate the quote in the article
+                          // text we used during the run. If found,
+                          // we can offer expanded context.
+                          const context = isContextOpen
+                            ? findContext(lastRunText, q.quote)
+                            : null;
+                          return (
+                            <li
+                              key={j}
+                              className="rounded-md border-l-2 border-amber-400 bg-amber-50/40 px-2 py-1 dark:border-amber-500 dark:bg-amber-950/20"
+                            >
+                              <p className="italic text-xs text-slate-800 dark:text-slate-200">
+                                &ldquo;{q.quote}&rdquo;
+                              </p>
+                              <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-2">
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                                  — {q.section}
+                                </p>
+                                {/* Only show the toggle if we have the
+                                    extracted text in memory (i.e.
+                                    after a successful run). */}
+                                {lastRunText && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setContextOpen((s) => ({
+                                        ...s,
+                                        [ctxKey]: !isContextOpen,
+                                      }))
+                                    }
+                                    className="text-[11px] font-medium text-amber-700 hover:text-amber-600 dark:text-amber-300"
+                                  >
+                                    {isContextOpen
+                                      ? "Hide context"
+                                      : "📍 Show in PDF context"}
+                                  </button>
+                                )}
+                              </div>
+                              {isContextOpen && (
+                                <div className="mt-1.5 rounded-md border border-amber-200 bg-white p-2 dark:border-amber-900/60 dark:bg-slate-900">
+                                  {context ? (
+                                    <>
+                                      {context.pageHint && (
+                                        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                                          {context.pageHint}
+                                        </p>
+                                      )}
+                                      <p className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
+                                        …
+                                        <span className="opacity-70">
+                                          {context.before}
+                                        </span>
+                                        <mark className="bg-amber-300/80 px-0.5 dark:bg-amber-500/40 dark:text-amber-100">
+                                          {context.match}
+                                        </mark>
+                                        <span className="opacity-70">
+                                          {context.after}
+                                        </span>
+                                        …
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <p className="text-[11px] italic text-slate-500 dark:text-slate-400">
+                                      Couldn&apos;t locate this quote in the
+                                      extracted text — the AI may have
+                                      slightly paraphrased. The verbatim
+                                      quote above is what to cite.
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}
