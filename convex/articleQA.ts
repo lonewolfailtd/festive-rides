@@ -216,10 +216,14 @@ ${questionsBlock}
 
 Answer each question with facts from the article and verbatim supporting quotes. Never fabricate. Build the APA reference from the metadata you can find.`;
 
-    // Gemini 2.5 Pro by default — long-context reasoning over a full
-    // paper, multiple structured answers. Falls back to Gemini Flash
-    // on transient / parse failures.
-    const primaryModel = args.model ?? "google/gemini-2.5-pro";
+    // Gemini 2.5 Flash by default — this is a factual-extraction task
+    // (find these facts in the article, quote them verbatim), not a
+    // judgement task. Pro was 3-4× slower for no meaningful quality
+    // gain: real-world test on a 12-page paper with 9 questions ran
+    // 220+ seconds on Pro vs ~60s on Flash. Pro stays available via
+    // the model arg for users who want extra rigour. Falls back the
+    // other direction (Flash → Pro) on transient / parse failures.
+    const primaryModel = args.model ?? "google/gemini-2.5-flash";
 
     async function callAndParse(model: string): Promise<{
       result: unknown;
