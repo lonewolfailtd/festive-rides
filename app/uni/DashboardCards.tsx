@@ -36,7 +36,7 @@ const GROUPS: { eyebrow: string; tagline: string; hrefs: string[] }[] = [
   {
     eyebrow: "Plan",
     tagline: "Decode the brief and map the work.",
-    hrefs: ["/uni/analyser"],
+    hrefs: ["/uni/analyser", "/uni/unpack"],
   },
   {
     eyebrow: "Research",
