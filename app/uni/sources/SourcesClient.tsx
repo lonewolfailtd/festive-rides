@@ -182,10 +182,11 @@ export default function SourcesClient() {
   const search = useAction(api.sources.search);
   const createRef = useMutation(api.references.create);
   const sourceLens = useAction(api.sourceLens.analyse);
-  const sourceLensDeep = useAction(api.sourceLens.deepRead);
-  // Browser-fetched-PDF variant — used when the server-side deepRead
-  // hits a publisher IP block. Client extracts text locally via
-  // lib/pdfjs.ts, sends text to this action for AI analysis.
+  // Deep Read is now entirely client-fetch + client-extract → server
+  // analyses just the text. The server-side deepRead action stays in
+  // convex/sourceLens.ts for potential future use, but the UI doesn't
+  // call it anymore — too many failure modes (publisher IP blocks,
+  // pdfjs worker bundling on serverless).
   const sourceLensDeepFromText = useAction(api.sourceLens.deepReadFromText);
 
   const [selectedAssignment, setSelectedAssignment] = useState<
@@ -1263,9 +1264,17 @@ export default function SourcesClient() {
                       )}
 
                       {/* Deep Read — Tier 2. Only available on results
-                          with an open-access URL (no PDF = no deep
-                          read). Replaces the existing Lens analysis
-                          with a richer full-paper one when clicked. */}
+                          with an open-access URL. Fetch + pdfjs
+                          extraction both happen IN THE BROWSER (one
+                          click, no manual download), then we send only
+                          the extracted text to the server for AI
+                          analysis. This bypasses two problems with the
+                          old server-side fetch path: (1) publisher
+                          servers IP-blocking our cloud datacentre,
+                          and (2) pdfjs's worker module not bundling
+                          cleanly in Convex's serverless runtime. If
+                          the browser fetch fails (CORS), we tell the
+                          user to use 📤 Upload PDF as a fallback. */}
                       {r.openAccessUrl && r.abstract && r.abstract.length >= 50 && (
                         <button
                           type="button"
@@ -1279,37 +1288,103 @@ export default function SourcesClient() {
                             setLensRunning((s) => ({ ...s, [key]: true }));
                             setLensErrors((s) => ({ ...s, [key]: "" }));
                             try {
-                              const result = (await sourceLensDeep({
+                              // 1) Browser fetches the PDF. Residential
+                              // IP + browser identity — publishers
+                              // treat us as a real reader.
+                              const fetchRes = await fetch(r.openAccessUrl!, {
+                                // `cors` is the default; explicit here so
+                                // the failure mode is obvious if the
+                                // publisher's CORS headers are missing.
+                                mode: "cors",
+                              });
+                              if (!fetchRes.ok) {
+                                throw new Error(
+                                  `Browser couldn't fetch the PDF (HTTP ${fetchRes.status}). Try the 📤 Upload PDF button instead — download the file manually from the Read free link, then drop it in.`,
+                                );
+                              }
+                              const buffer = await fetchRes.arrayBuffer();
+
+                              // 2) Extract text via client-side pdfjs.
+                              // Same helper Quick Import + Checker use.
+                              const pdfjs = await loadPdfjs();
+                              const doc = await pdfjs.getDocument({
+                                data: buffer,
+                              }).promise;
+                              const parts: string[] = [];
+                              const maxPages = Math.min(doc.numPages, 50);
+                              for (let i = 1; i <= maxPages; i++) {
+                                const page = await doc.getPage(i);
+                                const content = await page.getTextContent();
+                                const t = content.items
+                                  .map((it) =>
+                                    "str" in it
+                                      ? (it as { str: string }).str
+                                      : "",
+                                  )
+                                  .join(" ");
+                                parts.push(`[Page ${i}]\n${t}`);
+                              }
+                              const fullText = parts
+                                .join("\n\n")
+                                .replace(/[ \t]+/g, " ")
+                                .trim();
+                              if (fullText.length < 200) {
+                                throw new Error(
+                                  "Couldn't extract text from this PDF — it may be a scanned image. Try a different result.",
+                                );
+                              }
+
+                              // 3) Send just the extracted text to the
+                              // server for AI analysis (deepReadFromText).
+                              const result = (await sourceLensDeepFromText({
                                 sourceTitle: r.title,
-                                sourceAuthors: (r.authors ?? []).map(authorLabel),
+                                sourceAuthors: (r.authors ?? []).map(
+                                  authorLabel,
+                                ),
                                 sourceYear: r.year ?? undefined,
                                 sourceJournal: r.journal ?? undefined,
-                                sourcePdfUrl: r.openAccessUrl!,
+                                extractedText: fullText,
                                 sourceDoi: r.doi ?? undefined,
                                 sourceType: r.type ?? undefined,
-                                assignmentBrief: activeAss?.brief ?? undefined,
-                                assignmentRubric: activeAss?.rubric ?? undefined,
+                                assignmentBrief:
+                                  activeAss?.brief ?? undefined,
+                                assignmentRubric:
+                                  activeAss?.rubric ?? undefined,
                                 assignmentName: activeAss?.name ?? undefined,
                               })) as LensDeepResult;
-                              // Cast into the same lensResults map so
-                              // sort / filter / hide-low logic Just Works.
-                              // LensDeepResult is a superset of LensResult.
-                              setLensResults((s) => ({ ...s, [key]: result as LensResult }));
+                              setLensResults((s) => ({
+                                ...s,
+                                [key]: result as LensResult,
+                              }));
                             } catch (err) {
+                              // Common CORS failure: fetch throws a
+                              // TypeError with "Failed to fetch" or
+                              // "NetworkError". Translate that to the
+                              // upload-PDF prompt explicitly.
+                              const msg =
+                                err instanceof Error
+                                  ? err.message
+                                  : "Deep read failed";
+                              const isCors =
+                                msg.includes("Failed to fetch") ||
+                                msg.includes("NetworkError") ||
+                                msg.includes("CORS");
                               setLensErrors((s) => ({
                                 ...s,
-                                [key]:
-                                  err instanceof Error
-                                    ? err.message
-                                    : "Deep read failed",
+                                [key]: isCors
+                                  ? "The publisher blocked the browser fetch (CORS). Click 📤 Upload PDF, save the file from the Read free link, then drop it in."
+                                  : msg,
                               }));
                             } finally {
-                              setLensRunning((s) => ({ ...s, [key]: false }));
+                              setLensRunning((s) => ({
+                                ...s,
+                                [key]: false,
+                              }));
                             }
                           }}
                           disabled={lensRunning[key]}
                           className="inline-flex items-center gap-1 rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:border-emerald-500 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
-                          title="Fetch the full PDF and run a deeper analysis — section-level relevance, page-numbered quotes (~1 minute)"
+                          title="Fetch the PDF in your browser, extract text, and run a deeper analysis — section-level relevance, page-numbered quotes (~30-60s)"
                         >
                           📖 Deep Read PDF
                         </button>
