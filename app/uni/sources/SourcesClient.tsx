@@ -16,6 +16,7 @@ import {
   type LensDeepResult,
 } from "../SourceLensPanel";
 import { toast } from "sonner";
+import { loadPdfjs } from "@/lib/pdfjs";
 
 type SearchResult = {
   id?: string;
@@ -182,6 +183,10 @@ export default function SourcesClient() {
   const createRef = useMutation(api.references.create);
   const sourceLens = useAction(api.sourceLens.analyse);
   const sourceLensDeep = useAction(api.sourceLens.deepRead);
+  // Browser-fetched-PDF variant — used when the server-side deepRead
+  // hits a publisher IP block. Client extracts text locally via
+  // lib/pdfjs.ts, sends text to this action for AI analysis.
+  const sourceLensDeepFromText = useAction(api.sourceLens.deepReadFromText);
 
   const [selectedAssignment, setSelectedAssignment] = useState<
     Id<"assignments"> | "all"
@@ -1142,6 +1147,120 @@ export default function SourcesClient() {
                           </button>
                         );
                       })()}
+
+                      {/* Manual PDF upload for Deep Read — bypass for
+                          publisher IP-blocks. Student downloads the
+                          PDF themselves (their browser, their IP, no
+                          server scrape) then drops it back here for
+                          extraction + AI analysis. Available on every
+                          result so it works for paywalled-with-library-
+                          access AND blocked-OA papers, not just the
+                          "Free to read" set. */}
+                      {r.abstract && r.abstract.length >= 50 && (
+                        <label
+                          className={`inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:border-amber-500 dark:hover:bg-amber-900/40 ${
+                            lensRunning[key]
+                              ? "pointer-events-none opacity-60"
+                              : ""
+                          }`}
+                          title="Upload the PDF yourself (works for papers our server can't fetch — Cloudflare blocks, library-access papers, etc)"
+                        >
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            className="hidden"
+                            disabled={lensRunning[key]}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              // Reset the input so the same file can be re-picked
+                              e.target.value = "";
+                              if (!file) return;
+                              if (file.size > 30 * 1024 * 1024) {
+                                toast.error("PDF over 30MB — please trim.");
+                                return;
+                              }
+                              const activeAss =
+                                selectedAssignment !== "all"
+                                  ? assignments?.find(
+                                      (a) => a._id === selectedAssignment,
+                                    )
+                                  : undefined;
+                              setLensOpen((s) => ({ ...s, [key]: true }));
+                              setLensRunning((s) => ({ ...s, [key]: true }));
+                              setLensErrors((s) => ({ ...s, [key]: "" }));
+                              try {
+                                // Client-side extraction — same pdfjs
+                                // helper QuickImport / Checker use.
+                                const pdfjs = await loadPdfjs();
+                                const buffer = await file.arrayBuffer();
+                                const doc = await pdfjs.getDocument({
+                                  data: buffer,
+                                }).promise;
+                                const parts: string[] = [];
+                                const maxPages = Math.min(doc.numPages, 50);
+                                for (let i = 1; i <= maxPages; i++) {
+                                  const page = await doc.getPage(i);
+                                  const content = await page.getTextContent();
+                                  const t = content.items
+                                    .map((it) =>
+                                      "str" in it
+                                        ? (it as { str: string }).str
+                                        : "",
+                                    )
+                                    .join(" ");
+                                  parts.push(`[Page ${i}]\n${t}`);
+                                }
+                                const fullText = parts
+                                  .join("\n\n")
+                                  .replace(/[ \t]+/g, " ")
+                                  .trim();
+                                if (fullText.length < 200) {
+                                  throw new Error(
+                                    "Couldn't extract text — the PDF may be a scanned image. No OCR available.",
+                                  );
+                                }
+                                const result = (await sourceLensDeepFromText({
+                                  sourceTitle: r.title,
+                                  sourceAuthors: (r.authors ?? []).map(
+                                    authorLabel,
+                                  ),
+                                  sourceYear: r.year ?? undefined,
+                                  sourceJournal: r.journal ?? undefined,
+                                  extractedText: fullText,
+                                  sourceDoi: r.doi ?? undefined,
+                                  sourceType: r.type ?? undefined,
+                                  assignmentBrief:
+                                    activeAss?.brief ?? undefined,
+                                  assignmentRubric:
+                                    activeAss?.rubric ?? undefined,
+                                  assignmentName: activeAss?.name ?? undefined,
+                                })) as LensDeepResult;
+                                setLensResults((s) => ({
+                                  ...s,
+                                  [key]: result as LensResult,
+                                }));
+                                toast.success(
+                                  `Deep Read complete — extracted ${maxPages} page${maxPages === 1 ? "" : "s"}.`,
+                                );
+                              } catch (err) {
+                                setLensErrors((s) => ({
+                                  ...s,
+                                  [key]:
+                                    err instanceof Error
+                                      ? err.message
+                                      : "PDF deep read failed",
+                                }));
+                              } finally {
+                                setLensRunning((s) => ({
+                                  ...s,
+                                  [key]: false,
+                                }));
+                              }
+                            }}
+                          />
+                          📤 Upload PDF
+                        </label>
+                      )}
 
                       {/* Deep Read — Tier 2. Only available on results
                           with an open-access URL (no PDF = no deep

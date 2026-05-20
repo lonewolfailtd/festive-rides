@@ -20,7 +20,8 @@
 // it" than to over-claim what's in a paper we haven't seen the body of.
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
@@ -278,124 +279,207 @@ export const deepRead = action({
     // 2) Extract text with pdfjs.
     const fullText = await extractPdfText(arrayBuffer);
 
-    // 3) Build the user message and call the AI.
-    const authorBlurb =
-      args.sourceAuthors.length > 0
-        ? args.sourceAuthors.join(", ")
-        : "[authors not listed]";
-    const yearBlurb = args.sourceYear ? String(args.sourceYear) : "[year unknown]";
-    const journalBlurb = args.sourceJournal ? ` · ${args.sourceJournal}` : "";
+    // 3) Run the shared AI-analysis step.
+    return await runDeepReadAnalysis(ctx, {
+      fullText,
+      sourceTitle: args.sourceTitle,
+      sourceAuthors: args.sourceAuthors,
+      sourceYear: args.sourceYear,
+      sourceJournal: args.sourceJournal,
+      sourceDoi: args.sourceDoi,
+      sourceType: args.sourceType,
+      assignmentBrief: args.assignmentBrief,
+      assignmentRubric: args.assignmentRubric,
+      assignmentName: args.assignmentName,
+      model: args.model,
+      usageActionLabel: "sourceLens.deepRead",
+      userId,
+    });
+  },
+});
 
-    const sourceBlock = `=== SOURCE METADATA ===
-Title: ${args.sourceTitle}
+// Shared deep-read AI analysis. Used by:
+//   - deepRead (server fetches + extracts PDF then calls this)
+//   - deepReadFromText (client provides pre-extracted PDF text and
+//     calls this — used as a fallback when publishers IP-block our
+//     server-side fetch)
+// Same prompt, same model defaults, same fallback chain. Returns the
+// usual deepRead shape including extractedText so the in-app reader
+// works regardless of which path produced the analysis.
+async function runDeepReadAnalysis(
+  ctx: ActionCtx,
+  input: {
+    fullText: string;
+    sourceTitle: string;
+    sourceAuthors: string[];
+    sourceYear?: number;
+    sourceJournal?: string;
+    sourceDoi?: string;
+    sourceType?: string;
+    assignmentBrief?: string;
+    assignmentRubric?: string;
+    assignmentName?: string;
+    model?: string;
+    usageActionLabel: string;
+    userId: Id<"users">;
+  },
+): Promise<Record<string, unknown>> {
+  const authorBlurb =
+    input.sourceAuthors.length > 0
+      ? input.sourceAuthors.join(", ")
+      : "[authors not listed]";
+  const yearBlurb = input.sourceYear ? String(input.sourceYear) : "[year unknown]";
+  const journalBlurb = input.sourceJournal ? ` · ${input.sourceJournal}` : "";
+
+  const sourceBlock = `=== SOURCE METADATA ===
+Title: ${input.sourceTitle}
 Authors: ${authorBlurb}
 Year: ${yearBlurb}${journalBlurb}
-${args.sourceDoi ? `DOI: ${args.sourceDoi}\n` : ""}${args.sourceType ? `Type: ${args.sourceType}\n` : ""}
+${input.sourceDoi ? `DOI: ${input.sourceDoi}\n` : ""}${input.sourceType ? `Type: ${input.sourceType}\n` : ""}
 
 === FULL PAPER TEXT (extracted from PDF; [Page N] markers preserved) ===
-${fullText}`;
+${input.fullText}`;
 
-    const assignmentBlock =
-      args.assignmentBrief || args.assignmentRubric
-        ? `\n\n=== STUDENT'S ASSIGNMENT ${args.assignmentName ? `(${args.assignmentName}) ` : ""}===
-${args.assignmentBrief ? `BRIEF / TASK:\n${args.assignmentBrief.trim().slice(0, 4000)}\n\n` : ""}${args.assignmentRubric ? `RUBRIC:\n${args.assignmentRubric.trim().slice(0, 8000)}\n` : ""}`
-        : `\n\n=== NO ASSIGNMENT CONTEXT PROVIDED ===
+  const assignmentBlock =
+    input.assignmentBrief || input.assignmentRubric
+      ? `\n\n=== STUDENT'S ASSIGNMENT ${input.assignmentName ? `(${input.assignmentName}) ` : ""}===
+${input.assignmentBrief ? `BRIEF / TASK:\n${input.assignmentBrief.trim().slice(0, 4000)}\n\n` : ""}${input.assignmentRubric ? `RUBRIC:\n${input.assignmentRubric.trim().slice(0, 8000)}\n` : ""}`
+      : `\n\n=== NO ASSIGNMENT CONTEXT PROVIDED ===
 Analyse this paper as a general academic resource.`;
 
-    const userContent = `${sourceBlock}${assignmentBlock}\n\nProduce the JSON output. Remember: verbatim quotes from the paper, no fabrication.`;
+  const userContent = `${sourceBlock}${assignmentBlock}\n\nProduce the JSON output. Remember: verbatim quotes from the paper, no fabrication.`;
 
-    // Gemini 2.5 Pro by default — long-context handling on 30+ page
-    // PDFs is measurably better than DeepSeek Pro (Google has tuned
-    // their 1M context window beyond what DeepSeek's degrades to past
-    // ~100K tokens). Gemini Flash fallback on transient / parse
-    // failures, keeping the family consistent.
-    const primaryModel = args.model ?? "google/gemini-2.5-pro";
+  // Gemini 2.5 Pro by default — long-context handling on 30+ page
+  // PDFs is measurably better than DeepSeek Pro. Falls back to Gemini
+  // Flash on transient / parse failures.
+  const primaryModel = input.model ?? "google/gemini-2.5-pro";
 
-    async function callAndParse(model: string): Promise<{
-      result: unknown;
-      modelUsed: string;
-      usage: { inputTokens: number; outputTokens: number };
-    }> {
-      const r = await callOpenRouterDetailed({
-        model,
-        responseFormatJson: true,
-        temperature: 0.2,
-        maxTokens: 8000,
-        messages: [
-          { role: "system", content: DEEP_SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-      });
-      if (!r.content || !r.content.trim()) {
-        throw new Error("empty response");
-      }
-      const parsed = safeJsonParse(r.content);
-      return { result: parsed, modelUsed: r.modelUsed, usage: r.usage };
+  async function callAndParse(model: string): Promise<{
+    result: unknown;
+    modelUsed: string;
+    usage: { inputTokens: number; outputTokens: number };
+  }> {
+    const r = await callOpenRouterDetailed({
+      model,
+      responseFormatJson: true,
+      temperature: 0.2,
+      maxTokens: 8000,
+      messages: [
+        { role: "system", content: DEEP_SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+    });
+    if (!r.content || !r.content.trim()) {
+      throw new Error("empty response");
     }
+    const parsed = safeJsonParse(r.content);
+    return { result: parsed, modelUsed: r.modelUsed, usage: r.usage };
+  }
 
-    function shouldRetry(err: unknown): boolean {
-      const msg = err instanceof Error ? err.message : "";
-      return (
-        msg.includes("empty response") ||
-        msg.includes("no content") ||
-        msg.includes("timed out") ||
-        msg.includes("Could not parse model output as JSON") ||
-        msg.includes("Unexpected end of JSON") ||
-        msg.includes("Unterminated string")
-      );
-    }
+  function shouldRetry(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : "";
+    return (
+      msg.includes("empty response") ||
+      msg.includes("no content") ||
+      msg.includes("timed out") ||
+      msg.includes("Could not parse model output as JSON") ||
+      msg.includes("Unexpected end of JSON") ||
+      msg.includes("Unterminated string")
+    );
+  }
 
-    let result: unknown;
-    let modelUsed: string;
-    let usage: { inputTokens: number; outputTokens: number };
+  let result: unknown;
+  let modelUsed: string;
+  let usage: { inputTokens: number; outputTokens: number };
+  try {
+    const r = await callAndParse(primaryModel);
+    result = r.result;
+    modelUsed = r.modelUsed;
+    usage = r.usage;
+  } catch (err) {
+    if (!shouldRetry(err)) throw err;
+    const fallbackModel =
+      primaryModel === "google/gemini-2.5-pro"
+        ? "google/gemini-2.5-flash"
+        : primaryModel === "google/gemini-2.5-flash"
+          ? "google/gemini-2.5-pro"
+          : primaryModel === "deepseek/deepseek-v4-pro"
+            ? "deepseek/deepseek-v4-flash"
+            : "deepseek/deepseek-v4-pro";
     try {
-      const r = await callAndParse(primaryModel);
+      const r = await callAndParse(fallbackModel);
       result = r.result;
       modelUsed = r.modelUsed;
       usage = r.usage;
-    } catch (err) {
-      if (!shouldRetry(err)) throw err;
-      // Symmetric in-family fallback. Pro→Flash within the same
-      // model family keeps behavioural shape consistent so a mid-task
-      // fallback doesn't change calibration / hedging / output style.
-      const fallbackModel =
-        primaryModel === "google/gemini-2.5-pro"
-          ? "google/gemini-2.5-flash"
-          : primaryModel === "google/gemini-2.5-flash"
-            ? "google/gemini-2.5-pro"
-            : primaryModel === "deepseek/deepseek-v4-pro"
-              ? "deepseek/deepseek-v4-flash"
-              : "deepseek/deepseek-v4-pro";
-      try {
-        const r = await callAndParse(fallbackModel);
-        result = r.result;
-        modelUsed = r.modelUsed;
-        usage = r.usage;
-      } catch {
-        throw new Error(
-          "Source Lens deep read couldn't analyse this paper — the AI returned incomplete results on both attempts. The paper may be unusually long or formatted strangely. Try the abstract-only Lens for a quicker summary.",
-        );
-      }
+    } catch {
+      throw new Error(
+        "Source Lens deep read couldn't analyse this paper — the AI returned incomplete results on both attempts. The paper may be unusually long or formatted strangely. Try the abstract-only Lens for a quicker summary.",
+      );
     }
+  }
 
-    await ctx.runMutation(internal.usage.recordUsage, {
+  await ctx.runMutation(internal.usage.recordUsage, {
+    userId: input.userId,
+    action: input.usageActionLabel,
+    model: modelUsed,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+  });
+
+  return {
+    ...(result as Record<string, unknown>),
+    deepRead: true,
+    extractedText: input.fullText,
+  };
+}
+
+// Tier 2 deep-read action — client-fetched PDF variant. Takes the
+// pre-extracted text from the client (which fetched + extracted the
+// PDF in the browser using lib/pdfjs.ts). Used when the server-side
+// deepRead hits 403 / Cloudflare bot block from the publisher: the
+// student's browser has a residential IP that the publisher trusts,
+// so it can fetch what our server can't.
+export const deepReadFromText = action({
+  args: {
+    sourceTitle: v.string(),
+    sourceAuthors: v.array(v.string()),
+    sourceYear: v.optional(v.number()),
+    sourceJournal: v.optional(v.string()),
+    extractedText: v.string(),
+    sourceDoi: v.optional(v.string()),
+    sourceType: v.optional(v.string()),
+    assignmentBrief: v.optional(v.string()),
+    assignmentRubric: v.optional(v.string()),
+    assignmentName: v.optional(v.string()),
+    model: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    if (args.extractedText.trim().length < 200) {
+      throw new Error(
+        "The extracted PDF text is too short to analyse — the file may not have been a PDF, or the extraction picked up only image-based pages.",
+      );
+    }
+    await ctx.runQuery(internal.usage.enforceQuota, { userId });
+    return await runDeepReadAnalysis(ctx, {
+      fullText:
+        args.extractedText.length > 200000
+          ? args.extractedText.slice(0, 200000)
+          : args.extractedText,
+      sourceTitle: args.sourceTitle,
+      sourceAuthors: args.sourceAuthors,
+      sourceYear: args.sourceYear,
+      sourceJournal: args.sourceJournal,
+      sourceDoi: args.sourceDoi,
+      sourceType: args.sourceType,
+      assignmentBrief: args.assignmentBrief,
+      assignmentRubric: args.assignmentRubric,
+      assignmentName: args.assignmentName,
+      model: args.model,
+      usageActionLabel: "sourceLens.deepReadFromText",
       userId,
-      action: "sourceLens.deepRead",
-      model: modelUsed,
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
     });
-
-    // Mark this analysis as a deep read so the UI can surface the
-    // section breakdown and suppress the abstract-only caveat.
-    // Also return the extracted text so the in-app reader can render
-    // the paper with the AI highlights overlaid without re-fetching
-    // and re-extracting on every open.
-    return {
-      ...(result as Record<string, unknown>),
-      deepRead: true,
-      extractedText: fullText,
-    };
   },
 });
 
