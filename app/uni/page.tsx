@@ -68,6 +68,12 @@ const cards = [
     blurb:
       "Right before you submit: checks your finished draft against the rubric, criterion by criterion. Highlights covered / partial / missing — points to what to add and where, without writing it for you. Predicts your mark band.",
   },
+  {
+    href: "/uni/article-qa",
+    title: "Article Q&A",
+    blurb:
+      "For 'read this article and answer questions' assessment tasks. Upload the article PDF, paste your assignment questions, and get factual answers with verbatim supporting quotes from the article + an auto-generated APA reference. You write the answer; the tool just hands you the research notes.",
+  },
 ];
 
 export default function UniHomePage() {

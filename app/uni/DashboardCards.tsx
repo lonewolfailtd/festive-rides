@@ -41,7 +41,12 @@ const GROUPS: { eyebrow: string; tagline: string; hrefs: string[] }[] = [
   {
     eyebrow: "Research",
     tagline: "Find sources and build your reference list.",
-    hrefs: ["/uni/references", "/uni/sources", "/uni/bibliography"],
+    hrefs: [
+      "/uni/references",
+      "/uni/sources",
+      "/uni/bibliography",
+      "/uni/article-qa",
+    ],
   },
   {
     eyebrow: "Write & Review",

@@ -12,6 +12,7 @@ import type * as _ical from "../_ical.js";
 import type * as aiChecker from "../aiChecker.js";
 import type * as analyser from "../analyser.js";
 import type * as analysisStore from "../analysisStore.js";
+import type * as articleQA from "../articleQA.js";
 import type * as assignments from "../assignments.js";
 import type * as auditLog from "../auditLog.js";
 import type * as auth from "../auth.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   aiChecker: typeof aiChecker;
   analyser: typeof analyser;
   analysisStore: typeof analysisStore;
+  articleQA: typeof articleQA;
   assignments: typeof assignments;
   auditLog: typeof auditLog;
   auth: typeof auth;
