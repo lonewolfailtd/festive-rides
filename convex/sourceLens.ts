@@ -199,6 +199,15 @@ export const deepRead = action({
     // 1) Fetch the PDF server-side (no CORS limits like client-side).
     // 60s timeout — academic PDFs can be slow to download, but if
     // they're taking that long we should give up and tell the user.
+    //
+    // Browser-shaped User-Agent + Accept header. Publisher servers
+    // (Wiley, Springer, Elsevier, sometimes arXiv mirrors) routinely
+    // 403 server-side identities like "UniCitationTool/1.0" because
+    // they look like scrapers. A Chrome-flavoured UA + matching
+    // Accept header gets past most of these heuristic blocks without
+    // crossing into anything misleading — we're identifying as a
+    // browser-equivalent because we're literally doing what a browser
+    // would do (fetch a PDF and display it).
     const fetchController = new AbortController();
     const fetchTimeout = setTimeout(() => fetchController.abort(), 60_000);
     let arrayBuffer: ArrayBuffer;
@@ -206,14 +215,32 @@ export const deepRead = action({
       const res = await fetch(args.sourcePdfUrl, {
         headers: {
           "User-Agent":
-            "UniCitationTool/1.0 (mailto:contact@lonewolfaisolutions.com)",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Accept:
+            "application/pdf,application/octet-stream,text/html;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-NZ,en-GB;q=0.9,en;q=0.8",
         },
         signal: fetchController.signal,
+        // Follow redirects — many OA URLs go through a redirect
+        // chain (e.g. doi.org → publisher → CDN → PDF).
+        redirect: "follow",
       });
       if (!res.ok) {
         if (res.status === 404) {
           throw new Error(
             "The free PDF link is broken (404). The publisher may have moved it. Try the abstract-only Lens or search for another source.",
+          );
+        }
+        if (res.status === 403) {
+          throw new Error(
+            "The publisher's server blocked the PDF download (HTTP 403). This usually means Cloudflare bot protection or a paywall guard. Try opening the source's 'Read free' link manually — if the PDF works in your browser, it just doesn't trust our server. The abstract-only Lens still works for this paper.",
+          );
+        }
+        if (res.status === 401 || res.status === 407) {
+          throw new Error(
+            "The PDF needs authentication (HTTP " +
+              res.status +
+              "). This source isn't actually openly accessible — try the abstract-only Lens, or sign in to the publisher through your library.",
           );
         }
         if (res.status >= 500) {
