@@ -51,6 +51,9 @@ OUTPUT (JSON, no markdown):
   ],
   "missingQuestions": [
     "string — any questions the article doesn't contain enough information to answer. Empty array if all answered."
+  ],
+  "suggestedSearches": [
+    "string — 3-5 short scholarly-search queries (5-15 words each) the student could run on Source Finder to find SUPPORTING sources that complement this article. Aim queries at the article's CORE TOPICS so the student can find adjacent literature for the 'support any other factual information with suitable sources' part of the assignment. Don't repeat the article's exact title; suggest topics it touches on."
   ]
 }
 
@@ -79,6 +82,12 @@ NON-NEGOTIABLE RULES:
 // of questions the student needs to answer. Cheap Flash-tier task —
 // pure structure recognition (find the bullet lists, the question
 // sentences in Part A / B etc), no judgement. ~$0.0002 per call.
+//
+// Two output modes:
+//   - taskFilter empty/"all" → return ALL article-related questions
+//     plus a flat list of task headings the AI detected (so the
+//     client can show a picker for the next call).
+//   - taskFilter set → return ONLY questions for that task / part
 const EXTRACT_SYSTEM_PROMPT = `You are reading an academic assignment brief. Identify every distinct question the student needs to answer when reading their assigned research article. Return them as a flat list — one question per array item, in the order they appear.
 
 INCLUDE:
@@ -93,21 +102,30 @@ EXCLUDE:
 - General writing advice
 - Instructions to generate the student's own research question or original content (those aren't extractable from the article)
 
+TASK FILTERING:
+- Briefs are usually structured into Tasks (Task 1, Task 2, Task 3) or Parts (Part A, Part B, Part C).
+- ALSO detect any other sectioning ("Section 1", "Question 1" etc).
+- Return the detected task/section headings in 'detectedTasks' so the client can show a picker.
+- If the user provided a 'taskFilter' in the prompt (e.g., "Task 2" or "Part A"), return ONLY questions from that section. Match flexibly — "Task 2" should match "Task 2:", "Task 2 — ...", "Part A of Task 2", etc.
+
 OUTPUT (JSON, no markdown):
 {
+  "detectedTasks": [
+    "string — heading of a task/section found in the brief, in the order they appear. E.g. 'Task 1', 'Task 2 Part A', 'Task 2 Part B', 'Task 3'."
+  ],
   "questions": [
-    "string — one question per item, phrased clearly enough that the AI can answer it from a research article",
-    ...
+    "string — one question per item, phrased clearly enough that the AI can answer it from a research article"
   ]
 }
 
-If the assignment has no article-related questions, return an empty array. Don't invent questions.
+If the assignment has no article-related questions, return an empty array for questions. Don't invent questions.
 
 Use NZ English. No Oxford commas.`;
 
 export const extractQuestions = action({
   args: {
     assignmentBrief: v.string(),
+    taskFilter: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -125,10 +143,14 @@ export const extractQuestions = action({
     // Cap brief input — most Open Polytech briefs are 5-20k chars.
     const briefCapped = brief.length > 30000 ? brief.slice(0, 30000) : brief;
 
+    const taskFilterBlock = args.taskFilter?.trim()
+      ? `\n\n=== TASK FILTER ===\nReturn ONLY questions belonging to: ${args.taskFilter.trim()}\nIgnore questions from other tasks/parts.\n`
+      : "";
+
     const userContent = `=== ASSIGNMENT BRIEF ===
 ${briefCapped}
-
-Extract the questions the student needs to answer when reading their research article.`;
+${taskFilterBlock}
+Extract the questions the student needs to answer when reading their research article. Also list the task/section headings you detected.`;
 
     const r = await callOpenRouterDetailed({
       model: "deepseek/deepseek-v4-flash",
@@ -147,7 +169,10 @@ Extract the questions the student needs to answer when reading their research ar
       );
     }
 
-    const parsed = safeJsonParse(r.content) as { questions?: string[] };
+    const parsed = safeJsonParse(r.content) as {
+      questions?: string[];
+      detectedTasks?: string[];
+    };
 
     await ctx.runMutation(internal.usage.recordUsage, {
       userId,
@@ -159,6 +184,7 @@ Extract the questions the student needs to answer when reading their research ar
 
     return {
       questions: parsed.questions ?? [],
+      detectedTasks: parsed.detectedTasks ?? [],
     };
   },
 });

@@ -67,6 +67,10 @@ interface QAResult {
   apaReference: string;
   answers: QuestionAnswer[];
   missingQuestions: string[];
+  // 3-5 Source Finder search queries the AI thinks the student could
+  // run to find supporting sources beyond this one article. Renders
+  // as clickable chips that open Source Finder pre-filled.
+  suggestedSearches?: string[];
 }
 
 const labelStyle =
@@ -108,6 +112,13 @@ export default function ArticleQAClient() {
   // Separate loading flag for the 'extract questions from brief' button.
   // Independent from the PDF extraction flag so they don't collide.
   const [extractingQuestions, setExtractingQuestions] = useState(false);
+
+  // Task focus — empty = extract all tasks; "Task 2" / "Part A" / etc
+  // filters the extraction to just that section. After an extraction
+  // run we also stash the detectedTasks array so users can quickly
+  // re-extract for a different task.
+  const [taskFocus, setTaskFocus] = useState("");
+  const [detectedTasks, setDetectedTasks] = useState<string[]>([]);
 
   // Honest elapsed timer.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -372,41 +383,60 @@ export default function ArticleQAClient() {
                     Only shown when the assignment has a stored brief
                     (came from Quick Import). Cheap Flash-tier call. */}
                 {activeAssignment?.brief && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (extractingQuestions) return;
-                      setExtractingQuestions(true);
-                      try {
-                        const r = (await extractQuestionsAction({
-                          assignmentBrief: activeAssignment.brief!,
-                        })) as { questions: string[] };
-                        if (r.questions.length === 0) {
-                          toast.info(
-                            "No article-related questions found in the brief. Paste them manually.",
+                  <>
+                    {/* Task focus — narrow extraction to one task/part.
+                        Empty = extract all article-related questions. */}
+                    <input
+                      type="text"
+                      value={taskFocus}
+                      onChange={(e) => setTaskFocus(e.target.value)}
+                      placeholder="Task 2"
+                      className="w-24 rounded border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-800 placeholder-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder-slate-500"
+                      title="Optional: narrow extraction to a specific task/part. E.g., 'Task 2' or 'Part A'. Leave blank for all questions."
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (extractingQuestions) return;
+                        setExtractingQuestions(true);
+                        try {
+                          const r = (await extractQuestionsAction({
+                            assignmentBrief: activeAssignment.brief!,
+                            taskFilter: taskFocus.trim() || undefined,
+                          })) as {
+                            questions: string[];
+                            detectedTasks: string[];
+                          };
+                          setDetectedTasks(r.detectedTasks ?? []);
+                          if (r.questions.length === 0) {
+                            toast.info(
+                              taskFocus.trim()
+                                ? `No questions found for "${taskFocus}" in the brief. Try a different task or clear the filter.`
+                                : "No article-related questions found in the brief. Paste them manually.",
+                            );
+                            return;
+                          }
+                          setQuestions(r.questions.join("\n"));
+                          toast.success(
+                            `Extracted ${r.questions.length} question${r.questions.length === 1 ? "" : "s"}${taskFocus.trim() ? ` for ${taskFocus}` : ""}.`,
                           );
-                          return;
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "Couldn't extract questions",
+                          );
+                        } finally {
+                          setExtractingQuestions(false);
                         }
-                        setQuestions(r.questions.join("\n"));
-                        toast.success(
-                          `Extracted ${r.questions.length} question${r.questions.length === 1 ? "" : "s"} from the brief.`,
-                        );
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error
-                            ? err.message
-                            : "Couldn't extract questions",
-                        );
-                      } finally {
-                        setExtractingQuestions(false);
-                      }
-                    }}
-                    disabled={extractingQuestions}
-                    className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800 transition-colors hover:border-violet-500 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
-                    title="Auto-extract the article-related questions from your active assignment's brief"
-                  >
-                    {extractingQuestions ? "Extracting…" : "🪄 From brief"}
-                  </button>
+                      }}
+                      disabled={extractingQuestions}
+                      className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800 transition-colors hover:border-violet-500 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
+                      title="Auto-extract the article-related questions from your active assignment's brief. Optionally narrow to a specific task using the input on the left."
+                    >
+                      {extractingQuestions ? "Extracting…" : "🪄 From brief"}
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
@@ -427,6 +457,72 @@ export default function ArticleQAClient() {
             <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Up to 20 questions per run. More than that, split into batches.
             </p>
+            {/* Detected-task chips — quick "re-extract for X" shortcuts.
+                Only shows after we've done one extraction and the AI
+                reported multiple sections in the brief. */}
+            {detectedTasks.length > 1 && activeAssignment?.brief && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Detected:
+                </span>
+                {detectedTasks.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    disabled={extractingQuestions}
+                    onClick={() => {
+                      setTaskFocus(t);
+                      // Re-extract immediately for the clicked task
+                      void (async () => {
+                        if (extractingQuestions) return;
+                        setExtractingQuestions(true);
+                        try {
+                          const r = (await extractQuestionsAction({
+                            assignmentBrief: activeAssignment.brief!,
+                            taskFilter: t,
+                          })) as {
+                            questions: string[];
+                            detectedTasks: string[];
+                          };
+                          if (r.questions.length === 0) {
+                            toast.info(`No questions found for "${t}".`);
+                            return;
+                          }
+                          setQuestions(r.questions.join("\n"));
+                          toast.success(
+                            `Switched to ${t} (${r.questions.length} questions).`,
+                          );
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "Couldn't extract questions",
+                          );
+                        } finally {
+                          setExtractingQuestions(false);
+                        }
+                      })();
+                    }}
+                    className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-60 ${
+                      taskFocus.trim() === t
+                        ? "border-violet-500 bg-violet-100 font-medium text-violet-900 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-100"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-violet-500 dark:hover:bg-violet-950/30"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+                {taskFocus && (
+                  <button
+                    type="button"
+                    onClick={() => setTaskFocus("")}
+                    className="text-[11px] text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  >
+                    clear
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {error && (
@@ -649,6 +745,37 @@ export default function ArticleQAClient() {
             </section>
           )}
 
+          {/* Suggested follow-up searches — close the loop on the
+              assignment's "support any other factual information with
+              suitable sources" requirement. Each chip opens Source
+              Finder pre-filled with the query in a new tab. */}
+          {result.suggestedSearches && result.suggestedSearches.length > 0 && (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+                Find more supporting sources
+              </h2>
+              <p className="mt-1 text-xs text-emerald-900/80 dark:text-emerald-200/80">
+                Click any topic to open Source Finder pre-filled with the
+                query. Useful for the &ldquo;support any other factual
+                information with suitable sources&rdquo; part of your
+                assignment.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {result.suggestedSearches.map((q, i) => (
+                  <a
+                    key={i}
+                    href={`/uni/sources?q=${encodeURIComponent(q)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-800 transition-colors hover:border-emerald-500 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-slate-900 dark:text-emerald-200 dark:hover:border-emerald-500 dark:hover:bg-emerald-900/40"
+                  >
+                    🔍 {q}
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Copy all as markdown */}
           <div className="flex justify-end">
             <button
@@ -685,6 +812,14 @@ export default function ArticleQAClient() {
                 if (result.missingQuestions.length > 0) {
                   lines.push("## Couldn't answer from article\n");
                   for (const q of result.missingQuestions) lines.push(`- ${q}`);
+                }
+                if (
+                  result.suggestedSearches &&
+                  result.suggestedSearches.length > 0
+                ) {
+                  lines.push("\n## Suggested follow-up searches\n");
+                  for (const q of result.suggestedSearches)
+                    lines.push(`- ${q}`);
                 }
                 try {
                   await navigator.clipboard.writeText(lines.join("\n"));
