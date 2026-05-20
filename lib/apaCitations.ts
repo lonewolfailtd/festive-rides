@@ -45,12 +45,30 @@ export function buildCitations(opts: {
     })
     .filter((n) => n.length > 0);
 
-  // Page extraction from a "section" hint like "Results, p. 422",
-  // "Methods (p. 4)", "Discussion, pp. 415-426", etc. Falls back to
-  // null when no page found.
+  // Page extraction from a "section" hint. Tries multiple formats:
+  //   "p. 422", "pp. 415-426"          (APA short form)
+  //   "page 8", "Page 8", "pages 4-10"  (long form)
+  //   "[Page 8]"                        (pdfjs marker format — we
+  //                                     inject these during extract,
+  //                                     and the AI sometimes copies
+  //                                     them verbatim into section)
+  // Falls back to null when no page found.
   let page: string | null = null;
   if (opts.section) {
-    const m = opts.section.match(/pp?\.?\s*(\d+(?:[-–]\d+)?)/i);
+    // Order matters: long forms before short forms so "page" wins
+    // over "p" alone. Word boundary `\b` prevents "stage 9" matching
+    // — we don't want sentence words like "page" inside other words.
+    let m = opts.section.match(
+      /\[page\s+(\d+(?:[-–]\d+)?)\s*\]/i,
+    );
+    if (!m) {
+      m = opts.section.match(
+        /\bpages?\.?\s*(\d+(?:[-–]\d+)?)/i,
+      );
+    }
+    if (!m) {
+      m = opts.section.match(/\bpp?\.?\s*(\d+(?:[-–]\d+)?)/i);
+    }
     if (m) page = m[1];
   }
 

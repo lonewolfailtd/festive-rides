@@ -42,7 +42,7 @@ OUTPUT (JSON, no markdown):
       "supportingQuotes": [
         {
           "quote": "string — verbatim quote from the article (10-50 words) that supports the answer. MUST be character-for-character from the article.",
-          "section": "string — where in the article this quote came from, e.g. 'Method, p. 4', 'Discussion, paragraph 3', 'Abstract'"
+          "section": "string — where in the article this quote came from. ALWAYS INCLUDE A PAGE NUMBER when the extracted text contains '[Page N]' markers — find the most recent [Page N] marker that appears before this quote in the text and include 'p. N' in the section string. Examples: 'Method, p. 4', 'Discussion, p. 10', 'Results, p. 422', 'Abstract, p. 1'. Only omit the page if the article truly has no page numbering visible (rare)."
         }
       ],
       "confidence": "high" | "medium" | "low",

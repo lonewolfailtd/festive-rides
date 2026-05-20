@@ -95,7 +95,7 @@ OUTPUT (JSON, no markdown):
   ],
   "paragraphQuotes": [
     {
-      "section": "string — which section the quote is from, e.g. 'Discussion (p. 10)'",
+      "section": "string — which section the quote is from. ALWAYS INCLUDE A PAGE NUMBER when the extracted text contains '[Page N]' markers — find the most recent [Page N] marker that appears before this quote in the text and include 'p. N' in the section string. Examples: 'Discussion, p. 10', 'Methods, p. 4', 'Results, p. 422'.",
       "quote": "string — verbatim 20-80 word quote from the paper. MUST appear in the paper character-for-character. The student will paste this in their draft.",
       "whyItMatters": "string — 1 sentence on why this specific quote is useful for the student's assignment"
     }
