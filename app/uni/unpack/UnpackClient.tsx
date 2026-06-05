@@ -18,6 +18,13 @@ import Link from "next/link";
 import { loadPdfjs } from "@/lib/pdfjs";
 
 type UnpackResult = {
+  // Plain-English comprehension layer — optional so a model response that
+  // predates this field (or omits it) still renders the rest.
+  plainEnglish?: {
+    inPlainWords: string;
+    jargonTerms: Array<{ term: string; meaning: string }>;
+    steps: string[];
+  };
   commandWord: {
     verb: string;
     meaning: string;
@@ -374,6 +381,63 @@ export default function UnpackClient() {
       {/* Step 3: Result */}
       {result && (
         <div id="unpack-result" className="space-y-4">
+          {/* Plain English — comprehension layer. Pinned first: for a
+              student who doesn't yet understand what the question asks,
+              this is the "oh, THAT'S all it wants" moment. */}
+          {result.plainEnglish && (
+            <section className="rounded-2xl border-2 border-sky-300 bg-sky-50 p-6 dark:border-sky-800 dark:bg-sky-950/40">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                In plain English
+              </h2>
+              {result.plainEnglish.inPlainWords && (
+                <p className="mt-2 text-base leading-relaxed text-slate-900 dark:text-slate-100">
+                  {result.plainEnglish.inPlainWords}
+                </p>
+              )}
+
+              {result.plainEnglish.steps?.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Broken into steps — what you actually need to produce
+                  </div>
+                  <ol className="mt-2 space-y-1.5">
+                    {result.plainEnglish.steps.map((s, i) => (
+                      <li key={i} className="flex gap-2.5 text-sm text-slate-800 dark:text-slate-200">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-600 text-[11px] font-bold text-white">
+                          {i + 1}
+                        </span>
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {result.plainEnglish.jargonTerms?.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Tricky words explained
+                  </div>
+                  <dl className="mt-2 space-y-2">
+                    {result.plainEnglish.jargonTerms.map((j, i) => (
+                      <div
+                        key={i}
+                        className="rounded-lg border border-sky-200/70 bg-white px-3 py-2 dark:border-sky-900/50 dark:bg-slate-900"
+                      >
+                        <dt className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {j.term}
+                        </dt>
+                        <dd className="mt-0.5 text-sm text-slate-700 dark:text-slate-300">
+                          {j.meaning}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Command word */}
           <section className={sectionCard}>
             <h2 className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">

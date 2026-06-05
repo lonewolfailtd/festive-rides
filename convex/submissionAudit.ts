@@ -32,7 +32,20 @@ OUTPUT (JSON, no markdown):
   "overall": {
     "predictedScoreRange": { "min": number, "max": number, "outOf": number },
     "readinessLevel": "needs-work" | "almost-there" | "submission-ready",
-    "summary": "2-3 sentences honest verdict. Be specific about the biggest gaps."
+    "summary": "2-3 sentences honest verdict. Be specific about the biggest gaps.",
+    "unattemptedSections": [
+      {
+        "sectionName": "string — a REQUIRED section the draft does not address at all",
+        "marksAtStake": "number — the marks lost by leaving this section blank (its full mark value)",
+        "outOf": "number — the section's total marks (same as marksAtStake for a blank section)"
+      }
+    ],
+    "citationTypeCheck": {
+      "required": "boolean — true only if the rubric explicitly calls for specific in-text citation TYPES",
+      "parentheticalFound": "boolean — draft contains at least one parenthetical citation e.g. (Smith, 2020)",
+      "narrativeFound": "boolean — draft contains at least one narrative/in-text citation e.g. Smith (2020) found...",
+      "note": "string — DIRECTION only: which type is missing and where to add one. Empty string if both present."
+    } | null
   },
   "sections": [
     {
@@ -87,7 +100,12 @@ NON-NEGOTIABLE RULES:
 
 9. DO NOT THINK OUT LOUD IN THE JSON. If you're uncertain about a citation, a date, or whether something is in the reference list, EITHER omit the issue OR state it as a clear flag for the student to check — never narrate your own verification ("2021 vs 2021 — actually correct, but..."). The output must read like a marker's notes, not your reasoning process.
 
-10. KEEP GAP + DIRECTION TIGHT. Aim for 2-3 sentences each. The student is scanning 8-15 criteria; long prose blocks per criterion buries the actionable bits.`;
+10. KEEP GAP + DIRECTION TIGHT. Aim for 2-3 sentences each. The student is scanning 8-15 criteria; long prose blocks per criterion buries the actionable bits.
+
+11. UNATTEMPTED SECTIONS ARE THE #1 PRIORITY. A required section the draft does not address AT ALL — there is NO substantive content for that section's task and you cannot quote a single sentence attempting it — is "unattempted". A blank section loses EVERY mark it is worth, so this is the single biggest score lever. For each one, add an entry to overall.unattemptedSections with the marks at stake (from the rubric). STILL include the section in the 'sections' array with its criteria marked 'missing' so the per-section view is complete.
+    Be strict about the threshold: "unattempted" means the section's CORE content is absent, NOT that one required part is missing. A section where the student has written real content but left out a sub-requirement (e.g. an essay with prose but no reference list, or an answer missing one citation) is PARTIAL — flag those as 'partial'/'missing' criteria within the section, NOT as an unattempted section. Only list a section here when the student clearly never attempted that task. If every required section has genuine content, return an empty array.
+
+12. CITATION TYPE CHECK. Open Polytechnic rubrics often require BOTH a narrative/in-text citation (author named in the sentence, e.g. "Smith (2020) found...") AND a parenthetical citation (e.g. "(Smith, 2020)") — frequently for a specific pre-selected article. If the rubric calls for specific citation TYPES, set citationTypeCheck.required = true, then scan the draft and set parentheticalFound / narrativeFound honestly. In 'note', name which type is missing and where to add one — DIRECTION ONLY, never write the citation itself. If the rubric does NOT single out citation types, set citationTypeCheck to null.`;
 
 export const audit = action({
   args: {
