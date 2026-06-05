@@ -154,6 +154,44 @@ export const setGrade = mutation({
   },
 });
 
+// Completion checklist item shape — kept in sync with schema.ts.
+const checklistItem = v.object({
+  id: v.string(),
+  label: v.string(),
+  marks: v.optional(v.number()),
+  done: v.boolean(),
+});
+
+// Replace the whole checklist (used when (re)populating from the brief or
+// after add/delete/reorder on the client).
+export const setTaskChecklist = mutation({
+  args: {
+    id: v.id("assignments"),
+    taskChecklist: v.array(checklistItem),
+  },
+  handler: async (ctx, { id, taskChecklist }) => {
+    const userId = await requireUserId(ctx);
+    const existing = await ctx.db.get(id);
+    if (!existing || existing.userId !== userId) throw new Error("Not found");
+    await ctx.db.patch(id, { taskChecklist });
+  },
+});
+
+// Toggle a single task's done state by its id. No-op if the id isn't found.
+export const toggleTask = mutation({
+  args: { id: v.id("assignments"), taskId: v.string() },
+  handler: async (ctx, { id, taskId }) => {
+    const userId = await requireUserId(ctx);
+    const existing = await ctx.db.get(id);
+    if (!existing || existing.userId !== userId) throw new Error("Not found");
+    const list = existing.taskChecklist ?? [];
+    const next = list.map((t) =>
+      t.id === taskId ? { ...t, done: !t.done } : t,
+    );
+    await ctx.db.patch(id, { taskChecklist: next });
+  },
+});
+
 export const remove = mutation({
   args: { id: v.id("assignments") },
   handler: async (ctx, { id }) => {

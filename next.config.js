@@ -32,11 +32,26 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['festiverides.online'],
+    domains: ['festiverides.online', 'www.festiverides.online'],
   },
   async headers() {
     return [
       { source: "/(.*)", headers: securityHeaders },
+    ];
+  },
+  // Canonicalise the bare apex domain to www. The auth cookies Convex sets
+  // are host-scoped, so a user bouncing between festiverides.online and
+  // www.festiverides.online could land with a cookie set on the other host
+  // and appear "logged out / page won't load". Forcing a single canonical
+  // host removes that whole class of bug. 308 = permanent, method-preserving.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "festiverides.online" }],
+        destination: "https://www.festiverides.online/:path*",
+        permanent: true,
+      },
     ];
   },
 };
