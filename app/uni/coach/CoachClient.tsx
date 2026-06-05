@@ -32,6 +32,7 @@ type CoachResult = {
   scores: {
     structure: ScoreEntry;
     argument: ScoreEntry;
+    depth: ScoreEntry;
     evidenceUse: ScoreEntry;
     citationDensity: ScoreEntry;
     tone: ScoreEntry;
@@ -45,6 +46,7 @@ type CoachResult = {
 const DIMENSION_LABELS: Record<keyof CoachResult["scores"], string> = {
   structure: "Structure",
   argument: "Argument",
+  depth: "Depth of analysis",
   evidenceUse: "Evidence use",
   citationDensity: "Citation density",
   tone: "Tone",
@@ -279,7 +281,7 @@ export default function CoachClient() {
       <PageHeader
         eyebrow="Draft Coach"
         title="Get scored feedback on your draft"
-        description="Paste your draft and the assignment brief. The coach scores structure, argument, evidence, citation density and tone, then suggests specific improvements."
+        description="Paste your draft and the assignment brief. The coach scores structure, argument, depth, evidence, citation density and tone, then suggests specific improvements."
       />
 
       {showOnboarding && (

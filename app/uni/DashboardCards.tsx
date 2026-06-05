@@ -46,6 +46,7 @@ const GROUPS: { eyebrow: string; tagline: string; hrefs: string[] }[] = [
       "/uni/references",
       "/uni/sources",
       "/uni/bibliography",
+      "/uni/apa-check",
       "/uni/article-qa",
     ],
   },

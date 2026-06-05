@@ -33,6 +33,12 @@ const cards = [
       "Got a messy reference list from a previous course or a Word doc? Paste it here and we convert every entry to APA 7, then add them all to your list at once.",
   },
   {
+    href: "/uni/apa-check",
+    title: "APA Reference Check",
+    blurb:
+      "A last-minute formatting check: paste your finished reference list and every entry is validated against APA 7. You get the exact errors (sentence case, italics, ampersands, DOIs) and a corrected version — without touching your saved references.",
+  },
+  {
     href: "/uni/coach",
     title: "Draft Coach",
     blurb:
