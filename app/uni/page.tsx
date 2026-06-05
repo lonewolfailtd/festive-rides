@@ -80,6 +80,12 @@ const cards = [
     blurb:
       "Stuck on a question? Paste it (or pick one from your assignment brief) and we break it down — what the command word really wants, what's in and out of scope, hidden assumptions to define, two or three approaches you could take with trade-offs, what evidence to find, and questions to sit with before you write. We won't draft the answer.",
   },
+  {
+    href: "/uni/checklist",
+    title: "Completion Checklist",
+    blurb:
+      "The simplest way to not lose easy marks: a tick-list of every task your assignment asks for. Pull the tasks straight from your brief, tick each one as you draft it, and see at a glance what's still blank before you submit. Leaving a whole section unanswered is the single biggest mark-loser — this stops it.",
+  },
 ];
 
 export default function UniHomePage() {

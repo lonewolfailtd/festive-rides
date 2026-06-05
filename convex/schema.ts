@@ -62,6 +62,22 @@ export default defineSchema({
     grade: v.optional(v.number()), // 0-100 numeric
     gradeLetter: v.optional(v.string()), // "A+", "B-", "Pass", etc.
     markerFeedback: v.optional(v.string()),
+    // Completion checklist — one entry per required task/section the
+    // student must answer. Drives the dashboard "what's left" card. The
+    // single biggest score lever after analysing real result sheets was
+    // students leaving whole sections blank, so this tracks attempt
+    // status per task, separate from the deeper outline bullets in the
+    // analyses table.
+    taskChecklist: v.optional(
+      v.array(
+        v.object({
+          id: v.string(), // stable client-generated id
+          label: v.string(), // e.g. "Task 2C: Research question"
+          marks: v.optional(v.number()), // marks at stake, if known
+          done: v.boolean(), // student has attempted/drafted it
+        }),
+      ),
+    ),
   })
     .index("by_user", ["userId"])
     .index("by_user_course", ["userId", "courseId"]),
