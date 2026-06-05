@@ -92,6 +92,18 @@ const cards = [
     blurb:
       "The simplest way to not lose easy marks: a tick-list of every task your assignment asks for. Pull the tasks straight from your brief, tick each one as you draft it, and see at a glance what's still blank before you submit. Leaving a whole section unanswered is the single biggest mark-loser — this stops it.",
   },
+  {
+    href: "/uni/research-question",
+    title: "Research Question Builder",
+    blurb:
+      "Have to write your own research question from a 'future direction'? This breaks it into parts, hands you fill-in-the-blank frames, and checks your draft against the rubric words — specific, clear, testable. It scaffolds your thinking without writing the question for you.",
+  },
+  {
+    href: "/uni/feedback",
+    title: "Feedback Memory",
+    blurb:
+      "Save the marker's comments on each assignment and find the patterns across them — the things that keep costing you marks. Turns one-off feedback into a focused plan for the next assignment, so you stop repeating the same slips.",
+  },
 ];
 
 export default function UniHomePage() {
