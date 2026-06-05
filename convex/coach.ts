@@ -16,6 +16,7 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
   "scores": {
     "structure": { "score": number 1-5, "feedback": "string" },
     "argument": { "score": number 1-5, "feedback": "string" },
+    "depth": { "score": number 1-5, "feedback": "string — flag THIN paragraphs that state a point but never develop it: a claim with no elaboration, no example, no 'so what'. Open Polytech markers repeatedly write 'a little more depth, in places, would have been good'. Name the specific shallow spots and what kind of development they need (explain the mechanism, add an example, connect to the question). NEVER write the missing content." },
     "evidenceUse": { "score": number 1-5, "feedback": "string" },
     "citationDensity": { "score": number 1-5, "feedback": "string — flag any paragraphs of pure assertion with no source" },
     "tone": { "score": number 1-5, "feedback": "string — academic register, NZ English, no Oxford commas" }
@@ -73,7 +74,7 @@ export const coach = action({
       model: args.model ?? "deepseek/deepseek-v4-pro",
       responseFormatJson: true,
       temperature: 0.3,
-      maxTokens: 3500,
+      maxTokens: 4000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: buildPrompt(trimmed, args.brief) },
