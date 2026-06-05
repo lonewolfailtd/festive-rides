@@ -50,11 +50,28 @@ interface Section {
   criteria: Criterion[];
 }
 
+interface UnattemptedSection {
+  sectionName: string;
+  marksAtStake: number;
+  outOf: number;
+}
+
+interface CitationTypeCheck {
+  required: boolean;
+  parentheticalFound: boolean;
+  narrativeFound: boolean;
+  note: string;
+}
+
 interface AuditResult {
   overall: {
     predictedScoreRange: { min: number; max: number; outOf: number };
     readinessLevel: "needs-work" | "almost-there" | "submission-ready";
     summary: string;
+    // Added: whole required sections the draft never attempts. Older
+    // cached results won't have these — treat as absent (optional).
+    unattemptedSections?: UnattemptedSection[];
+    citationTypeCheck?: CitationTypeCheck | null;
   };
   sections: Section[];
   quickWins: string[];
@@ -669,6 +686,94 @@ export default function SubmissionAuditClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="space-y-6"
         >
+          {/* Unattempted-section alarm — the single biggest score lever.
+              A blank required section forfeits every one of its marks, so
+              this is pinned ABOVE the predicted score. Hidden when every
+              section was at least attempted (or on older cached results
+              that predate this field). */}
+          {(() => {
+            const unattempted = result.overall.unattemptedSections ?? [];
+            if (unattempted.length === 0) return null;
+            const marksLost = unattempted.reduce(
+              (sum, s) => sum + (Number(s.marksAtStake) || 0),
+              0,
+            );
+            const outOf = result.overall.predictedScoreRange.outOf || 100;
+            const capPct = Math.max(0, Math.round(((outOf - marksLost) / outOf) * 100));
+            return (
+              <section className="rounded-2xl border-2 border-rose-300 bg-rose-50 p-5 dark:border-rose-800 dark:bg-rose-950/40">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl leading-none" aria-hidden>
+                    ⚠️
+                  </span>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
+                      {unattempted.length} required section
+                      {unattempted.length === 1 ? "" : "s"} look unattempted —{" "}
+                      {marksLost} mark{marksLost === 1 ? "" : "s"} at stake. Your score is
+                      capped near {capPct}% until {unattempted.length === 1 ? "it is" : "they are"}{" "}
+                      written.
+                    </p>
+                    <ul className="space-y-1">
+                      {unattempted.map((s, i) => (
+                        <li
+                          key={i}
+                          className="flex items-baseline justify-between gap-3 rounded-md border border-rose-200/70 bg-white px-3 py-1.5 text-sm text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"
+                        >
+                          <span className="font-medium">{s.sectionName}</span>
+                          <span className="shrink-0 text-xs text-rose-700 dark:text-rose-300">
+                            {s.marksAtStake} / {s.outOf} marks
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-rose-800/90 dark:text-rose-300/90">
+                      Even a rough attempt at your usual standard is worth far more than a blank
+                      section. Write something for each before you submit.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* Citation-type coverage — Open Polytech rubrics often require
+              BOTH a narrative and a parenthetical citation. Only shown when
+              the rubric called for it (required === true). */}
+          {result.overall.citationTypeCheck?.required && (
+            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800/80 dark:bg-slate-950">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Citation types required by the rubric
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(
+                  [
+                    ["Parenthetical — (Author, 2020)", result.overall.citationTypeCheck.parentheticalFound],
+                    ["Narrative — Author (2020) found…", result.overall.citationTypeCheck.narrativeFound],
+                  ] as const
+                ).map(([label, found], i) => (
+                  <span
+                    key={i}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                      found
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+                        : "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200"
+                    }`}
+                  >
+                    <span aria-hidden>{found ? "✓" : "✗"}</span>
+                    {label}
+                  </span>
+                ))}
+              </div>
+              {result.overall.citationTypeCheck.note?.trim() && (
+                <p className="mt-3 text-sm text-slate-700 dark:text-slate-300">
+                  <span className="font-semibold text-sky-700 dark:text-sky-300">Direction:</span>{" "}
+                  {result.overall.citationTypeCheck.note}
+                </p>
+              )}
+            </section>
+          )}
+
           {/* Overall card */}
           <section className={sectionCard}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -705,7 +810,12 @@ export default function SubmissionAuditClient() {
                 compliance FLOOR, not a guaranteed mark. Real markers
                 round up on coherent work; they reward intent and
                 writing quality the audit can't see. Adding ~5-10 to
-                this floor lands you in the typical actual-mark range. */}
+                this floor lands you in the typical actual-mark range.
+                BUT this optimism is wrong when whole sections are blank —
+                a marker adds nothing for unattempted work — so we suppress
+                it whenever there are unattempted sections (the red banner
+                above already explains the cap). */}
+            {(result.overall.unattemptedSections?.length ?? 0) === 0 && (
             <div className="mt-3 rounded-md border border-sky-200 bg-sky-50/60 p-3 text-[12px] leading-relaxed text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">
               <p>
                 <strong>How to read this number:</strong> the predicted range is a <em>rubric-compliance floor</em> — what the draft would score if a marker checked off rubric boxes literally. Real markers typically add <strong>~5–10 marks</strong> on top for coherent writing and clear intent. So <strong>{result.overall.predictedScoreRange.min}&ndash;{result.overall.predictedScoreRange.max}</strong> usually lands around{" "}
@@ -715,6 +825,7 @@ export default function SubmissionAuditClient() {
                 in practice. Treat gaps below as a guide for revision, not a verdict.
               </p>
             </div>
+            )}
           </section>
 
           {/* Quick wins */}

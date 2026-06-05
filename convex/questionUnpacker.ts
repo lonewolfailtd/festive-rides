@@ -123,6 +123,18 @@ const UNPACK_SYSTEM_PROMPT = `You are coaching an Open Polytechnic NZ student th
 
 OUTPUT (JSON, no markdown):
 {
+  "plainEnglish": {
+    "inPlainWords": "string — 2-3 sentences. Re-state the WHOLE question in plain, everyday language, as if explaining it to a friend who has not done the course. Strip ALL academic jargon. Start with 'This question is asking you to...'. This is for a student who read the question and genuinely did not understand what it wants.",
+    "jargonTerms": [
+      {
+        "term": "string — a word or phrase IN THE QUESTION that a confused student might not understand (academic, technical, or discipline jargon)",
+        "meaning": "string — a simple, everyday-language definition. 1 sentence. No jargon used to explain jargon."
+      }
+    ],
+    "steps": [
+      "string — the question broken into the concrete things the student must PRODUCE, in order. Each step is one deliverable, e.g. 'Describe Erikson's theory in your own words' or 'Give one real-life example of the theory'. DIRECTIONAL only — say WHAT to produce, never write it for them. 3-6 steps."
+    ]
+  },
   "commandWord": {
     "verb": "string — the primary command verb identified ('analyse', 'discuss', 'evaluate', 'compare', 'explain', 'critique', etc). Use NZ English spelling.",
     "meaning": "string — 1-2 sentences explaining what this verb means in academic writing at Bachelor level. Concrete, not abstract.",
@@ -162,7 +174,9 @@ OUTPUT (JSON, no markdown):
 
 NON-NEGOTIABLE RULES:
 
-1. NEVER WRITE THE ANSWER. No thesis statements. No topic sentences. No paragraph drafts. No "you could argue that..." with a position attached. If you find yourself writing prose the student could paste, STOP — that violates the tool's purpose.
+1. NEVER WRITE THE ANSWER. No thesis statements. No topic sentences. No paragraph drafts. No "you could argue that..." with a position attached. If you find yourself writing prose the student could paste, STOP — that violates the tool's purpose. This applies to plainEnglish.steps too: "Describe the theory" is fine; describing the theory for them is not.
+
+0. PLAIN ENGLISH FIRST. The plainEnglish block is for a student who is stuck on COMPREHENSION — they don't yet understand what the question is even asking. Write it at the reading level of a first-year student who finds academic phrasing intimidating. Short sentences. Everyday words. The 'inPlainWords' restatement and 'steps' checklist must make a confused student go "oh — THAT'S all it wants". Only list jargonTerms that actually appear in the question and could genuinely confuse someone; if the question has no real jargon, return an empty array.
 
 2. NO OUTLINES. We deliberately do NOT produce a section-by-section outline. The Assignment Analyser does that. The Question Unpacker stops at "here is how to think about this" so the student keeps ownership of structure.
 
