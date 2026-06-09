@@ -24,7 +24,7 @@ import {
   type MotionStyle,
 } from "framer-motion";
 
-// Placeholder art (swapped for real per-scene art later).
+// Placeholder art (still used by scenes whose real art isn't generated yet).
 const PORTRAIT = "/surprise/style-tests/3-pixar3d.jpg";
 const LANDSCAPE = "/surprise/style-tests/3-pixar3d-wide.jpg";
 
@@ -45,15 +45,19 @@ function SceneMedia({
   style,
   overlay = "bg-gradient-to-t from-black/70 via-transparent to-black/30",
   priority = false,
+  portrait = PORTRAIT,
+  landscape = LANDSCAPE,
 }: {
   style?: MotionStyle;
   overlay?: string;
   priority?: boolean;
+  portrait?: string;
+  landscape?: string;
 }) {
   return (
     <motion.div style={style} className="absolute inset-0">
       <Image
-        src={PORTRAIT}
+        src={portrait}
         alt=""
         fill
         sizes="100vw"
@@ -61,7 +65,7 @@ function SceneMedia({
         className="object-cover md:hidden"
       />
       <Image
-        src={LANDSCAPE}
+        src={landscape}
         alt=""
         fill
         sizes="100vw"
@@ -88,7 +92,9 @@ function Cover() {
         <SceneMedia
           style={{ scale }}
           priority
-          overlay="bg-gradient-to-b from-black/40 via-transparent to-black/70"
+          portrait="/surprise/scenes/cover-portrait.jpg"
+          landscape="/surprise/scenes/cover-wide.jpg"
+          overlay="bg-gradient-to-b from-black/30 via-transparent to-black/70"
         />
         <motion.div
           style={{ y: titleY, opacity: titleOpacity }}
