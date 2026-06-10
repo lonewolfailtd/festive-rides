@@ -29,12 +29,12 @@ export interface Frame {
   landscape: string;
 }
 
-// Placeholder art shared by every frame until real scene art is generated.
-const PH_PORTRAIT = "/surprise/style-tests/3-pixar3d.jpg";
-const PH_LANDSCAPE = "/surprise/style-tests/3-pixar3d-wide.jpg";
-
-/** Real art will live here once generated: /surprise/flight/scenes/1A-portrait.jpg etc. */
-const art = (_id: string) => ({ portrait: PH_PORTRAIT, landscape: PH_LANDSCAPE });
+// Scene art: portrait (9:16, phones) + landscape (16:9, desktop) per frame,
+// generated on-model from june-master.jpg. Files in public/surprise/flight/scenes/.
+const art = (id: string) => ({
+  portrait: `/surprise/flight/scenes/${id}-portrait.jpg`,
+  landscape: `/surprise/flight/scenes/${id}-wide.jpg`,
+});
 
 // Locked character descriptors (for the art phase — paste word-for-word into
 // each frame's prompt). Kept here so the story and its art stay in one place.
