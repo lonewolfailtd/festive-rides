@@ -10,6 +10,7 @@
 // around it is filled with a blurred copy of the same art.
 
 import { motion } from "framer-motion";
+import Critters from "./Critters";
 import { STORIES, type StoryMeta } from "./stories/registry";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
@@ -268,6 +269,9 @@ export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) 
       {/* phones get the portrait painting, larger screens the landscape one */}
       <Scene kind="portrait" className="flex md:hidden" onOpen={onOpen} />
       <Scene kind="landscape" className="hidden md:flex" onOpen={onOpen} />
+
+      {/* butterflies + glow-bees that wander the scene and flee the cursor */}
+      <Critters />
 
       {/* title floating in the night sky */}
       <div className="pointer-events-none absolute inset-x-0 top-4 z-10 text-center sm:top-6">
