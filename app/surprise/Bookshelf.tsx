@@ -14,6 +14,17 @@ import { STORIES, type StoryMeta } from "./stories/registry";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
 
+// Painted spine cutouts (fal.ai, blank — titles are overlaid in the DOM).
+// aspect = image width / height, from the cropped PNGs. Books without an
+// entry here fall back to a CSS-gradient spine.
+const SPINE_ART: Record<string, { src: string; aspect: number }> = {
+  june: { src: "/surprise/library/spines/june.png", aspect: 285 / 1224 },
+  flight: { src: "/surprise/library/spines/flight.png", aspect: 276 / 1279 },
+  "sleepy-kiwi": { src: "/surprise/library/spines/sleepy-kiwi.png", aspect: 330 / 1247 },
+  "pukeko-rainbow": { src: "/surprise/library/spines/pukeko-rainbow.png", aspect: 363 / 1212 },
+  "up-the-maunga": { src: "/surprise/library/spines/up-the-maunga.png", aspect: 369 / 1247 },
+};
+
 // % coordinates of the empty middle shelf opening inside each painting.
 // left/right/top = inner edges of the opening; bottom = the shelf board the
 // books stand on. Tuned by eye against the actual pixels — keep in sync if
@@ -56,35 +67,61 @@ function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => voi
       style={{ height: `${heightPct}%`, ...FONT }}
       aria-label={published ? `Open ${story.title}` : `${story.title} — coming soon`}
     >
-      {/* The spine — width scales with height via aspect-ratio */}
-      <div
-        className="relative flex h-full flex-col items-center justify-between overflow-hidden rounded-[3px] px-[8%] py-[5%]"
-        style={{
-          aspectRatio: "62 / 320",
-          background: `linear-gradient(160deg, ${story.spineFrom}, ${story.spineTo})`,
-          boxShadow:
-            "inset 3px 0 6px rgba(255,255,255,.18), inset -4px 0 10px rgba(0,0,0,.45), 0 6px 14px rgba(0,0,0,.55)",
-          filter: published ? "none" : "saturate(.55) brightness(.8)",
-        }}
-      >
-        {/* top + bottom foil bands */}
-        <span className="h-[2px] w-3/5 rounded-full sm:h-[3px]" style={{ background: story.ink, opacity: 0.7 }} />
-        <span
-          className="flex-1 overflow-hidden py-1 text-center font-semibold leading-tight tracking-wide"
+      {/* The spine — painted art when we have it, CSS gradient otherwise */}
+      {SPINE_ART[story.id] ? (
+        <div
+          className="relative h-full"
           style={{
-            color: story.ink,
-            writingMode: "vertical-rl",
-            textOrientation: "mixed",
-            fontSize: "var(--spine-font, clamp(8px, 1.6svh, 14px))",
+            aspectRatio: `${SPINE_ART[story.id].aspect}`,
+            filter: published
+              ? "drop-shadow(0 6px 10px rgba(0,0,0,.55))"
+              : "saturate(.55) brightness(.8) drop-shadow(0 6px 10px rgba(0,0,0,.55))",
           }}
         >
-          {story.title}
-        </span>
-        <span className="h-[2px] w-3/5 rounded-full sm:h-[3px]" style={{ background: story.ink, opacity: 0.7 }} />
-
-        {/* page edge on the right */}
-        <span className="absolute right-0 top-0 h-full w-[8%] bg-gradient-to-l from-amber-50/80 to-transparent" />
-      </div>
+          <img src={SPINE_ART[story.id].src} alt="" className="h-full w-full object-fill" />
+          {/* title overlaid between the painted gold bands */}
+          <span
+            className="absolute inset-x-0 flex items-center justify-center overflow-hidden text-center font-semibold leading-tight tracking-wide"
+            style={{
+              top: "11%",
+              bottom: "11%",
+              color: story.ink,
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+              fontSize: "var(--spine-font, clamp(8px, 1.6svh, 14px))",
+              textShadow: "0 1px 3px rgba(0,0,0,.65)",
+            }}
+          >
+            {story.title}
+          </span>
+        </div>
+      ) : (
+        <div
+          className="relative flex h-full flex-col items-center justify-between overflow-hidden rounded-[3px] px-[8%] py-[5%]"
+          style={{
+            aspectRatio: "62 / 320",
+            background: `linear-gradient(160deg, ${story.spineFrom}, ${story.spineTo})`,
+            boxShadow:
+              "inset 3px 0 6px rgba(255,255,255,.18), inset -4px 0 10px rgba(0,0,0,.45), 0 6px 14px rgba(0,0,0,.55)",
+            filter: published ? "none" : "saturate(.55) brightness(.8)",
+          }}
+        >
+          <span className="h-[2px] w-3/5 rounded-full sm:h-[3px]" style={{ background: story.ink, opacity: 0.7 }} />
+          <span
+            className="flex-1 overflow-hidden py-1 text-center font-semibold leading-tight tracking-wide"
+            style={{
+              color: story.ink,
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+              fontSize: "var(--spine-font, clamp(8px, 1.6svh, 14px))",
+            }}
+          >
+            {story.title}
+          </span>
+          <span className="h-[2px] w-3/5 rounded-full sm:h-[3px]" style={{ background: story.ink, opacity: 0.7 }} />
+          <span className="absolute right-0 top-0 h-full w-[8%] bg-gradient-to-l from-amber-50/80 to-transparent" />
+        </div>
+      )}
 
       {/* coming-soon seal */}
       {!published && (
