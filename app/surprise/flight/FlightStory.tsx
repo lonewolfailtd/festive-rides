@@ -305,7 +305,6 @@ function Cover() {
 /* --------------------------------------------------------------- Controls -- */
 function Controls() {
   const { mode, muted, index, total, armed, togglePlay, toggleMute } = usePlayback();
-  const pct = Math.round(((index + 1) / total) * 100);
 
   // The library wraps the open book in a transformed ancestor, which would
   // break `position: fixed`. Portal the controls to <body> so they stay
@@ -336,14 +335,6 @@ function Controls() {
           <style>{`@keyframes float-pulse{0%,100%{transform:translateY(0);box-shadow:0 8px 30px rgba(56,189,248,.25)}50%{transform:translateY(-5px);box-shadow:0 14px 40px rgba(56,189,248,.45)}}`}</style>
         </div>
       )}
-
-      {/* Slim progress bar pinned to the top */}
-      <div className="fixed inset-x-0 top-0 z-50 h-1 bg-white/10">
-        <div
-          className="h-full bg-gradient-to-r from-sky-400 to-emerald-300 transition-[width] duration-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
 
       {/* Bottom-right control cluster */}
       <div
