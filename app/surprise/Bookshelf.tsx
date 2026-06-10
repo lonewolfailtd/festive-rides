@@ -67,6 +67,12 @@ function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => voi
       style={{ height: `${heightPct}%`, ...FONT }}
       aria-label={published ? `Open ${story.title}` : `${story.title} — coming soon`}
     >
+      {/* contact shadow grounding the book on the painted shelf */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-[-1.5%] left-1/2 h-[4%] w-[115%] -translate-x-1/2 rounded-[50%] bg-black/55 blur-[3px]"
+      />
+
       {/* The spine — painted art when we have it, CSS gradient otherwise */}
       {SPINE_ART[story.id] ? (
         <div
@@ -74,11 +80,25 @@ function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => voi
           style={{
             aspectRatio: `${SPINE_ART[story.id].aspect}`,
             filter: published
-              ? "drop-shadow(0 6px 10px rgba(0,0,0,.55))"
-              : "saturate(.55) brightness(.8) drop-shadow(0 6px 10px rgba(0,0,0,.55))",
+              ? "saturate(.9) brightness(.95) drop-shadow(0 6px 10px rgba(0,0,0,.55))"
+              : "saturate(.5) brightness(.78) drop-shadow(0 6px 10px rgba(0,0,0,.55))",
           }}
         >
           <img src={SPINE_ART[story.id].src} alt="" className="h-full w-full object-fill" />
+          {/* tone-match grade, masked to the book's silhouette: warm lantern
+              light from above, shelf shadow pooling at the feet */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(175deg, rgba(255,196,110,.22) 0%, rgba(255,196,110,.05) 35%, rgba(15,8,3,0) 60%, rgba(15,8,3,.38) 100%)",
+              WebkitMaskImage: `url(${SPINE_ART[story.id].src})`,
+              maskImage: `url(${SPINE_ART[story.id].src})`,
+              WebkitMaskSize: "100% 100%",
+              maskSize: "100% 100%",
+            }}
+          />
           {/* title overlaid between the painted gold bands */}
           <span
             className="absolute inset-x-0 flex items-center justify-center overflow-hidden text-center font-semibold leading-tight tracking-wide"
@@ -122,6 +142,23 @@ function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => voi
           <span className="absolute right-0 top-0 h-full w-[8%] bg-gradient-to-l from-amber-50/80 to-transparent" />
         </div>
       )}
+
+      {/* hover plaque — the spine writing is small, so show the full title */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-0 z-30 flex w-max max-w-[230px] -translate-x-1/2 -translate-y-[calc(100%+10px)] scale-90 flex-col items-center rounded-xl border border-amber-200/30 bg-[#2b1a0c]/95 px-3.5 py-2 text-center opacity-0 shadow-[0_10px_26px_rgba(0,0,0,.65)] backdrop-blur-sm transition-all duration-200 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100"
+        style={FONT}
+      >
+        <span className="text-[13px] font-semibold leading-snug text-amber-50">{story.title}</span>
+        {story.subtitle && (
+          <span className="mt-0.5 text-[11px] leading-snug text-amber-100/75">{story.subtitle}</span>
+        )}
+        <span className="mt-1 text-[9px] font-medium uppercase tracking-[0.18em] text-amber-300/90">
+          {published ? "Click to open" : "Coming soon ✨"}
+        </span>
+        {/* little pointer */}
+        <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-amber-200/30 bg-[#2b1a0c]/95" />
+      </span>
 
       {/* coming-soon seal */}
       {!published && (
