@@ -45,13 +45,15 @@ export default function StoryPageClient({ id }: { id: string }) {
 
   return (
     <>
-      {/* Back to the shelf — outside the transformed wrapper so `fixed` works */}
+      {/* Back to the bookcase — outside the transformed wrapper so `fixed`
+          works. This label is deliberate; keep it "Juniper's Bookcase" on
+          every book. */}
       <Link
         href="/surprise"
         className="fixed left-4 top-4 z-50 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/60"
         style={FONT}
       >
-        ← Shelf
+        ← Juniper&apos;s Bookcase
       </Link>
 
       {/* Same book-opening flourish the in-place player had. NOTE for book
