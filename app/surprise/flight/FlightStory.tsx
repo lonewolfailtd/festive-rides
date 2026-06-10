@@ -304,7 +304,7 @@ function Cover() {
 
 /* --------------------------------------------------------------- Controls -- */
 function Controls() {
-  const { mode, muted, index, total, togglePlay, toggleMute } = usePlayback();
+  const { mode, muted, index, total, armed, togglePlay, toggleMute } = usePlayback();
   const pct = Math.round(((index + 1) / total) * 100);
 
   // The library wraps the open book in a transformed ancestor, which would
@@ -316,6 +316,27 @@ function Controls() {
 
   return createPortal(
     <>
+      {/* Soft first-tap invitation — the book opens silent until this (or any
+          control) is pressed. */}
+      {!armed && (
+        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-6">
+          <button
+            onClick={togglePlay}
+            className="flex animate-[float-pulse_2.6s_ease-in-out_infinite] items-center gap-3 rounded-full border border-white/20 bg-black/55 py-3 pl-4 pr-6 text-white shadow-2xl backdrop-blur-md transition hover:bg-black/70 active:scale-95"
+            style={FONT}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-b from-sky-400 to-indigo-500 text-lg shadow-lg">
+              ▶
+            </span>
+            <span className="text-left leading-tight">
+              <span className="block text-base font-semibold">Play the story</span>
+              <span className="block text-xs text-white/65">or scroll at your own pace</span>
+            </span>
+          </button>
+          <style>{`@keyframes float-pulse{0%,100%{transform:translateY(0);box-shadow:0 8px 30px rgba(56,189,248,.25)}50%{transform:translateY(-5px);box-shadow:0 14px 40px rgba(56,189,248,.45)}}`}</style>
+        </div>
+      )}
+
       {/* Slim progress bar pinned to the top */}
       <div className="fixed inset-x-0 top-0 z-50 h-1 bg-white/10">
         <div

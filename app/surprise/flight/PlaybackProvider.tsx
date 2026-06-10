@@ -35,6 +35,8 @@ interface PlaybackContextValue {
   index: number;
   mode: Mode;
   muted: boolean;
+  /** False until the reader's first tap — the book opens silent. */
+  armed: boolean;
   total: number;
   /** A scene reports itself active when it crosses screen-centre (scroll mode). */
   reportActive: (i: number) => void;
@@ -56,6 +58,10 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>("scroll");
   const [muted, setMuted] = useState(false);
+  // No sound until the reader asks for it: the first tap on play (or the
+  // speaker) arms narration. Also keeps browsers' autoplay policies happy —
+  // the first audio.play() always follows a user gesture.
+  const [armed, setArmed] = useState(false);
 
   const lenisRef = useRef<Lenis | null>(null);
   const sectionsRef = useRef<(HTMLElement | null)[]>([]);
@@ -155,10 +161,11 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
 
   /* ----- Scroll mode: narrate whichever frame the reader settles on ---- */
   useEffect(() => {
+    if (!armed) return; // the book opens silent — no narration before a tap
     if (mode !== "scroll") return;
     if (lastPlayedRef.current === index) return; // already told this one
     playNarration(index);
-  }, [mode, index, playNarration]);
+  }, [armed, mode, index, playNarration]);
 
   /* ----- Play mode: the slideshow sequencer ----------------------------
      glide (audio quiet) → settle → narrate → 'ended' → breath → next.
@@ -216,23 +223,28 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
   }, []);
 
   const togglePlay = useCallback(() => {
+    setArmed(true); // first tap unlocks sound
     setMode((m) => (m === "play" ? "scroll" : "play"));
   }, []);
 
-  const toggleMute = useCallback(() => setMuted((m) => !m), []);
+  const toggleMute = useCallback(() => {
+    setArmed(true); // tapping the speaker also counts as "tell me the story"
+    setMuted((m) => !m);
+  }, []);
 
   const value = useMemo<PlaybackContextValue>(
     () => ({
       index,
       mode,
       muted,
+      armed,
       total: FRAMES.length,
       reportActive,
       registerSection,
       togglePlay,
       toggleMute,
     }),
-    [index, mode, muted, reportActive, registerSection, togglePlay, toggleMute],
+    [index, mode, muted, armed, reportActive, registerSection, togglePlay, toggleMute],
   );
 
   return (
