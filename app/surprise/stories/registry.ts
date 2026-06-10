@@ -38,6 +38,16 @@ export const STORIES: StoryMeta[] = [
     status: "published",
   },
   {
+    id: "flight",
+    title: "The Fantail Who Flew Her Home",
+    subtitle: "Pīwakawaka's big flight across the sea",
+    spineFrom: "#155e75",
+    spineTo: "#22d3ee",
+    ink: "#ecfeff",
+    height: 312,
+    status: "published",
+  },
+  {
     id: "sleepy-kiwi",
     title: "The Sleepy Little Kiwi",
     spineFrom: "#7c2d12",

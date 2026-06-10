@@ -9,6 +9,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import Bookshelf from "./Bookshelf";
 import SmoothScroll from "./SmoothScroll";
 import Story from "./Story";
+import FlightStory from "./flight/FlightStory";
+import PlaybackProvider from "./flight/PlaybackProvider";
 import { getStory } from "./stories/registry";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
@@ -20,6 +22,15 @@ function StoryPlayer({ id }: { id: string }) {
       <SmoothScroll>
         <Story />
       </SmoothScroll>
+    );
+  }
+  // "The Fantail Who Flew Her Home" — owns its own Lenis + audio inside
+  // PlaybackProvider, so it is NOT wrapped in <SmoothScroll>.
+  if (id === "flight") {
+    return (
+      <PlaybackProvider>
+        <FlightStory />
+      </PlaybackProvider>
     );
   }
   const meta = getStory(id);
