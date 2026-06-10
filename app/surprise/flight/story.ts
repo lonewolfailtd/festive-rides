@@ -42,7 +42,7 @@ export const CHARACTERS = {
   piwakawaka:
     "tiny round New Zealand fantail bird, charcoal-brown head, cream-yellow chest, white eyebrow stripe, long black-and-white tail spread like a hand fan, big glossy black eyes, cheerful expression",
   caterpillar:
-    "plump friendly caterpillar, bright green segmented body, rosy red rounded face, big happy eyes, tiny feet",
+    "plump friendly caterpillar, bright green segmented body, friendly green rounded face with soft rosy cheeks (green face, not red), big happy eyes, tiny feet",
   cocoon: "small brown cocoon strapped to the fantail's back",
   butterfly:
     "friendly butterfly with large emerald-and-teal wings patterned with koru swirls, big happy eyes",
@@ -62,7 +62,7 @@ export const CHARACTERS = {
   digger:
     "small cheerful cartoon yellow excavator with tracks, bucket arm, friendly headlight eyes, mud freckles",
   kiwi:
-    "round fluffy brown kiwi bird, shaggy streaked feathers, long pale beak, warm gentle eyes, a small fern leaf tucked behind her head",
+    "round fluffy brown kiwi bird, shaggy streaked feathers, long pale beak, warm gentle eyes (plain head, no leaf or fern)",
   tree: "tiny pōhutukawa sapling in fresh soil with a red ribbon bow",
 } as const;
 
