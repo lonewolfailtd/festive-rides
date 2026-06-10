@@ -35,6 +35,7 @@ book**. Read the rules before creating or editing anything.
 | `app/surprise/Bookshelf.tsx` | Renders every spine from the registry. Generic — no edit needed. | ❌ shared |
 | `app/surprise/stories/registry.ts` | **The list of books.** | ⚠️ append-only: add **one** entry |
 | `app/surprise/Gate.tsx`, `gate-config.ts`, `unlock/route.ts`, `SmoothScroll.tsx`, `layout.tsx` | Passcode, font, smooth-scroll. | ❌ shared — reuse by import only |
+| `app/surprise/progress.ts` | Reading progress (localStorage). Shelf locks later books until the first published book is opened once; story pages record visits + show first-time "press play" help. | ❌ shared |
 
 The two **⚠️ append-only** files are your integration points. Touch **only your
 own added lines** there; leave every other book's lines exactly as they are.

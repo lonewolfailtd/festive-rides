@@ -9,11 +9,22 @@ import { motion } from "framer-motion";
 import Gate from "../Gate";
 import StoryPlayer from "../StoryPlayer";
 import { GATE_ENABLED, UNLOCK_KEY } from "../gate-config";
+import { getPlayed, markPlayed } from "../progress";
+import { getStory } from "../stories/registry";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
 
 export default function StoryPageClient({ id }: { id: string }) {
   const [unlocked, setUnlocked] = useState<boolean | null>(GATE_ENABLED ? null : true);
+  // First time this browser opens this book: show the "press play"
+  // instructions, and record the visit (which also unlocks the shelf).
+  const [showHelp, setShowHelp] = useState(false);
+
+  useEffect(() => {
+    if (getStory(id)?.status !== "published") return;
+    if (!getPlayed().includes(id)) setShowHelp(true);
+    markPlayed(id);
+  }, [id]);
 
   useEffect(() => {
     if (!GATE_ENABLED) return;
@@ -55,6 +66,34 @@ export default function StoryPageClient({ id }: { id: string }) {
       >
         <StoryPlayer id={id} />
       </motion.div>
+
+      {/* first-time instructions — tap anywhere to dismiss */}
+      {showHelp && (
+        <button
+          type="button"
+          onClick={() => setShowHelp(false)}
+          aria-label="Dismiss instructions"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-[2px]"
+          style={FONT}
+        >
+          <motion.span
+            initial={{ opacity: 0, scale: 0.9, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="mx-6 flex max-w-sm flex-col items-center gap-2.5 rounded-2xl border border-amber-200/30 bg-[#2b1a0c]/95 px-7 py-6 text-center shadow-[0_18px_50px_rgba(0,0,0,.7)]"
+          >
+            <span className="text-4xl">📖</span>
+            <span className="text-lg font-semibold text-amber-50">Ready for the story?</span>
+            <span className="text-sm leading-relaxed text-amber-100/85">
+              Press the <span className="font-semibold text-amber-300">▶ play</span> button, then sit back
+              and watch the story unfold.
+            </span>
+            <span className="mt-1.5 rounded-full bg-amber-400 px-6 py-2 text-sm font-semibold text-[#2b1a0c] shadow-md">
+              Got it!
+            </span>
+          </motion.span>
+        </button>
+      )}
     </>
   );
 }

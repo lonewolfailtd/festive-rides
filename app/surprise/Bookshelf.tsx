@@ -9,8 +9,10 @@
 // the shelf's % coordinates below always line up exactly; the letterbox
 // around it is filled with a blurred copy of the same art.
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Critters from "./Critters";
+import { getPlayed } from "./progress";
 import { STORIES, type StoryMeta } from "./stories/registry";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
@@ -47,26 +49,47 @@ const SCENES = {
   },
 } as const;
 
-function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => void }) {
+function Book({
+  story,
+  onOpen,
+  locked,
+  highlight,
+}: {
+  story: StoryMeta;
+  onOpen: (id: string) => void;
+  locked: boolean;
+  highlight: boolean;
+}) {
   const published = story.status === "published";
+  const clickable = published && !locked;
   // Registry heights (290–320px) become a fraction of the shelf opening.
   const heightPct = Math.min(100, (story.height / 345) * 100);
   return (
     <motion.button
       type="button"
-      disabled={!published}
-      onClick={() => published && onOpen(story.id)}
+      disabled={!clickable}
+      onClick={() => clickable && onOpen(story.id)}
       initial={{ y: 12, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 120, damping: 16 }}
+      animate={highlight ? { y: [0, -8, 0], opacity: 1 } : { y: 0, opacity: 1 }}
+      transition={
+        highlight
+          ? { y: { duration: 2.2, repeat: Infinity, ease: "easeInOut" }, opacity: { duration: 0.3 } }
+          : { type: "spring", stiffness: 120, damping: 16 }
+      }
       whileHover={
-        published
+        clickable
           ? { y: "-7%", rotateZ: -3, transition: { type: "spring", stiffness: 300, damping: 18 } }
           : { y: "-2%" }
       }
       className="group relative flex shrink-0 items-end outline-none"
       style={{ height: `${heightPct}%`, ...FONT }}
-      aria-label={published ? `Open ${story.title}` : `${story.title} — coming soon`}
+      aria-label={
+        published
+          ? locked
+            ? `${story.title} — locked, read the first story to unlock`
+            : `Open ${story.title}`
+          : `${story.title} — coming soon`
+      }
     >
       {/* contact shadow grounding the book on the painted shelf */}
       <span
@@ -80,7 +103,7 @@ function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => voi
           className="relative h-full"
           style={{
             aspectRatio: `${SPINE_ART[story.id].aspect}`,
-            filter: published
+            filter: clickable
               ? "saturate(.9) brightness(.95) drop-shadow(0 6px 10px rgba(0,0,0,.55))"
               : "saturate(.5) brightness(.78) drop-shadow(0 6px 10px rgba(0,0,0,.55))",
           }}
@@ -155,13 +178,13 @@ function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => voi
           <span className="mt-0.5 text-[11px] leading-snug text-amber-100/75">{story.subtitle}</span>
         )}
         <span className="mt-1 text-[9px] font-medium uppercase tracking-[0.18em] text-amber-300/90">
-          {published ? "Click to open" : "Coming soon ✨"}
+          {clickable ? "Click to open" : locked ? "🔒 Read the first story to unlock" : "Coming soon ✨"}
         </span>
         {/* little pointer */}
         <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-amber-200/30 bg-[#2b1a0c]/95" />
       </span>
 
-      {/* coming-soon seal */}
+      {/* coming-soon / locked seals */}
       {!published && (
         <span
           className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-1.5 py-0.5 font-medium uppercase tracking-wider text-amber-200"
@@ -170,8 +193,16 @@ function Book({ story, onOpen }: { story: StoryMeta; onOpen: (id: string) => voi
           ✨ soon
         </span>
       )}
-      {/* glow under a hovered published book */}
-      {published && (
+      {locked && (
+        <span
+          className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-1.5 py-0.5 font-medium uppercase tracking-wider text-amber-200"
+          style={{ fontSize: "clamp(6px, 1.1svh, 9px)" }}
+        >
+          🔒
+        </span>
+      )}
+      {/* glow under a hovered openable book */}
+      {clickable && (
         <span className="pointer-events-none absolute -bottom-1 left-1/2 h-[5%] w-full -translate-x-1/2 rounded-full bg-amber-300/0 blur-md transition-all duration-300 group-hover:bg-amber-300/60" />
       )}
     </motion.button>
@@ -183,10 +214,14 @@ function Scene({
   kind,
   className,
   onOpen,
+  lockedFor,
+  highlightId,
 }: {
   kind: keyof typeof SCENES;
   className: string;
   onOpen: (id: string) => void;
+  lockedFor: (s: StoryMeta) => boolean;
+  highlightId: string | null;
 }) {
   const scene = SCENES[kind];
   const { left, right, top, bottom } = scene.shelf;
@@ -236,7 +271,7 @@ function Scene({
           }}
         >
           {STORIES.map((s) => (
-            <Book key={s.id} story={s} onOpen={onOpen} />
+            <Book key={s.id} story={s} onOpen={onOpen} locked={lockedFor(s)} highlight={s.id === highlightId} />
           ))}
         </div>
 
@@ -264,11 +299,36 @@ function Scene({
 }
 
 export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) {
+  // Which books has this browser opened? Until the first published book has
+  // been opened once, the other published books stay locked.
+  const [played, setPlayed] = useState<string[] | null>(null);
+  useEffect(() => {
+    setPlayed(getPlayed());
+  }, []);
+
+  const firstId = STORIES.find((s) => s.status === "published")?.id ?? null;
+  const fresh = played !== null && played.length === 0; // brand-new reader
+  const lockedFor = (s: StoryMeta) =>
+    s.status === "published" && s.id !== firstId && (played === null || played.length === 0);
+  const firstTitle = STORIES.find((s) => s.id === firstId)?.title;
+
   return (
     <main className="relative h-[100svh] overflow-hidden bg-[#0a1124]" style={FONT}>
       {/* phones get the portrait painting, larger screens the landscape one */}
-      <Scene kind="portrait" className="flex md:hidden" onOpen={onOpen} />
-      <Scene kind="landscape" className="hidden md:flex" onOpen={onOpen} />
+      <Scene
+        kind="portrait"
+        className="flex md:hidden"
+        onOpen={onOpen}
+        lockedFor={lockedFor}
+        highlightId={fresh ? firstId : null}
+      />
+      <Scene
+        kind="landscape"
+        className="hidden md:flex"
+        onOpen={onOpen}
+        lockedFor={lockedFor}
+        highlightId={fresh ? firstId : null}
+      />
 
       {/* butterflies + glow-bees that wander the scene and flee the cursor */}
       <Critters />
@@ -282,7 +342,13 @@ export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) 
         >
           June&apos;s Library
         </h1>
-        <p className="mt-1 text-xs text-amber-100/70 sm:text-sm">Pick a book off the shelf to begin.</p>
+        {fresh && firstTitle ? (
+          <p className="mt-1 animate-pulse text-xs font-medium text-amber-200/95 sm:text-sm">
+            ✨ Click “{firstTitle}” — the glowing book — to begin ✨
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-amber-100/70 sm:text-sm">Pick a book off the shelf to begin.</p>
+        )}
       </div>
 
       <p className="absolute inset-x-0 bottom-2 z-10 text-center text-[10px] text-amber-100/50 sm:text-xs">
