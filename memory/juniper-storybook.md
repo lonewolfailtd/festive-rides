@@ -1,0 +1,106 @@
+# Project Memory — Juniper's Storybook 🌿
+
+A private, animated, scroll-driven storybook gift for **Juniper Raine Petersen**
+("June" / "Juney"), born **10 June 2025** under a Strawberry Moon. First birthday
+**10 June 2026**. Lives in the USA; whānau in Aotearoa NZ. From Aunty Sammi &
+Uncle Tane. Lives at `/surprise` on festiverides.online (a Next.js + Convex app).
+
+---
+
+## 🔒 CHARACTER CONSISTENCY (the most important rule)
+
+**Base image (single source of truth):** `public/surprise/characters/june-master.jpg`
+
+- **NEVER change:** her **face, facial features, and hair** — must always match the
+  master image exactly. Do not add more/different hair than the master has.
+- **OK to change per scene:** her **pose / position** (standing, sitting, crawling,
+  walking, splashing, clapping…) and her **clothes** (blue is her signature colour,
+  but outfits may vary to suit the scene).
+- **How:** every new image is generated with `june-master.jpg` passed as the primary
+  reference, instructing the model to keep face/hair identical and only change
+  pose/outfit/setting.
+- Retired: earlier character variations (v1/v2/v3, the no-hair/extra-hair takes) —
+  ignore them; only `june-master.jpg` is canonical.
+
+---
+
+## 🎨 Art & motion
+
+- **Style:** soft glossy 3D, Pixar-ish — big expressive eyes, subsurface skin,
+  cinematic soft light, wholesome and magical. No text/logos baked into images.
+- **Responsive art direction:** every scene generated in BOTH 9:16 (phone) and 16:9
+  (desktop); the page serves the right one per screen.
+- **Variety rule:** different place + active pose every scene — never just sitting,
+  never repeat a setting.
+- **Scroll = camera:** Lenis smooth scroll + Framer Motion (parallax / push-in / pan).
+  Guided-cinematic feel. GSAP + FFmpeg frame-scrub reserved for hero moments.
+
+## 🎙️ Narration & subtitles (ElevenLabs)
+
+- **Voice:** Kylee — NZ female storyteller (`voice_id pcKdPWtbF6bM9o7NHjCI`).
+- **Settings:** model `eleven_multilingual_v2`, stability ~0.55, similarity 0.75,
+  style 0.3, speaker_boost on, **speed = TBD (1.10 vs 1.18 — awaiting pick)**.
+- **Subtitles** along the bottom, synced from ElevenLabs timestamps.
+- **June's name is always coloured BLUE** wherever it appears (titles + subtitles).
+- **Māori pronunciation** — subtitles keep correct macrons; the SPOKEN text uses
+  respellings so Kylee says them right:
+  | Word | Respelling |
+  |---|---|
+  | Aotearoa | Ah-oh-teh-ah-roh-ah |
+  | pīwakawaka | pee-wah-kah-wah-kah |
+  | kea | keh-ah |
+  | pūkeko | poo-keh-koh |
+  | kiwi | kee-wee |
+  | kia ora | kee-ah or-ah |
+  | whānau | fah-noh |
+  | maunga | mow-ngah |
+- API key supplied by user — use via env var only, NEVER commit it.
+
+## 📚 Architecture
+
+- **Bookshelf / Library** is the landing (`/surprise` → `SurpriseClient` → `Library`):
+  an animated wooden shelf of "books" (stories). Add stories via
+  `app/surprise/stories/registry.ts` (id, title, spine colours, status). Flip a
+  story to `status:"published"` and it becomes a clickable book.
+- June's story = first book (`id: "june"`), rendered by `app/surprise/Story.tsx`.
+- Passcode gate: code `JuneRaine2026`, server-checked at `/surprise/unlock`.
+  **Currently DISABLED for testing** (`GATE_ENABLED = false` in SurpriseClient) —
+  flip back to `true` before sharing with family.
+
+## ⚙️ Working rules (workflow)
+
+- **DO NOT push/merge/deploy to GitHub unless the user explicitly asks.** Work
+  locally; preview via `npm run dev` (http://localhost:3000/surprise).
+- `.env.local` holds public Convex URLs for local dev (gitignored).
+- Deadline: **10 June 2026 (June's 1st birthday).**
+
+## 📖 STORYLINE (NEW — real first-year memories, replaces the Kiwi adventure)
+
+Working title: *Juniper's First Year — from a Strawberry Moon to Aotearoa*.
+Tone: warm, spoken **to** June ("the night you were born…"), a keepsake. Real
+memories across NZ + USA. 10 slides:
+
+1. **Born under a Strawberry Moon** (USA, night) — newborn, the 10th of June.
+2. **FaceTime with whānau** — NZ family round a screen ↔ June + parents in the US.
+3. **Six months / daycare** — crawling, giggling, happy daycare days.
+4. **First flight** — Air New Zealand, parents wheeling her in the pram.
+5. **Meeting whānau in NZ** — lounge: Mum, Dad, Aunty Sammi, Uncle Tane, Sammi's parents.
+6. **First Christmas** — Kiwi summer, presents on the deck in wicker chairs.
+7. **Bath in the kitchen sink** — three primary-colour toy fish.
+8. **Picnic at Tomarata** — their 2 ha bare land, big green views.
+9. **Family photos at Browns Bay** — pōhutukawa, toes in the water, laughing.
+10. **Goodbye at the airport** — the whole family farewell.
+
+Extra Māori for the pronunciation map: pōhutukawa → `paw-hoo-too-KAH-wah`;
+haere rā → `high-reh RAH`.
+
+## 📝 Open decisions (being discussed)
+
+- Narration person: spoken **to June ("you")** — proposed, to confirm.
+- **Adults' likeness:** parents resemble (photo on hand); you/Sammi/Sammi's parents —
+  send photos for likeness OR keep adults warm/stylised (June = hero). TBD.
+- **Real places:** photos of Tomarata land / deck / Browns Bay would improve accuracy;
+  else stylise. TBD.
+- June ages newborn → ~1yr across slides; keep master face, age-appropriate.
+- Narration **speed pick** (1.10/1.18) still pending.
+- All art still to be generated from `june-master.jpg`.

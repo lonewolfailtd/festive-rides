@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Gate from "./Gate";
-import SmoothScroll from "./SmoothScroll";
-import Story from "./Story";
+import Library from "./Library";
+
+// Passcode gate toggle. OFF during testing so we go straight to the shelf.
+// ⚠️ Set this back to `true` before sharing with family.
+const GATE_ENABLED = false;
 
 export default function SurpriseClient() {
-  // `null` = still checking localStorage (avoids a flash of the gate for
-  // family who already unlocked on this device).
-  const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  // When the gate is disabled, start "unlocked" so the shelf shows instantly.
+  const [unlocked, setUnlocked] = useState<boolean | null>(GATE_ENABLED ? null : true);
 
   useEffect(() => {
+    if (!GATE_ENABLED) return;
     let ok = false;
     try {
       ok = window.localStorage.getItem("surprise-unlocked-v1") === "1";
@@ -26,9 +29,5 @@ export default function SurpriseClient() {
     return <Gate onUnlock={() => setUnlocked(true)} />;
   }
 
-  return (
-    <SmoothScroll>
-      <Story />
-    </SmoothScroll>
-  );
+  return <Library />;
 }
