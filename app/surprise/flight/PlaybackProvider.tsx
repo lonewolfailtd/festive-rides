@@ -38,8 +38,14 @@ interface PlaybackContextValue {
   /** False until the reader's first tap — the book opens silent. */
   armed: boolean;
   total: number;
+  /** Index whose verse is being spoken right now; null once it finishes. */
+  narratingIndex: number | null;
+  /** False until the read-along has finished once — scrolling is locked. */
+  unlocked: boolean;
   /** A scene reports itself active when it crosses screen-centre (scroll mode). */
   reportActive: (i: number) => void;
+  /** Restart the guided read-along from the first scene. */
+  replay: () => void;
   /** A scene registers its section element so we can scroll to it. */
   registerSection: (i: number, el: HTMLElement | null) => void;
   togglePlay: () => void;
@@ -62,6 +68,14 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
   // speaker) arms narration. Also keeps browsers' autoplay policies happy —
   // the first audio.play() always follows a user gesture.
   const [armed, setArmed] = useState(false);
+  const [narratingIndex, setNarratingIndex] = useState<number | null>(null);
+  // The book premieres as a guided read-along: scrolling stays locked until
+  // the story has been played through once, then the reader roams freely.
+  const [unlocked, setUnlocked] = useState(false);
+  const unlockedRef = useRef(false);
+  useEffect(() => {
+    unlockedRef.current = unlocked;
+  }, [unlocked]);
 
   const lenisRef = useRef<Lenis | null>(null);
   const sectionsRef = useRef<(HTMLElement | null)[]>([]);
@@ -87,9 +101,10 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     };
     raf = requestAnimationFrame(loop);
 
-    // Any human wheel/touch input drops us out of read-along back to manual.
+    // Any human wheel/touch input drops us out of read-along back to manual —
+    // but only once the premiere has unlocked free scrolling.
     const onUserScroll = () => {
-      if (!programmaticRef.current) setMode("scroll");
+      if (!programmaticRef.current && unlockedRef.current) setMode("scroll");
     };
     window.addEventListener("wheel", onUserScroll, { passive: true });
     window.addEventListener("touchmove", onUserScroll, { passive: true });
@@ -102,6 +117,16 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       lenisRef.current = null;
     };
   }, []);
+
+  /* ----- Premiere lock: no free scrolling until the story's been told ---
+     Lenis.stop() swallows wheel/touch input; the read-along's own glides use
+     force:true so they still move. */
+  useEffect(() => {
+    const lenis = lenisRef.current;
+    if (!lenis) return; // reduced-motion fallback: leave native scroll alone
+    if (unlocked) lenis.start();
+    else lenis.stop();
+  }, [unlocked]);
 
   /* ----- Slideshow pacing ---------------------------------------------- */
   // Press play once and the book carries itself: a long dreamy glide into each
@@ -127,6 +152,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
         duration: durationMs / 1000,
         easing: (t: number) => 0.5 * (1 - Math.cos(Math.PI * t)), // easeInOutSine
         onComplete: release,
+        force: true, // glide even while user scrolling is locked
       });
     } else {
       window.scrollTo({ top: target, behavior: "smooth" });
@@ -145,6 +171,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       else if (restart) audio.currentTime = 0; // slideshow always tells the full verse
       audio.muted = muted;
       lastPlayedRef.current = i;
+      setNarratingIndex(i);
       if (!muted) {
         // Missing files reject here — harmless; the backstop timer paces us.
         audio.play().catch(() => {});
@@ -158,6 +185,15 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     const audio = audioRef.current;
     if (audio) audio.muted = muted;
   }, [muted]);
+
+  // When a verse finishes, clear narratingIndex so its subtitle can fade out.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onEnded = () => setNarratingIndex(null);
+    audio.addEventListener("ended", onEnded);
+    return () => audio.removeEventListener("ended", onEnded);
+  }, []);
 
   /* ----- Scroll mode: narrate whichever frame the reader settles on ---- */
   useEffect(() => {
@@ -186,7 +222,23 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       if (done) return;
       done = true;
       if (index >= FRAMES.length - 1) {
-        setMode("scroll"); // reached the end — release control
+        // The story has been told — unlock free scrolling and glide down to
+        // the farewell footer (where the replay button lives).
+        setUnlocked(true);
+        setMode("scroll");
+        const lenis = lenisRef.current;
+        if (lenis) {
+          programmaticRef.current = true;
+          lenis.start();
+          lenis.scrollTo(document.documentElement.scrollHeight, {
+            duration: 2.6,
+            easing: (t: number) => 0.5 * (1 - Math.cos(Math.PI * t)),
+            onComplete: () => {
+              programmaticRef.current = false;
+            },
+            force: true,
+          });
+        }
       } else {
         setIndex(index + 1);
       }
@@ -232,6 +284,12 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     setMuted((m) => !m);
   }, []);
 
+  const replay = useCallback(() => {
+    setArmed(true);
+    setIndex(0);
+    setMode("play");
+  }, []);
+
   const value = useMemo<PlaybackContextValue>(
     () => ({
       index,
@@ -239,12 +297,15 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       muted,
       armed,
       total: FRAMES.length,
+      narratingIndex,
+      unlocked,
       reportActive,
+      replay,
       registerSection,
       togglePlay,
       toggleMute,
     }),
-    [index, mode, muted, armed, reportActive, registerSection, togglePlay, toggleMute],
+    [index, mode, muted, armed, narratingIndex, unlocked, reportActive, replay, registerSection, togglePlay, toggleMute],
   );
 
   return (

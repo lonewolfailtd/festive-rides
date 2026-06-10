@@ -1,13 +1,15 @@
 "use client";
 
 // The book itself: 15 pinned scenes driven by scroll, plus a read-along
-// overlay (play/pause · mute · progress) wired to PlaybackProvider.
+// overlay (play/pause · mute) wired to PlaybackProvider.
 //
 // Each scene is a TALL <section> with a sticky full-screen stage. Scrolling
 // its height gives a 0→1 progress that drives the camera (pan / push-in /
-// parallax / finale) and reveals the verse two lines at a time — the verse
-// IS the subtitle. A centre-line IntersectionObserver marks the scene active
-// so its narration plays. Art is placeholder until the 30 images land.
+// parallax / finale). The scene art is a LIVING ambient clip on desktop
+// (the fal.ai motion clips, muted loops) with the still as poster/phone
+// fallback. The verse subtitle stays up while it's being SPOKEN, then fades
+// (silent readers keep it for the whole scene). The book premieres locked:
+// it reads itself through once before free scrolling unlocks.
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -16,11 +18,13 @@ import {
   motion,
   useScroll,
   useTransform,
+  useMotionValueEvent,
   type MotionStyle,
   type MotionValue,
 } from "framer-motion";
 import { FRAMES, STOPS, type Frame, type MotionKind } from "./story";
 import { usePlayback } from "./PlaybackProvider";
+import AmbientVideo, { useIsDesktop } from "./AmbientVideo";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
 
@@ -33,31 +37,9 @@ function usePinned(ref: React.RefObject<HTMLElement | null>): MotionValue<number
   return scrollYProgress;
 }
 
-/* Registers this section (so play-mode can scroll to it) and marks it active
-   when it crosses screen-centre (which drives narration). */
-function useCenterActive(ref: React.RefObject<HTMLElement | null>, index: number) {
-  const { reportActive, registerSection } = usePlayback();
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // Make this frame a scroll target for read-along auto-advance.
-    registerSection(index, el);
-    const obs = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) if (e.isIntersecting) reportActive(index);
-      },
-      // A thin band across the vertical middle of the viewport.
-      { rootMargin: "-45% 0px -45% 0px", threshold: 0 },
-    );
-    obs.observe(el);
-    return () => {
-      obs.disconnect();
-      registerSection(index, null);
-    };
-  }, [ref, index, reportActive, registerSection]);
-}
-
-/* The moving image plane: portrait on phones, landscape on desktop. */
+/* The moving scene plane. On desktop the art is ALIVE — the scene's motion
+   clip loops ambiently (poster = the still). Phones get the portrait still
+   (portrait clips not rendered yet); first paint shows stills for both. */
 function SceneMedia({
   frame,
   style,
@@ -69,24 +51,34 @@ function SceneMedia({
   overlay?: string;
   priority?: boolean;
 }) {
+  const isDesktop = useIsDesktop();
   return (
     <motion.div style={style} className="absolute inset-0">
-      <Image
-        src={frame.portrait}
-        alt=""
-        fill
-        sizes="100vw"
-        priority={priority}
-        className="object-cover md:hidden"
-      />
-      <Image
-        src={frame.landscape}
-        alt=""
-        fill
-        sizes="100vw"
-        priority={priority}
-        className="hidden object-cover md:block"
-      />
+      {isDesktop ? (
+        <AmbientVideo
+          src={`/surprise/flight/video/clips/${frame.id}.mp4`}
+          poster={frame.landscape}
+        />
+      ) : (
+        <>
+          <Image
+            src={frame.portrait}
+            alt=""
+            fill
+            sizes="100vw"
+            priority={priority}
+            className="object-cover md:hidden"
+          />
+          <Image
+            src={frame.landscape}
+            alt=""
+            fill
+            sizes="100vw"
+            priority={priority}
+            className="hidden object-cover md:block"
+          />
+        </>
+      )}
       <div
         className={`absolute inset-0 ${
           overlay ?? "bg-gradient-to-t from-black/80 via-black/10 to-black/40"
@@ -100,7 +92,26 @@ function SceneMedia({
 function Scene({ frame, index }: { frame: Frame; index: number }) {
   const ref = useRef<HTMLElement>(null);
   const p = usePinned(ref);
-  useCenterActive(ref, index);
+  const { reportActive, registerSection, armed, muted, narratingIndex } = usePlayback();
+  const [inView, setInView] = useState(false);
+
+  // Register this section so play mode can glide to it.
+  useEffect(() => {
+    registerSection(index, ref.current);
+    return () => registerSection(index, null);
+  }, [index, registerSection]);
+
+  // Tell the playback brain when this scene is the one on screen — it
+  // handles narration (and stays quiet until the reader's first tap).
+  useMotionValueEvent(p, "change", (v) => {
+    if (v > 0.05 && v < 0.9) reportActive(index);
+    setInView(v > 0.06 && v < 0.88);
+  });
+
+  // Subtitle visibility: while the verse is being SPOKEN it stays up, then
+  // fades away so the art isn't blocked. Silent/muted readers keep it for
+  // the whole scene (the text is the story for them).
+  const showSub = inView && (!armed || muted || narratingIndex === index);
 
   const isFirstOfStop = index === 0 || FRAMES[index - 1].stop !== frame.stop;
 
@@ -119,12 +130,6 @@ function Scene({ frame, index }: { frame: Frame; index: number }) {
     parallax: { scale: paraScale, y: paraY },
     finale: { scale: finScale },
   };
-
-  // Two-pair subtitle reveal: pair A early, pair B mid, both ease out near end.
-  const pairAOpacity = useTransform(p, [0.08, 0.22, 0.82, 0.95], [0, 1, 1, 0]);
-  const pairAY = useTransform(p, [0.08, 0.28], [40, 0]);
-  const pairBOpacity = useTransform(p, [0.4, 0.54, 0.85, 0.96], [0, 1, 1, 0]);
-  const pairBY = useTransform(p, [0.4, 0.6], [40, 0]);
 
   // Stop title sweeps in on the first frame of each stop.
   const stopOpacity = useTransform(p, [0.02, 0.16, 0.45, 0.6], [0, 1, 1, 0]);
@@ -184,25 +189,27 @@ function Scene({ frame, index }: { frame: Frame; index: number }) {
           </motion.div>
         )}
 
-        {/* Verse / subtitles — two lines at a time, centred low */}
-        <div className="absolute inset-x-0 bottom-[14%] z-10 mx-auto max-w-2xl px-8 text-center">
-          <motion.p
-            style={{ opacity: pairAOpacity, y: pairAY, ...FONT }}
-            className="text-2xl font-medium leading-snug text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.8)] sm:text-3xl lg:text-4xl"
+        {/* Verse subtitle — slides up as the verse starts, fades once it's
+            been said (synced to the narration, not the scroll). */}
+        <motion.div
+          initial={false}
+          animate={{ opacity: showSub ? 1 : 0, y: showSub ? 0 : 24 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-x-0 bottom-[10%] z-10 mx-auto max-w-2xl px-8 text-center"
+        >
+          <p
+            className="text-xl font-medium leading-snug text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.85)] sm:text-2xl lg:text-3xl"
+            style={FONT}
           >
             {frame.verse[0]}
             <br />
             {frame.verse[1]}
-          </motion.p>
-          <motion.p
-            style={{ opacity: pairBOpacity, y: pairBY, ...FONT }}
-            className="mt-4 text-2xl font-medium leading-snug text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.8)] sm:text-3xl lg:text-4xl"
-          >
+            <br />
             {frame.verse[2]}
             <br />
             {frame.verse[3]}
-          </motion.p>
-        </div>
+          </p>
+        </motion.div>
 
         {isFinale && <FinaleFlourish p={p} />}
       </div>
@@ -293,9 +300,8 @@ function Cover() {
           className="absolute inset-x-0 bottom-10 flex flex-col items-center text-white/75"
         >
           <span className="text-sm" style={FONT}>
-            tap ▶ for the read-along, or scroll
+            tap ▶ to begin the story
           </span>
-          <span className="mt-1 animate-bounce text-lg">↓</span>
         </motion.div>
       </div>
     </section>
@@ -329,7 +335,7 @@ function Controls() {
             </span>
             <span className="text-left leading-tight">
               <span className="block text-base font-semibold">Play the story</span>
-              <span className="block text-xs text-white/65">or scroll at your own pace</span>
+              <span className="block text-xs text-white/65">sit back — it reads itself</span>
             </span>
           </button>
           <style>{`@keyframes float-pulse{0%,100%{transform:translateY(0);box-shadow:0 8px 30px rgba(56,189,248,.25)}50%{transform:translateY(-5px);box-shadow:0 14px 40px rgba(56,189,248,.45)}}`}</style>
@@ -373,12 +379,32 @@ export default function FlightStory() {
       {FRAMES.map((frame, i) => (
         <Scene key={frame.id} frame={frame} index={i} />
       ))}
-      <footer className="flex h-[40vh] flex-col items-center justify-center gap-2 bg-[#0b1020] text-center text-white/60" style={FONT}>
-        <p className="text-2xl">🌿</p>
-        <p className="max-w-xs px-6 text-sm">
-          With all our love, from your whānau in Aotearoa.
-        </p>
-      </footer>
+      <Farewell />
     </div>
+  );
+}
+
+/* Farewell footer — once the premiere has unlocked, offers a replay. */
+function Farewell() {
+  const { unlocked, replay } = usePlayback();
+  return (
+    <footer
+      className="flex h-[46vh] flex-col items-center justify-center gap-2 bg-[#0b1020] text-center text-white/60"
+      style={FONT}
+    >
+      <p className="text-2xl">🌿</p>
+      <p className="max-w-xs px-6 text-sm">
+        With all our love, from your whānau in Aotearoa.
+      </p>
+      {unlocked && (
+        <button
+          type="button"
+          onClick={replay}
+          className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
+        >
+          ↻ Play the story again
+        </button>
+      )}
+    </footer>
   );
 }
