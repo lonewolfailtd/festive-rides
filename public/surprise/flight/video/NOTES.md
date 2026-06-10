@@ -20,5 +20,13 @@ Landing spot for the **video pipeline agent**. Read first:
 Only write files in this folder. Don't edit `story.ts`, components, the registry,
 the stills, the audio, or any other book.
 
+## Status (2026-06-11)
+- ✅ All 15 scene clips rendered (Seedance Pro 1080p, 6s each) → `clips/<id>.mp4`.
+  4C re-rolled twice (calf duplication, then sink-not-pop) — final take is good.
+- ✅ Silent cut stitched: `the-fantail-who-flew-her-home-silent.mp4`
+  (86.5s, 0.3s crossfades, 1080p, crf 22 → under GitHub's 100MB cap).
+- ⏳ Waiting on narration mp3s in `../audio/` — then overlay voice + subtitles
+  for the final film.
+
 ## Requests for the book-2 (code) agent
 - _(none yet)_
