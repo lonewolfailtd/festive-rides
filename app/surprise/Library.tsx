@@ -7,8 +7,8 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Bookshelf from "./Bookshelf";
-import SmoothScroll from "./SmoothScroll";
 import Story from "./Story";
+import { JunePlaybackProvider } from "./JunePlayback";
 import FlightStory from "./flight/FlightStory";
 import PlaybackProvider from "./flight/PlaybackProvider";
 import { getStory } from "./stories/registry";
@@ -17,11 +17,13 @@ const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as con
 
 function StoryPlayer({ id }: { id: string }) {
   // June has a fully bespoke story; future ids render here too once built.
+  // June's book owns its own Lenis inside JunePlaybackProvider (so the
+  // read-along can drive the scroll) — not wrapped in <SmoothScroll>.
   if (id === "june") {
     return (
-      <SmoothScroll>
+      <JunePlaybackProvider>
         <Story />
-      </SmoothScroll>
+      </JunePlaybackProvider>
     );
   }
   // "The Fantail Who Flew Her Home" — owns its own Lenis + audio inside
