@@ -239,14 +239,18 @@ function FinaleFlourish({ p }: { p: MotionValue<number> }) {
 }
 
 /* ------------------------------------------------------------------ Cover -- */
-// The title page. A slow push-in over the cover art while the title rises and
-// fades — same recipe as book 1's cover, with book 2's own art + name.
+// The title page — a LIVING cover: June riding the fantail, wings beating,
+// sparkles drifting (ambient clip on desktop, still on phones). The title
+// sits over the art until the reader taps play, then slides away so the
+// imagery has the whole stage for the premiere.
 const COVER_PORTRAIT = "/surprise/flight/scenes/cover-portrait.jpg";
 const COVER_WIDE = "/surprise/flight/scenes/cover-wide.jpg";
 
 function Cover() {
   const ref = useRef<HTMLElement>(null);
   const p = usePinned(ref);
+  const isDesktop = useIsDesktop();
+  const { armed } = usePlayback();
   const scale = useTransform(p, [0, 1], [1.05, 1.22]);
   const titleY = useTransform(p, [0, 0.6], ["0%", "-40%"]);
   const titleOpacity = useTransform(p, [0, 0.5, 0.8], [1, 1, 0]);
@@ -256,52 +260,78 @@ function Cover() {
     <section ref={ref} className="relative" style={{ height: "200vh" }}>
       <div className="sticky top-0 h-[100svh] overflow-hidden bg-black">
         <motion.div style={{ scale }} className="absolute inset-0">
-          <Image
-            src={COVER_PORTRAIT}
-            alt=""
-            fill
-            sizes="100vw"
-            priority
-            className="object-cover md:hidden"
-          />
-          <Image
-            src={COVER_WIDE}
-            alt=""
-            fill
-            sizes="100vw"
-            priority
-            className="hidden object-cover md:block"
-          />
+          {isDesktop ? (
+            <AmbientVideo
+              src="/surprise/flight/video/clips/cover.mp4"
+              poster={COVER_WIDE}
+              priority
+            />
+          ) : (
+            <>
+              <Image
+                src={COVER_PORTRAIT}
+                alt=""
+                fill
+                sizes="100vw"
+                priority
+                className="object-cover md:hidden"
+              />
+              <Image
+                src={COVER_WIDE}
+                alt=""
+                fill
+                sizes="100vw"
+                priority
+                className="hidden object-cover md:block"
+              />
+            </>
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/75" />
         </motion.div>
 
+        {/* Title block — slides up and away the moment the story begins, so
+            the living art is unobstructed for the premiere. */}
         <motion.div
-          style={{ y: titleY, opacity: titleOpacity }}
-          className="absolute inset-x-0 top-[9%] flex flex-col items-center px-6 text-center md:top-[12%]"
+          initial={false}
+          animate={armed ? { opacity: 0, y: -90 } : { opacity: 1, y: 0 }}
+          transition={{ duration: 1.1, ease: [0.4, 0, 0.2, 1] }}
+          className="absolute inset-x-0 top-[9%] md:top-[12%]"
         >
-          <p className="text-xs uppercase tracking-[0.35em] text-white/75 sm:text-sm" style={FONT}>
-            A first birthday story for Juniper
-          </p>
-          <h1
-            className="mt-3 text-4xl font-bold leading-[1.05] text-white drop-shadow-[0_2px_22px_rgba(0,0,0,0.7)] sm:text-6xl lg:text-7xl"
-            style={FONT}
+          <motion.div
+            style={{ y: titleY, opacity: titleOpacity }}
+            className="flex flex-col items-center px-6 text-center"
           >
-            The Fantail
-            <br />
-            Who Flew Her Home
-          </h1>
-          <p className="mt-3 text-base text-white/85 sm:text-xl" style={FONT}>
-            Pīwakawaka’s big flight across the sea 🌿
-          </p>
+            <p className="text-xs uppercase tracking-[0.35em] text-white/75 sm:text-sm" style={FONT}>
+              A first birthday story for Juniper
+            </p>
+            <h1
+              className="mt-3 text-4xl font-bold leading-[1.05] text-white drop-shadow-[0_2px_22px_rgba(0,0,0,0.7)] sm:text-6xl lg:text-7xl"
+              style={FONT}
+            >
+              The Fantail
+              <br />
+              Who Flew Her Home
+            </h1>
+            <p className="mt-3 text-base text-white/85 sm:text-xl" style={FONT}>
+              Pīwakawaka’s big flight across the sea 🌿
+            </p>
+          </motion.div>
         </motion.div>
 
         <motion.div
-          style={{ opacity: hintOpacity }}
-          className="absolute inset-x-0 bottom-10 flex flex-col items-center text-white/75"
+          initial={false}
+          animate={armed ? { opacity: 0, y: 40 } : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="absolute inset-x-0 bottom-10"
         >
-          <span className="text-sm" style={FONT}>
-            tap ▶ to begin the story
-          </span>
+          <motion.div
+            style={{ opacity: hintOpacity }}
+            className="flex flex-col items-center text-white/75"
+          >
+            <span className="text-sm" style={FONT}>
+              tap ▶ to begin the story
+            </span>
+          </motion.div>
         </motion.div>
       </div>
     </section>
