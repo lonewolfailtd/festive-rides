@@ -29,10 +29,12 @@ book**. Read the rules before creating or editing anything.
 | File | Role | May I edit? |
 |------|------|-------------|
 | `app/surprise/SurpriseClient.tsx` | Gate toggle → renders `<Library>`. | ❌ shared |
-| `app/surprise/Library.tsx` | Shelf ⇄ open-story switch. `StoryPlayer` renders a book by `id`. | ⚠️ append-only: add **one** `if (id === "yours")` branch |
+| `app/surprise/Library.tsx` | Shelf; clicking a book navigates to `/surprise/<id>`. | ❌ shared |
+| `app/surprise/StoryPlayer.tsx` | Renders a book by `id`. | ⚠️ append-only: add **one** `if (id === "yours")` branch |
+| `app/surprise/[storyId]/` | Per-book page (`/surprise/<id>`): gate check + open-book animation around `StoryPlayer`. Generic — no edit needed. | ❌ shared |
 | `app/surprise/Bookshelf.tsx` | Renders every spine from the registry. Generic — no edit needed. | ❌ shared |
 | `app/surprise/stories/registry.ts` | **The list of books.** | ⚠️ append-only: add **one** entry |
-| `app/surprise/Gate.tsx`, `unlock/route.ts`, `SmoothScroll.tsx`, `layout.tsx` | Passcode, font, smooth-scroll. | ❌ shared — reuse by import only |
+| `app/surprise/Gate.tsx`, `gate-config.ts`, `unlock/route.ts`, `SmoothScroll.tsx`, `layout.tsx` | Passcode, font, smooth-scroll. | ❌ shared — reuse by import only |
 
 The two **⚠️ append-only** files are your integration points. Touch **only your
 own added lines** there; leave every other book's lines exactly as they are.
@@ -40,8 +42,9 @@ own added lines** there; leave every other book's lines exactly as they are.
 single contiguous block so it merges cleanly, and coordinate via the human if
 needed.)
 
-> Note: `Gate` is currently disabled in `SurpriseClient` (`GATE_ENABLED = false`)
-> for testing. Do not flip it — the human re-enables it before sharing.
+> Note: `Gate` is currently disabled (`GATE_ENABLED = false` in
+> `gate-config.ts`) for testing. Do not flip it — the human re-enables it
+> before sharing. The gate covers the shelf AND every `/surprise/<id>` page.
 
 ---
 
@@ -59,16 +62,17 @@ needed.)
    (`id`, `title`, spine colours, `height`, `status`). Use
    `status: "coming-soon"` until your scenes are ready, then flip to
    `"published"` to make the spine clickable.
-5. **Wire the player** — add one `if (id === "<id>")` branch to `StoryPlayer` in
-   `Library.tsx` returning your root component. If your book runs its **own**
+5. **Wire the player** — add one `if (id === "<id>")` branch to
+   `app/surprise/StoryPlayer.tsx` returning your root component. Your book then
+   lives at `/surprise/<id>` automatically. If your book runs its **own**
    Lenis (like `flight`'s `PlaybackProvider`), do **not** also wrap it in
    `<SmoothScroll>`.
 
 ### ⚠️ Gotcha: the open book sits inside a transformed ancestor
 
-`Library` wraps the open story in a `motion.div` with a persistent
-`transformPerspective`. A CSS transform on an ancestor **breaks
-`position: fixed`** for descendants. If your book has viewport-pinned UI
+The story page (`[storyId]/StoryPageClient.tsx`) wraps the open story in a
+`motion.div` with a persistent `transformPerspective`. A CSS transform on an
+ancestor **breaks `position: fixed`** for descendants. If your book has viewport-pinned UI
 (controls, progress bar), **render it through a React portal to
 `document.body`** — see how `flight/FlightStory.tsx`'s `Controls` does it.
 `position: sticky` is fine and needs no workaround.

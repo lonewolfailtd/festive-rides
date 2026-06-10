@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import Gate from "./Gate";
 import Library from "./Library";
-
-// Passcode gate toggle. OFF during testing so we go straight to the shelf.
-// ⚠️ Set this back to `true` before sharing with family.
-const GATE_ENABLED = false;
+import { GATE_ENABLED, UNLOCK_KEY } from "./gate-config";
 
 export default function SurpriseClient() {
   // When the gate is disabled, start "unlocked" so the shelf shows instantly.
@@ -16,7 +13,7 @@ export default function SurpriseClient() {
     if (!GATE_ENABLED) return;
     let ok = false;
     try {
-      ok = window.localStorage.getItem("surprise-unlocked-v1") === "1";
+      ok = window.localStorage.getItem(UNLOCK_KEY) === "1";
     } catch {}
     setUnlocked(ok);
   }, []);
