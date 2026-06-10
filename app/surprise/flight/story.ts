@@ -59,8 +59,8 @@ export const CHARACTERS = {
     "shaggy grey sheepdog like a walking mop",
     "low long dachshund with a round saggy tummy",
   ],
-  digger:
-    "small cheerful cartoon yellow excavator with tracks, bucket arm, friendly headlight eyes, mud freckles",
+  calf:
+    "wobbly baby calf, soft brown-and-white coat, big gentle eyes, little hooves, sweet friendly face",
   kiwi:
     "round fluffy brown kiwi bird, shaggy streaked feathers, long pale beak, warm gentle eyes (plain head, no leaf or fern)",
   tree: "tiny pōhutukawa sapling in fresh soil with a red ribbon bow",
@@ -235,11 +235,11 @@ export const FRAMES: Frame[] = [
   {
     id: "4B",
     stop: "Northland",
-    title: "the stuck digger & the dogs",
+    title: "the stuck calf & the dogs",
     motion: "push-in",
     verse: [
       "Stuck, stuck, stuck in the goo —",
-      "a little digger! What to do?",
+      "a little calf! What to do?",
       "Here come doggies — one, two, three,",
       "four and five — a family!",
     ],
@@ -255,7 +255,7 @@ export const FRAMES: Frame[] = [
     verse: [
       "Tug, tug, TUG! One, two, three!",
       "Pulling together — a family!",
-      "POP! goes the digger! SPLAT! goes the mud!",
+      "POP! goes the calf! SPLAT! goes the mud!",
       "Muddy kisses — splud, splud, splud!",
     ],
     audio: "/surprise/flight/audio/4C.mp3",
