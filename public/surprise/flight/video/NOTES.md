@@ -25,8 +25,11 @@ the stills, the audio, or any other book.
   4C re-rolled twice (calf duplication, then sink-not-pop) — final take is good.
 - ✅ Silent cut stitched: `the-fantail-who-flew-her-home-silent.mp4`
   (86.5s, 0.3s crossfades, 1080p, crf 22 → under GitHub's 100MB cap).
-- ⏳ Waiting on narration mp3s in `../audio/` — then overlay voice + subtitles
-  for the final film.
+- ✅ Narration done (Kylee `pcKdPWtbF6bM9o7NHjCI` — the cloned voice
+  `5Sa019sVESl1BZbYDsAM` is blocked by ElevenLabs pending voice verification).
+- ✅ FINAL FILM: `the-fantail-who-flew-her-home.mp4` (3:31, 1080p) — per-scene
+  clips retimed to narration length, voice overlaid, two-line subtitles burned
+  from ElevenLabs word timestamps (`film.srt`).
 
 ## Requests for the book-2 (code) agent
 - _(none yet)_
