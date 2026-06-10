@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import Gate from "../Gate";
 import StoryPlayer from "../StoryPlayer";
 import { GATE_ENABLED, UNLOCK_KEY } from "../gate-config";
-import { getPlayed, markPlayed } from "../progress";
+import { getCompleted, getPlayed, markCompleted, markPlayed } from "../progress";
 import { getStory } from "../stories/registry";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
@@ -19,12 +19,54 @@ export default function StoryPageClient({ id }: { id: string }) {
   // First time this browser opens this book: show the "press play"
   // instructions, and record the visit (which also unlocks the shelf).
   const [showHelp, setShowHelp] = useState(false);
+  // Until this book has been watched to the end once, manual scrolling is
+  // locked: press play and watch. Playback scrolls programmatically, which
+  // these blockers don't touch; reaching the end records completion.
+  const [scrollLocked, setScrollLocked] = useState(false);
 
   useEffect(() => {
     if (getStory(id)?.status !== "published") return;
     if (!getPlayed().includes(id)) setShowHelp(true);
+    if (!getCompleted().includes(id)) setScrollLocked(true);
     markPlayed(id);
   }, [id]);
+
+  useEffect(() => {
+    if (!scrollLocked) return;
+
+    const block = (e: Event) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    const SCROLL_KEYS = ["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"];
+    const blockKeys = (e: KeyboardEvent) => {
+      if (SCROLL_KEYS.includes(e.key)) block(e);
+    };
+    window.addEventListener("wheel", block, { capture: true, passive: false });
+    window.addEventListener("touchmove", block, { capture: true, passive: false });
+    window.addEventListener("keydown", blockKeys, { capture: true });
+
+    // Completed = playback reached the end of the story.
+    const finished = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      return max > 200 && window.scrollY >= max - 60;
+    };
+    const check = () => {
+      if (!finished()) return;
+      markCompleted(id);
+      setScrollLocked(false);
+    };
+    window.addEventListener("scroll", check, { passive: true });
+    const poll = window.setInterval(check, 500);
+
+    return () => {
+      window.removeEventListener("wheel", block, { capture: true });
+      window.removeEventListener("touchmove", block, { capture: true });
+      window.removeEventListener("keydown", blockKeys, { capture: true });
+      window.removeEventListener("scroll", check);
+      window.clearInterval(poll);
+    };
+  }, [scrollLocked, id]);
 
   useEffect(() => {
     if (!GATE_ENABLED) return;
@@ -89,6 +131,9 @@ export default function StoryPageClient({ id }: { id: string }) {
             <span className="text-sm leading-relaxed text-amber-100/85">
               Press the <span className="font-semibold text-amber-300">▶ play</span> button, then sit back
               and watch the story unfold.
+            </span>
+            <span className="text-xs leading-relaxed text-amber-100/60">
+              Scrolling unlocks after you&apos;ve watched it through once.
             </span>
             <span className="mt-1.5 rounded-full bg-amber-400 px-6 py-2 text-sm font-semibold text-[#2b1a0c] shadow-md">
               Got it!

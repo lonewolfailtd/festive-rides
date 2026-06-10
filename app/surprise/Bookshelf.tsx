@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Critters from "./Critters";
-import { getPlayed } from "./progress";
+import { getCompleted, getPlayed } from "./progress";
 import { STORIES, type StoryMeta } from "./stories/registry";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
@@ -299,17 +299,20 @@ function Scene({
 }
 
 export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) {
-  // Which books has this browser opened? Until the first published book has
-  // been opened once, the other published books stay locked.
+  // Progress: the other published books stay locked until the FIRST book has
+  // been watched through to the end once ("completed").
   const [played, setPlayed] = useState<string[] | null>(null);
+  const [completed, setCompleted] = useState<string[] | null>(null);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   useEffect(() => {
     setPlayed(getPlayed());
+    setCompleted(getCompleted());
   }, []);
 
   const firstId = STORIES.find((s) => s.status === "published")?.id ?? null;
   const fresh = played !== null && played.length === 0; // brand-new reader
-  const lockedFor = (s: StoryMeta) =>
-    s.status === "published" && s.id !== firstId && (played === null || played.length === 0);
+  const firstDone = completed !== null && firstId !== null && completed.includes(firstId);
+  const lockedFor = (s: StoryMeta) => s.status === "published" && s.id !== firstId && !firstDone;
   const firstTitle = STORIES.find((s) => s.id === firstId)?.title;
 
   return (
@@ -354,6 +357,34 @@ export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) 
       <p className="absolute inset-x-0 bottom-2 z-10 text-center text-[10px] text-amber-100/50 sm:text-xs">
         More stories are being written… ✨
       </p>
+
+      {/* first-visit welcome card — tap anywhere to dismiss */}
+      {fresh && !welcomeDismissed && firstTitle && (
+        <button
+          type="button"
+          onClick={() => setWelcomeDismissed(true)}
+          aria-label="Dismiss welcome instructions"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px]"
+          style={FONT}
+        >
+          <motion.span
+            initial={{ opacity: 0, scale: 0.9, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="mx-6 flex max-w-sm flex-col items-center gap-2.5 rounded-2xl border border-amber-200/30 bg-[#2b1a0c]/95 px-7 py-6 text-center shadow-[0_18px_50px_rgba(0,0,0,.7)]"
+          >
+            <span className="text-4xl">🌙</span>
+            <span className="text-lg font-semibold text-amber-50">Welcome to June&apos;s Library!</span>
+            <span className="text-sm leading-relaxed text-amber-100/85">
+              Click the <span className="font-semibold text-amber-300">glowing book</span> —{" "}
+              “{firstTitle}” — to begin. The other books unlock after the first story.
+            </span>
+            <span className="mt-1.5 rounded-full bg-amber-400 px-6 py-2 text-sm font-semibold text-[#2b1a0c] shadow-md">
+              Let&apos;s go!
+            </span>
+          </motion.span>
+        </button>
+      )}
 
       <style>{`
         @keyframes shelf-breathe{0%,100%{opacity:.5}50%{opacity:1}}
