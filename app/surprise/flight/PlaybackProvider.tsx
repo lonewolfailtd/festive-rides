@@ -97,8 +97,15 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     };
   }, []);
 
+  /* ----- Slideshow pacing ---------------------------------------------- */
+  // Press play once and the book carries itself: a long dreamy glide into each
+  // scene, a beat to settle, the narration, a breath at the end, then on.
+  const GLIDE_MS = 2800; // scene-to-scene camera glide
+  const SETTLE_MS = 350; // beat after the glide before the voice starts
+  const BREATH_MS = 1100; // pause after the verse before moving on
+
   /* ----- Scroll to a frame's "sweet spot" ----------------------------- */
-  const scrollToIndex = useCallback((i: number) => {
+  const scrollToIndex = useCallback((i: number, durationMs = 1100) => {
     const el = sectionsRef.current[i];
     if (!el) return;
     // Each section is tall with a sticky stage; land ~a third in so the scene
@@ -110,36 +117,64 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     };
     const lenis = lenisRef.current;
     if (lenis) {
-      lenis.scrollTo(target, { duration: 1.1, onComplete: release });
+      lenis.scrollTo(target, {
+        duration: durationMs / 1000,
+        easing: (t: number) => 0.5 * (1 - Math.cos(Math.PI * t)), // easeInOutSine
+        onComplete: release,
+      });
     } else {
       window.scrollTo({ top: target, behavior: "smooth" });
-      window.setTimeout(release, 900);
+      window.setTimeout(release, durationMs);
     }
   }, []);
 
-  /* ----- Active frame → load + play its narration --------------------- */
+  /* ----- Narration helper ---------------------------------------------- */
+  const lastPlayedRef = useRef(-1);
+  const playNarration = useCallback(
+    (i: number, restart = false) => {
+      const audio = audioRef.current;
+      const src = FRAMES[i]?.audio;
+      if (!audio || !src) return;
+      if (audio.getAttribute("src") !== src) audio.setAttribute("src", src);
+      else if (restart) audio.currentTime = 0; // slideshow always tells the full verse
+      audio.muted = muted;
+      lastPlayedRef.current = i;
+      if (!muted) {
+        // Missing files reject here — harmless; the backstop timer paces us.
+        audio.play().catch(() => {});
+      }
+    },
+    [muted],
+  );
+
+  // Keep the element's mute state live (e.g. toggled mid-verse).
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
-    const src = FRAMES[index]?.audio;
-    if (!src) return;
-    if (audio.getAttribute("src") !== src) audio.setAttribute("src", src);
-    audio.muted = muted;
-    if (!muted) {
-      // Missing/stub files reject here — harmless; read-along uses the timer.
-      audio.play().catch(() => {});
-    } else {
-      audio.pause();
-    }
-  }, [index, muted]);
+    if (audio) audio.muted = muted;
+  }, [muted]);
 
-  /* ----- Read-along auto-advance -------------------------------------- */
+  /* ----- Scroll mode: narrate whichever frame the reader settles on ---- */
+  useEffect(() => {
+    if (mode !== "scroll") return;
+    if (lastPlayedRef.current === index) return; // already told this one
+    playNarration(index);
+  }, [mode, index, playNarration]);
+
+  /* ----- Play mode: the slideshow sequencer ----------------------------
+     glide (audio quiet) → settle → narrate → 'ended' → breath → next.
+     The backstop timer only matters if the audio can't load. */
   useEffect(() => {
     if (mode !== "play") return;
-    scrollToIndex(index);
-
+    const audio = audioRef.current;
     const frame = FRAMES[index];
     let done = false;
+    const timers: number[] = [];
+
+    // Quiet the previous verse while the camera travels.
+    audio?.pause();
+    scrollToIndex(index, GLIDE_MS);
+    timers.push(window.setTimeout(() => playNarration(index, true), GLIDE_MS + SETTLE_MS));
+
     const advance = () => {
       if (done) return;
       done = true;
@@ -150,20 +185,22 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       }
     };
 
-    // Fallback pacing (audio is silent today); real narration ending wins.
-    const timer = window.setTimeout(advance, frame.durationMs);
-    const audio = audioRef.current;
+    // Real narration ending wins (plus a breath)…
     const onEnded = () => {
-      window.clearTimeout(timer);
-      advance();
+      timers.push(window.setTimeout(advance, BREATH_MS));
     };
     audio?.addEventListener("ended", onEnded);
+    // …the backstop only fires when there's no playable audio (or muted).
+    const backstop = muted
+      ? GLIDE_MS + SETTLE_MS + frame.durationMs
+      : GLIDE_MS + SETTLE_MS + frame.durationMs + 12000;
+    timers.push(window.setTimeout(advance, backstop));
 
     return () => {
-      window.clearTimeout(timer);
+      timers.forEach((t) => window.clearTimeout(t));
       audio?.removeEventListener("ended", onEnded);
     };
-  }, [mode, index, scrollToIndex]);
+  }, [mode, index, muted, scrollToIndex, playNarration]);
 
   /* ----- Public actions ----------------------------------------------- */
   const reportActive = useCallback(

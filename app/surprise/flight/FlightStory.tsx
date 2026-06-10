@@ -130,6 +130,10 @@ function Scene({ frame, index }: { frame: Frame; index: number }) {
   const stopOpacity = useTransform(p, [0.02, 0.16, 0.45, 0.6], [0, 1, 1, 0]);
   const stopX = useTransform(p, [0.02, 0.2], [-60, 0]);
 
+  // Soft fade-through-dark at the scene's edges, so one image dissolves
+  // gently into the next instead of slide-cutting.
+  const edgeFade = useTransform(p, [0, 0.09, 0.86, 1], [0.92, 0, 0, 0.92]);
+
   const isFinale = frame.motion === "finale";
   const overlay = isFinale
     ? "bg-gradient-to-b from-[#0b1020]/55 via-[#0b1020]/35 to-[#0b1020]"
@@ -142,6 +146,12 @@ function Scene({ frame, index }: { frame: Frame; index: number }) {
     <section ref={ref} className="relative" style={{ height }}>
       <div className="sticky top-0 h-[100svh] overflow-hidden bg-black">
         <SceneMedia frame={frame} style={cameras[frame.motion]} overlay={overlay} priority={index === 0} />
+
+        {/* Dissolve between scenes: dark at the very edges of the pin */}
+        <motion.div
+          style={{ opacity: edgeFade }}
+          className="pointer-events-none absolute inset-0 z-[5] bg-black"
+        />
 
         {/* Scene chip — stop · short title · frame id (also the placeholder label) */}
         <div className="absolute left-5 top-5 z-10 flex items-center gap-2 text-white/80">
@@ -175,7 +185,7 @@ function Scene({ frame, index }: { frame: Frame; index: number }) {
         )}
 
         {/* Verse / subtitles — two lines at a time, centred low */}
-        <div className="absolute inset-x-0 bottom-[14%] mx-auto max-w-2xl px-8 text-center">
+        <div className="absolute inset-x-0 bottom-[14%] z-10 mx-auto max-w-2xl px-8 text-center">
           <motion.p
             style={{ opacity: pairAOpacity, y: pairAY, ...FONT }}
             className="text-2xl font-medium leading-snug text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.8)] sm:text-3xl lg:text-4xl"
@@ -206,7 +216,7 @@ function FinaleFlourish({ p }: { p: MotionValue<number> }) {
   return (
     <motion.div
       style={{ opacity }}
-      className="pointer-events-none absolute inset-x-0 top-[14%] flex flex-col items-center text-center"
+      className="pointer-events-none absolute inset-x-0 top-[14%] z-10 flex flex-col items-center text-center"
     >
       <div className="text-5xl lg:text-6xl" aria-hidden>
         🎂✨
