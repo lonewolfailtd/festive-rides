@@ -233,7 +233,7 @@ function FinaleFlourish({ p }: { p: MotionValue<number> }) {
         className="mt-3 bg-gradient-to-r from-sky-300 to-emerald-300 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl"
         style={FONT}
       >
-        Happy 1st Birthday, Juney
+        Happy 1st Birthday, June
       </p>
     </motion.div>
   );
@@ -303,7 +303,7 @@ function Cover() {
             className="flex flex-col items-center px-6 text-center"
           >
             <p className="text-xs uppercase tracking-[0.35em] text-white/75 sm:text-sm" style={FONT}>
-              A first birthday story for Juniper
+              A first birthday story for June
             </p>
             <h1
               className="mt-3 text-4xl font-bold leading-[1.05] text-white drop-shadow-[0_2px_22px_rgba(0,0,0,0.7)] sm:text-6xl lg:text-7xl"
@@ -314,7 +314,7 @@ function Cover() {
               Who Flew Her Home
             </h1>
             <p className="mt-3 text-base text-white/85 sm:text-xl" style={FONT}>
-              Pīwakawaka’s big flight across the sea 🌿
+              A little fantail’s big flight across the sea 🌿
             </p>
           </motion.div>
         </motion.div>
@@ -366,7 +366,7 @@ function Controls() {
             </span>
             <span className="text-left leading-tight">
               <span className="block text-base font-semibold">Play the story</span>
-              <span className="block text-xs text-white/65">sit back — it reads itself</span>
+              <span className="block text-xs text-white/65">sit back, it reads itself</span>
             </span>
           </button>
           <style>{`@keyframes float-pulse{0%,100%{transform:translateY(0);box-shadow:0 8px 30px rgba(56,189,248,.25)}50%{transform:translateY(-5px);box-shadow:0 14px 40px rgba(56,189,248,.45)}}`}</style>
@@ -426,7 +426,7 @@ function Farewell() {
       <FlightCake />
       <p className="mt-10 text-2xl">🌿</p>
       <p className="max-w-xs px-6 text-sm">
-        With all our love, from your whānau in Aotearoa.
+        With all our love, from your family in New Zealand.
       </p>
       {unlocked && (
         <button

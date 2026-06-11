@@ -136,12 +136,12 @@ export default function FlightCake() {
             <p className="text-3xl font-bold text-white sm:text-4xl">
               Happy 1st Birthday,{" "}
               <span className="bg-gradient-to-r from-sky-300 to-emerald-300 bg-clip-text text-transparent">
-                Juney
+                June
               </span>{" "}
               🎉
             </p>
             <p className="mt-3 max-w-sm px-6 text-sm text-white/70">
-              The fantail flew her home — and the whole whānau was waiting. 🌿
+              The fantail flew her home, and the whole family was waiting. 🌿
             </p>
           </motion.div>
         )}

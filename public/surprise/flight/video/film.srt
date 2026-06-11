@@ -1,150 +1,150 @@
 1
-00:00:00,500 --> 00:00:06,406
-Tap, tap, tap! The sun peeks through —
+00:00:00,500 --> 00:00:05,895
+Tap, tap, tap! The sun peeks through,
 a little bird has come for you!
 
 2
-00:00:06,456 --> 00:00:12,742
-“Happy birthday, Juniper dear!
-Your friends are waiting — far from here!”
+00:00:05,945 --> 00:00:12,835
+“Happy birthday, June, my dear!
+Your friends are waiting, far from here!”
 
 3
-00:00:13,542 --> 00:00:19,796
+00:00:13,635 --> 00:00:21,201
 Munch, munch, munch! What’s that sound?
 A caterpillar, green and round!
 
 4
-00:00:19,846 --> 00:00:27,131
-One apple, two plums, three pears more —
+00:00:21,251 --> 00:00:30,057
+One apple, two plums, three pears more,
 “I’m still hungry! More, more, more!”
 
 5
-00:00:27,931 --> 00:00:35,323
-Juniper shares her strawberry — yum!
+00:00:30,857 --> 00:00:38,528
+June shares her juicy strawberry, yum!
 “Thank you, friend! Yum, yum, yum!”
 
 6
-00:00:35,373 --> 00:00:41,520
+00:00:38,578 --> 00:00:44,771
 He spins himself a sleepy bed,
 and off they fly, straight ahead!
 
 7
-00:00:42,320 --> 00:00:48,655
+00:00:45,571 --> 00:00:50,908
 Fly, fly, over the blue,
 the sea below, the sky so new!
 
 8
-00:00:48,705 --> 00:00:55,212
-Down they swoop to a warm little bay —
-Hawai’i! What a place to play!
+00:00:50,958 --> 00:00:56,699
+Down they swoop to a warm little bay,
+Hawaii! What a place to play!
 
 9
-00:00:56,012 --> 00:01:03,288
+00:00:57,498 --> 00:01:04,414
 Splish, splash! Who swims alone?
 A sparkly fish with no friends of her own.
 
 10
-00:01:03,338 --> 00:01:10,344
-Juniper waves: “Come play with me!”
-The fish lights up, so happy — whee!
+00:01:04,464 --> 00:01:11,505
+June waves and calls: “Come play with me!”
+The fish lights up, so happy, whee!
 
 11
-00:01:11,144 --> 00:01:18,095
-“Here’s my sparkle, just for you —
+00:01:12,305 --> 00:01:18,664
+“Here’s my sparkle, just for you,
 a birthday gift, all shiny and new!”
 
 12
-00:01:18,145 --> 00:01:24,083
-They scoop her up in a jar of sea —
+00:01:18,714 --> 00:01:25,104
+They scoop her up in a jar of sea,
 “Now we’re friends! Come home with me!”
 
 13
-00:01:24,883 --> 00:01:31,567
+00:01:25,905 --> 00:01:32,984
 Fly, fly, friends side by side,
 over the waves where dolphins glide!
 
 14
-00:01:31,617 --> 00:01:38,843
-A green, green island, tall and steep —
+00:01:33,034 --> 00:01:40,516
+A green, green island, tall and steep,
 “Let’s climb the mountain! Up we creep!”
 
 15
-00:01:39,644 --> 00:01:44,760
+00:01:41,315 --> 00:01:46,548
 Up, up, up the mountain track,
 new friends following at the back!
 
 16
-00:01:44,810 --> 00:01:51,143
-A gecko, a crab, a bird so white —
+00:01:46,598 --> 00:01:53,604
+A gecko, a crab, a bird so white,
 holding hands and holding tight!
 
 17
-00:01:51,943 --> 00:01:58,650
-POP! The sleepy bed bursts wide —
+00:01:54,404 --> 00:01:59,869
+POP! The sleepy bed bursts wide,
 a butterfly comes out to glide!
 
 18
-00:01:58,700 --> 00:02:06,461
+00:01:59,919 --> 00:02:05,717
 And from the top, what do they see?
-“AOTEAROA! Across the sea!”
+“NEW ZEALAND! Across the sea!”
 
 19
-00:02:07,260 --> 00:02:12,992
+00:02:06,517 --> 00:02:12,887
 Fly, fly, nearly there!
 Green, green hills and salty air.
 
 20
-00:02:13,042 --> 00:02:18,666
-Down they land on a muddy track —
+00:02:12,937 --> 00:02:19,084
+Down they land on a muddy track,
 “Welcome home! Welcome back!”
 
 21
-00:02:19,467 --> 00:02:26,255
-Stuck, stuck, stuck in the goo —
+00:02:19,885 --> 00:02:26,488
+Stuck, stuck, stuck in the goo,
 a little calf! What to do?
 
 22
-00:02:26,305 --> 00:02:35,192
-Here come doggies — one, two, three,
-four and five — a family!
+00:02:26,538 --> 00:02:34,635
+Here come doggies, one, two, three,
+four and five, a family!
 
 23
-00:02:35,992 --> 00:02:42,722
+00:02:35,435 --> 00:02:42,862
 Tug, tug, TUG! One, two, three!
-Pulling together — a family!
+Pulling together, a family!
 
 24
-00:02:42,772 --> 00:02:51,113
+00:02:42,912 --> 00:02:51,207
 POP! goes the calf! SPLAT! goes the mud!
-Muddy kisses — splud, splud, splud!
+Muddy kisses, splud, splud, splud!
 
 25
-00:02:51,913 --> 00:02:58,144
+00:02:52,006 --> 00:02:57,703
 Fly, fly, one last mile,
 down a driveway, single file!
 
 26
-00:02:58,194 --> 00:03:03,923
+00:02:57,753 --> 00:03:02,344
 Under a tree with flowers red,
 a little kiwi pops up her head!
 
 27
-00:03:04,723 --> 00:03:10,908
-“Haere mai! Welcome, dear!
-All your whānau’s gathered here!”
+00:03:03,144 --> 00:03:08,794
+“Welcome home! Welcome, dear!
+All your family’s gathered here!”
 
 28
-00:03:10,958 --> 00:03:18,451
-SPLASH! The fish swims in the stream —
+00:03:08,844 --> 00:03:16,036
+SPLASH! The fish swims in the stream,
 home at last, just like a dream!
 
 29
-00:03:19,252 --> 00:03:24,995
+00:03:16,837 --> 00:03:22,383
 They plant a little birthday tree,
-to grow up tall — just like she!
+to grow up tall, just like she!
 
 30
-00:03:25,045 --> 00:03:31,216
-One small candle, shining bright —
-“We love you, Juniper! Goodnight!”
+00:03:22,433 --> 00:03:28,940
+One small candle, shining bright,
+“We love you, June! Goodnight!”
 
