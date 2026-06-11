@@ -96,14 +96,10 @@ export default function BirthdayCake() {
         type="button"
         onClick={blowOut}
         aria-label={phase === "lit" ? "Tap to blow out the candle" : "Candle blown out!"}
-        className="relative cursor-pointer overflow-hidden rounded-3xl shadow-[0_24px_70px_rgba(56,189,248,0.18)] outline-none ring-1 ring-white/10"
-        style={{
-          WebkitTapHighlightColor: "transparent",
-          aspectRatio: "1 / 1",
-          // Never taller than ~half the screen, so the cake + birthday
-          // message always fit fully in view from the very top.
-          width: "min(82vw, 48svh, 420px)",
-        }}
+        // Phones: ~fills the width. Desktop: noticeably grander, but still
+        // capped against viewport height so cake + message fit from the top.
+        className="relative w-[min(82vw,48svh,420px)] cursor-pointer overflow-hidden rounded-3xl shadow-[0_24px_70px_rgba(56,189,248,0.18)] outline-none ring-1 ring-white/10 md:w-[min(70vw,52svh,580px)]"
+        style={{ WebkitTapHighlightColor: "transparent", aspectRatio: "1 / 1" }}
       >
         <video
           ref={litRef}

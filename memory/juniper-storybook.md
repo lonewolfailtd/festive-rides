@@ -63,9 +63,8 @@ Uncle Tane. Lives at `/surprise` on festiverides.online (a Next.js + Convex app)
   `app/surprise/stories/registry.ts` (id, title, spine colours, status). Flip a
   story to `status:"published"` and it becomes a clickable book.
 - June's story = first book (`id: "june"`), rendered by `app/surprise/Story.tsx`.
-- Passcode gate: code `JuneRaine2026`, server-checked at `/surprise/unlock`.
-  **Currently DISABLED for testing** (`GATE_ENABLED = false` in SurpriseClient) —
-  flip back to `true` before sharing with family.
+- Passcode gate: code `JuniperRaine`, server-checked at `/surprise/unlock`.
+  **ENABLED** (launched).
 
 ## ⚙️ Working rules (workflow)
 
