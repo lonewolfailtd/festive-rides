@@ -240,6 +240,12 @@ export function JunePlaybackProvider({ children }: { children: React.ReactNode }
     // freezes in background tabs / under heavy video decode and used to
     // leave the bed stuck at near-zero volume). A watchdog guarantees the
     // music can never stay silent while the book is armed.
+    // Stall detection: under heavy video loading the bed can run out of
+    // buffer and freeze (not paused, not ended — the clock just stops),
+    // which the pause-watchdog can't see. If the clock hasn't moved for
+    // ~1.2s while "playing", hand over to the spare copy and reload this one.
+    let lastTime = -1;
+    let stallTicks = 0;
     const tick = window.setInterval(() => {
       let other = active === a ? b : a;
       if (active.paused && !other.paused) {
@@ -251,6 +257,28 @@ export function JunePlaybackProvider({ children }: { children: React.ReactNode }
         active.volume = TARGET;
         void active.play().catch(() => {});
         return;
+      }
+      if (!active.paused) {
+        if (active.currentTime === lastTime) {
+          stallTicks += 1;
+          if (stallTicks > 6) {
+            // Frozen ~1.2s: bring in the understudy and recycle this copy.
+            stallTicks = 0;
+            other.currentTime = 0;
+            other.volume = TARGET;
+            void other.play().catch(() => {});
+            active.pause();
+            try {
+              active.load(); // refetch so it's healthy for its next turn
+            } catch {}
+            active = other;
+            lastTime = -1;
+            return;
+          }
+        } else {
+          stallTicks = 0;
+        }
+        lastTime = active.currentTime;
       }
       const d = active.duration;
       if (!d || Number.isNaN(d)) return;
