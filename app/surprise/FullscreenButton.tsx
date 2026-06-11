@@ -6,6 +6,7 @@
 // (iOS readers simply keep Safari's chrome).
 
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
 
@@ -55,5 +56,72 @@ export default function FullscreenButton() {
       </span>
       <span className="hidden sm:inline">{active ? "Exit" : "Full screen"}</span>
     </button>
+  );
+}
+
+/* ------------------------------------------------------------- Prompt -- */
+// Soft centred pop-up so readers who'd never spot the corner button still
+// get the hint. Shows once per visit (sessionStorage), only where fullscreen
+// is actually supported, and never while already fullscreen.
+const PROMPT_KEY = "surprise-fs-prompt-v1";
+
+export function FullscreenPrompt() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!supportsFullscreen() || document.fullscreenElement) return;
+    try {
+      if (window.sessionStorage.getItem(PROMPT_KEY)) return;
+    } catch {}
+    const t = window.setTimeout(() => setShow(true), 700);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const dismiss = (goFullscreen: boolean) => {
+    try {
+      window.sessionStorage.setItem(PROMPT_KEY, "1");
+    } catch {}
+    setShow(false);
+    if (goFullscreen) enterFullscreen();
+  };
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-6 backdrop-blur-[2px]"
+          style={FONT}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 14 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="flex w-full max-w-xs flex-col items-center gap-3 rounded-2xl border border-white/15 bg-[#10162e]/95 px-6 py-6 text-center shadow-[0_18px_50px_rgba(0,0,0,.6)]"
+          >
+            <span className="text-3xl" aria-hidden>⛶</span>
+            <p className="text-lg font-semibold text-white">Best watched in full screen</p>
+            <p className="text-sm text-white/65">For the full storybook magic ✨</p>
+            <button
+              type="button"
+              onClick={() => dismiss(true)}
+              className="mt-1 w-full rounded-full bg-gradient-to-b from-sky-400 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-95"
+            >
+              Go full screen
+            </button>
+            <button
+              type="button"
+              onClick={() => dismiss(false)}
+              className="text-xs text-white/50 transition hover:text-white/80"
+            >
+              maybe later
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

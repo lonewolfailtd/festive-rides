@@ -8,13 +8,14 @@
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Bookshelf from "./Bookshelf";
-import FullscreenButton from "./FullscreenButton";
+import FullscreenButton, { FullscreenPrompt } from "./FullscreenButton";
 
 export default function Library() {
   const router = useRouter();
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <FullscreenButton />
+      <FullscreenPrompt />
       <Bookshelf onOpen={(id) => router.push(`/surprise/${id}`)} />
     </motion.div>
   );
