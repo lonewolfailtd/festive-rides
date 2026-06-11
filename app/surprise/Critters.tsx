@@ -66,6 +66,12 @@ const FLOCK = [
   { kind: "butterfly", color: 1 },
   { kind: "butterfly", color: 2 },
   { kind: "butterfly", color: 3 },
+  { kind: "butterfly", color: 0 },
+  { kind: "butterfly", color: 1 },
+  { kind: "butterfly", color: 2 },
+  { kind: "butterfly", color: 3 },
+  { kind: "bee", color: 0 },
+  { kind: "bee", color: 0 },
   { kind: "bee", color: 0 },
   { kind: "bee", color: 0 },
 ] as const;
