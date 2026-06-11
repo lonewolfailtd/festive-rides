@@ -36,6 +36,7 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
 Hard rules:
 - Use NZ English in your feedback (organise, behaviour, analyse, colour, recognise, programme).
 - Do NOT use the Oxford comma yourself.
+- NEVER use em dashes (—) in your feedback — NZ style prefers a spaced en dash ( – ) or a restructured sentence. If the draft itself uses em dashes, point that out under specificImprovements (they're not NZ style and read as an AI tell).
 - Score 5 = excellent for an undergraduate Open Polytech assignment, 1 = needs major rework.
 - Be specific — quote text from the draft when pointing things out.
 - Limit specificImprovements to the 5 highest-impact items.

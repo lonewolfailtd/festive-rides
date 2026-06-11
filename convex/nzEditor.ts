@@ -55,7 +55,7 @@ Te reo Māori (HIGH severity always — be thorough, don't stop at 1 or 2):
   "marae's" → "marae", "whānaus" → "whānau"
 - Italicisation: do NOT italicise te reo in NZ academic writing — flag if italicised
 
-Punctuation: NO Oxford comma. NZ date format (7 May 2026, not May 7 2026). Apostrophes for possession (today's, people's). Comma before non-restrictive "which".
+Punctuation: NO Oxford comma. NZ date format (7 May 2026, not May 7 2026). Apostrophes for possession (today's, people's). Comma before non-restrictive "which". Em dashes (—) are not NZ style AND are a classic AI tell — flag every em dash in the draft and correct it to a spaced en dash ( – ), a comma or a restructured sentence.
 
 Grammar: affect (v) vs effect (n), less (uncountable) vs fewer (countable), that (restrictive) vs which (non-restrictive), comma splices, subject-verb agreement.
 
@@ -74,7 +74,7 @@ Structure: thesis must be arguable + specific (not "In this essay I will discuss
 
 OUTPUT RULES:
 - "where" MUST be exact verbatim quote
-- Use NZ English in your own prose; NO Oxford commas in your output
+- Use NZ English in your own prose; NO Oxford commas in your output; NEVER use em dashes (—) in your output — use a spaced en dash ( – ) or restructure
 - BE THOROUGH on spelling and te reo Māori — find EVERY US spelling and EVERY missing macron in the draft. These are mechanical and the cap doesn't apply: catch them all.
 - For grammar/style/structure, cap at 40 issues (prioritise high-severity).
 - Be honest about weak structure. Don't pad praise.
@@ -141,7 +141,7 @@ Te reo Māori (HIGH severity always — be thorough):
   "marae's" → "marae", "whānaus" → "whānau"
 - Do NOT italicise te reo in NZ academic writing.
 
-Punctuation: NO Oxford comma. Apostrophes for possession. Comma before non-restrictive "which".
+Punctuation: NO Oxford comma. Apostrophes for possession. Comma before non-restrictive "which". Flag every em dash (—) — not NZ style and a classic AI tell; correct to a spaced en dash ( – ), a comma or a restructured sentence.
 
 Grammar: affect (v) vs effect (n), less (uncountable) vs fewer (countable), comma splices, subject-verb agreement.
 
@@ -161,7 +161,7 @@ OUTPUT RULES:
 - ONLY emit issues for actual problems. NEVER emit an issue with "no change needed", "correct as is", "no issue here" or similar — if it's correct, leave it out entirely.
 - DEDUPLICATE: if the same word is misspelled multiple times in this section (e.g. "Maori" appears 5×), emit ONE issue for it on the first occurrence. Don't repeat the same fix per occurrence — the student will find-and-replace.
 - For grammar/style, cap at 25 issues for this section (prioritise high-severity).
-- Use NZ English. NO Oxford commas in your output.
+- Use NZ English. NO Oxford commas in your output. NEVER use em dashes (—) in your output.
 - Set "correctedSpan" to null for non-mechanical issues.
 - Do NOT think out loud inside the JSON. If you're uncertain, omit the issue. Issues are for problems you're confident about.`;
 
@@ -186,7 +186,7 @@ KEY POINTS:
 - Body paragraphs need topic sentences + 1-2 citations + analysis (not just description).
 - Conclusion synthesises — no new evidence, no formulaic "Further research is needed".
 - Be honest about weak structure. Don't pad praise.
-- Use NZ English. NO Oxford commas in your output.`;
+- Use NZ English. NO Oxford commas in your output. NEVER use em dashes (—) in your output.`;
 
 // Shared helper: call OpenRouter with Flash → Pro fallback on
 // empty/timeout errors. Used by both editChunk and analyseStructure.
