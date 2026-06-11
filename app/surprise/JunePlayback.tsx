@@ -227,30 +227,45 @@ export function JunePlaybackProvider({ children }: { children: React.ReactNode }
       void active.play().catch(() => {});
     }
 
+    // The fade is driven by the track's own remaining time (not rAF, which
+    // freezes in background tabs / under heavy video decode and used to
+    // leave the bed stuck at near-zero volume). A watchdog guarantees the
+    // music can never stay silent while the book is armed.
     const tick = window.setInterval(() => {
-      const other = active === a ? b : a;
+      let other = active === a ? b : a;
+      if (active.paused && !other.paused) {
+        active = other; // recover if the roles got out of sync
+        other = active === a ? b : a;
+      }
+      if (active.paused && other.paused) {
+        active.currentTime = 0;
+        active.volume = TARGET;
+        void active.play().catch(() => {});
+        return;
+      }
       const d = active.duration;
       if (!d || Number.isNaN(d)) return;
       const remain = d - active.currentTime;
-      if (remain < XFADE && other.paused) {
-        // Bring the understudy in underneath, then ramp the volumes across.
-        other.currentTime = 0;
-        other.volume = 0;
-        void other.play().catch(() => {});
-        const t0 = performance.now();
-        const ramp = () => {
-          const f = Math.min(1, (performance.now() - t0) / (XFADE * 1000));
-          other.volume = TARGET * f;
-          active.volume = TARGET * (1 - f);
-          if (f < 1) requestAnimationFrame(ramp);
-          else {
-            active.pause();
-            active = other;
-          }
-        };
-        requestAnimationFrame(ramp);
+      if (remain < XFADE) {
+        if (other.paused) {
+          other.currentTime = 0;
+          other.volume = 0;
+          void other.play().catch(() => {});
+        }
+        const f = Math.min(1, Math.max(0, 1 - remain / XFADE));
+        other.volume = TARGET * f;
+        active.volume = TARGET * (1 - f);
+        if (remain < 0.25 || active.ended) {
+          active.pause();
+          active.volume = TARGET;
+          active = other;
+        }
+      } else if (active.volume !== TARGET) {
+        // Restore after any interrupted fade and park the spare copy.
+        active.volume = TARGET;
+        if (!other.paused && (other.duration || 0) - other.currentTime > XFADE) other.pause();
       }
-    }, 250);
+    }, 200);
 
     return () => window.clearInterval(tick);
   }, [armed, muted]);
