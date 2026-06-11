@@ -104,7 +104,11 @@ export function FullscreenPrompt() {
           >
             <span className="text-3xl" aria-hidden>⛶</span>
             <p className="text-lg font-semibold text-white">Best watched in full screen</p>
-            <p className="text-sm text-white/65">For the full storybook magic ✨</p>
+            <p className="text-sm text-white/65">
+              For the full storybook magic ✨
+              <br />
+              Works best on a computer or desktop 💻
+            </p>
             <button
               type="button"
               onClick={() => dismiss(true)}
