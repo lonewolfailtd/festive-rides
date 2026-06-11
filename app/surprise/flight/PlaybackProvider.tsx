@@ -322,7 +322,12 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
 
   const togglePlay = useCallback(() => {
     setArmed(true); // first tap unlocks sound
-    setMode((m) => (m === "play" ? "scroll" : "play"));
+    setMode((m) => {
+      const next = m === "play" ? "scroll" : "play";
+      // Starting the story quiets any finale celebration (re-lights the cake).
+      if (next === "play") window.dispatchEvent(new Event("flight:stop-celebration"));
+      return next;
+    });
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -332,6 +337,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
 
   const replay = useCallback(() => {
     setArmed(true);
+    window.dispatchEvent(new Event("flight:stop-celebration"));
     setIndex(0);
     setMode("play");
   }, []);

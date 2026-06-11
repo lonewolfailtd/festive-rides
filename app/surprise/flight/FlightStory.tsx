@@ -25,6 +25,7 @@ import {
 import { FRAMES, STOPS, type Frame, type MotionKind } from "./story";
 import { usePlayback } from "./PlaybackProvider";
 import AmbientVideo, { useIsDesktop } from "./AmbientVideo";
+import FlightCake from "./FlightCake";
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
 
@@ -37,9 +38,9 @@ function usePinned(ref: React.RefObject<HTMLElement | null>): MotionValue<number
   return scrollYProgress;
 }
 
-/* The moving scene plane. On desktop the art is ALIVE — the scene's motion
-   clip loops ambiently (poster = the still). Phones get the portrait still
-   (portrait clips not rendered yet); first paint shows stills for both. */
+/* The moving scene plane. The art is ALIVE on every screen — the scene's
+   motion clip loops ambiently in the right orientation (poster = the still).
+   First paint (orientation unknown) shows stills for both. */
 function SceneMedia({
   frame,
   style,
@@ -54,10 +55,10 @@ function SceneMedia({
   const isDesktop = useIsDesktop();
   return (
     <motion.div style={style} className="absolute inset-0">
-      {isDesktop ? (
+      {isDesktop !== null ? (
         <AmbientVideo
-          src={`/surprise/flight/video/clips/${frame.id}.mp4`}
-          poster={frame.landscape}
+          src={`/surprise/flight/video/clips/${frame.id}${isDesktop ? "" : "-portrait"}.mp4`}
+          poster={isDesktop ? frame.landscape : frame.portrait}
         />
       ) : (
         <>
@@ -260,10 +261,10 @@ function Cover() {
     <section ref={ref} className="relative" style={{ height: "200vh" }}>
       <div className="sticky top-0 h-[100svh] overflow-hidden bg-black">
         <motion.div style={{ scale }} className="absolute inset-0">
-          {isDesktop ? (
+          {isDesktop !== null ? (
             <AmbientVideo
-              src="/surprise/flight/video/clips/cover.mp4"
-              poster={COVER_WIDE}
+              src={`/surprise/flight/video/clips/cover${isDesktop ? "" : "-portrait"}.mp4`}
+              poster={isDesktop ? COVER_WIDE : COVER_PORTRAIT}
               priority
             />
           ) : (
@@ -414,15 +415,16 @@ export default function FlightStory() {
   );
 }
 
-/* Farewell footer — once the premiere has unlocked, offers a replay. */
+/* Farewell — the birthday-cake celebration, then a replay once unlocked. */
 function Farewell() {
   const { unlocked, replay } = usePlayback();
   return (
     <footer
-      className="flex h-[46vh] flex-col items-center justify-center gap-2 bg-[#0b1020] text-center text-white/60"
+      className="relative flex min-h-[100svh] flex-col items-center justify-center gap-2 overflow-hidden bg-gradient-to-b from-[#0b1020] to-[#1a1033] px-6 py-16 text-center text-white/60"
       style={FONT}
     >
-      <p className="text-2xl">🌿</p>
+      <FlightCake />
+      <p className="mt-10 text-2xl">🌿</p>
       <p className="max-w-xs px-6 text-sm">
         With all our love, from your whānau in Aotearoa.
       </p>
