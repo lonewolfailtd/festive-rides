@@ -10,7 +10,7 @@ const fredoka = Fredoka({
 });
 
 export const metadata: Metadata = {
-  title: "A surprise for June 🌿",
+  title: "A surprise for Juni 🌿",
   description: "A little birthday surprise.",
   // Keep this private — never index the family surprise.
   robots: { index: false, follow: false },

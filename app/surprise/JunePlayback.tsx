@@ -389,7 +389,7 @@ export function JuneControls() {
               ▶
             </span>
             <span className="text-left leading-tight">
-              <span className="block text-base font-semibold">Play June&apos;s story</span>
+              <span className="block text-base font-semibold">Play Juni&apos;s story</span>
               <span className="block text-xs text-white/65">sit back — it reads itself</span>
             </span>
           </button>

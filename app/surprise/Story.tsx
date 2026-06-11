@@ -23,8 +23,8 @@ import {
 
 const FONT = { fontFamily: "var(--font-fredoka), system-ui, sans-serif" } as const;
 
-/** June's name, always in blue. */
-const N = ({ children = "June" }: { children?: ReactNode }) => (
+/** Juni's name, always in blue. */
+const N = ({ children = "Juni" }: { children?: ReactNode }) => (
   <span className="font-semibold text-sky-300">{children}</span>
 );
 
@@ -293,7 +293,7 @@ function Cover() {
 
         <div className="absolute inset-x-0 bottom-10 flex flex-col items-center text-white/75">
           <span className="text-sm" style={FONT}>
-            tap ▶ to begin June&apos;s story
+            tap ▶ to begin Juni&apos;s story
           </span>
         </div>
       </div>
