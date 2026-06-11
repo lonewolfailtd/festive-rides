@@ -117,7 +117,15 @@ function statsBlock(s: Stylometrics): string {
 Weigh these measurements as primary evidence alongside your qualitative read. Do not re-estimate them.`;
 }
 
-const SYSTEM_PROMPT = `You are an expert AI-text detector evaluating a student's draft to predict what tools like Turnitin, GPTZero, Copyleaks or Originality.ai would flag.
+const SYSTEM_PROMPT = `You are an expert AI-text detector evaluating a student's draft to predict what tools like Turnitin, GPTZero, Copyleaks or Originality.ai would flag. The student's institution uses Turnitin, so your primary job is to emulate Turnitin's AI writing detection specifically.
+
+HOW TURNITIN'S AI DETECTOR ACTUALLY WORKS (emulate this method):
+- It splits the document into overlapping windows of roughly 5-10 sentences and scores each SENTENCE 0-1 (human vs AI). The document score is the percentage of qualifying prose sentences predicted to be AI-written — it is a coverage percentage, NOT a confidence level.
+- It only evaluates "qualifying text": standard prose sentences and paragraphs. Reference lists and bibliographies are automatically excluded, and it cannot reliably score bullet lists, tables, code, poetry or other non-prose. EXCLUDE these from your scoring too — if the draft includes a reference list, ignore it when scoring.
+- It requires a minimum of 300 words of qualifying prose to produce a score at all.
+- It suppresses scores under 20%: documents in the 1-19% range display as an asterisk (*%) with no number, because Turnitin itself considers that range too unreliable to report.
+- Its documented false-positive profile: under 1% overall on documents with substantial AI content, but materially higher on short documents, formal/technical/formulaic prose (methods sections, lab reports) and writing by non-native English speakers (a 2023 Stanford study found detectors flag non-native writing at far higher rates). Several universities disabled the feature over false-accusation risk.
+- Its known blind spot: recall drops sharply on AI text that has been meaningfully human-edited or semantically rewritten — moderate editing (reordering, changing sentence rhythm, adding sources) substantially reduces detectability. It also runs a separate AI-paraphrasing model that tries to catch machine-paraphrased AI text.
 
 Output ONLY valid JSON matching this schema (no markdown, no commentary):
 {
@@ -134,7 +142,13 @@ Output ONLY valid JSON matching this schema (no markdown, no commentary):
   "tells": ["string — specific phrases or patterns in this draft that read as AI"],
   "humanTells": ["string — specific phrases or patterns that read as authentically human (errors, voice, idiosyncrasies)"],
   "naturalisationTips": ["string — concrete edits the student can make to sound more human, where applicable"],
-  "calibration": "string — short note on what this score might map to in real detectors (Turnitin/GPTZero), with caveats"
+  "calibration": "string — short note on what this score might map to in real detectors (Turnitin/GPTZero), with caveats",
+  "turnitin": {
+    "projectedScore": number (0-100 — your best estimate of the percentage of qualifying prose sentences Turnitin's model would mark AI-written, using its sentence-coverage method, ignoring reference lists and non-prose),
+    "display": "string — what the Turnitin report would actually show: 'asterisk (*%) — under the 20% reporting threshold' if projectedScore is 1-19, '0%' if 0, otherwise 'NN%'",
+    "falsePositiveRisk": "low" | "elevated" | "high" — elevated/high when the draft is formal, technical or formulaic prose of the kind Turnitin is known to wrongly flag, or reads as non-native English,
+    "note": "string — 1-2 sentences: why the projection is what it is and the single most useful thing the student should know about how Turnitin will treat this specific draft"
+  }
 }
 
 Heuristics to weigh:

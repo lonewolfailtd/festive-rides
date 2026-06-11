@@ -36,6 +36,13 @@ type ConsensusInfo = {
   detailModel: string;
 };
 
+type TurnitinProjection = {
+  projectedScore: number;
+  display: string;
+  falsePositiveRisk: "low" | "elevated" | "high";
+  note: string;
+};
+
 type CheckResult = {
   overallScore: number;
   verdict: "Mostly human" | "Mixed" | "Likely AI" | "Heavily AI";
@@ -47,6 +54,7 @@ type CheckResult = {
   calibration: string;
   stats?: Stylometrics;
   consensus?: ConsensusInfo;
+  turnitin?: TurnitinProjection;
 };
 
 type HumaniseResult = {
@@ -603,6 +611,43 @@ export default function CheckerClient() {
               {result.calibration}
             </p>
           </section>
+
+          {/* Turnitin projection — what the report at uni would actually show */}
+          {result.turnitin && (
+            <section className={sectionCard}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  What Turnitin would likely show
+                </h3>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    result.turnitin.falsePositiveRisk === "low"
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      : result.turnitin.falsePositiveRisk === "elevated"
+                        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                        : "bg-rose-500/10 text-rose-700 dark:text-rose-400"
+                  }`}
+                >
+                  false-positive risk: {result.turnitin.falsePositiveRisk}
+                </span>
+              </div>
+              {result.stats && result.stats.words < 300 ? (
+                <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
+                  <strong>No AI score at all</strong> — Turnitin needs at least 300 words of normal prose before it will run its AI detector, and this draft has about {result.stats.words.toLocaleString("en-NZ")}.
+                </p>
+              ) : (
+                <p className="mt-2 text-2xl font-bold text-slate-800 dark:text-slate-100">
+                  {result.turnitin.display}
+                </p>
+              )}
+              <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                {result.turnitin.note}
+              </p>
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                How this projection works: Turnitin scores each prose sentence and reports the percentage of the document it thinks is AI-written — reference lists, bullet points and quotes don&apos;t count. Scores from 1–19% display only as an asterisk because Turnitin itself treats that range as too unreliable to report. Markers are told the score is an indicator, not proof.
+              </p>
+            </section>
+          )}
 
           {/* Consensus agreement (consensus mode only) */}
           {result.consensus && (
