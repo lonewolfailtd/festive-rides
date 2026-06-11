@@ -492,7 +492,7 @@ export default function CheckerClient() {
             </span>
           </label>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Your text is sent to OpenRouter and discarded after the response — only the scores are kept, in your Recent checks history below. Different models score the same text slightly differently — flip between them if a verdict feels off.
+            Each check is saved to your private Recent checks history below — draft and scores — so you can revisit and compare runs from any device. Different models score the same text slightly differently — flip between them if a verdict feels off.
           </p>
         </form>
       </section>
@@ -867,7 +867,7 @@ export default function CheckerClient() {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                 Recent checks
                 <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
-                  · {history.length} saved (scores only, never your text)
+                  · {history.length} saved
                 </span>
               </h2>
               <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
@@ -917,6 +917,26 @@ export default function CheckerClient() {
                         <span aria-hidden>✕</span>
                       </button>
                     </div>
+                    {run.draftText && (
+                      <div className="mt-1.5 flex items-baseline gap-2">
+                        <p className="min-w-0 flex-1 truncate text-xs italic text-slate-500 dark:text-slate-400">
+                          &ldquo;{run.draftText.slice(0, 140)}…&rdquo;
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setText(run.draftText ?? "");
+                            setResult(null);
+                            setError(null);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                            toast.success("Draft loaded — run it again or edit first.");
+                          }}
+                          className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                        >
+                          Load draft
+                        </button>
+                      </div>
+                    )}
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                       {run.turnitinDisplay && (
                         <span>

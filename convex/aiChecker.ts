@@ -286,6 +286,7 @@ export const check = action({
         mode: "single",
         model: modelUsed,
         words: stats.words,
+        draftText: trimmed,
         ...historyFields(parsed as Record<string, unknown>),
       });
     } catch {
@@ -380,6 +381,7 @@ export const checkConsensus = action({
         mode: "consensus",
         model: detail.model,
         words: stats.words,
+        draftText: trimmed,
         spread,
         ...historyFields(detail.result),
         overallScore: median,

@@ -162,10 +162,11 @@ export default defineSchema({
     .index("by_user_day", ["userId", "dayKey"])
     .index("by_user_month", ["userId", "monthKey"]),
 
-  // AI checker result history. Scores and projections only — the draft
-  // text itself is never stored (that's the tool's privacy promise).
-  // Lets the student compare runs across devices and, later, log what
-  // Turnitin actually reported against what we projected.
+  // AI checker result history. Stores the draft text too — this is a
+  // private two-user tool and the owner asked for full history, so each
+  // run is revisitable. Lets the student compare runs across devices
+  // and, later, log what Turnitin actually reported against what we
+  // projected.
   checkerRuns: defineTable({
     userId: v.id("users"),
     mode: v.union(v.literal("single"), v.literal("consensus")),
@@ -173,6 +174,7 @@ export default defineSchema({
     overallScore: v.number(),
     verdict: v.string(),
     words: v.optional(v.number()),
+    draftText: v.optional(v.string()),
     turnitinProjected: v.optional(v.number()),
     turnitinDisplay: v.optional(v.string()),
     falsePositiveRisk: v.optional(v.string()),

@@ -13,6 +13,7 @@ export const record = internalMutation({
     overallScore: v.number(),
     verdict: v.string(),
     words: v.optional(v.number()),
+    draftText: v.optional(v.string()),
     turnitinProjected: v.optional(v.number()),
     turnitinDisplay: v.optional(v.string()),
     falsePositiveRisk: v.optional(v.string()),
