@@ -9,7 +9,7 @@
 // the shelf's % coordinates below always line up exactly; the letterbox
 // around it is filled with a blurred copy of the same art.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import Critters from "./Critters";
 import { getCompleted, getPlayed } from "./progress";
@@ -209,6 +209,75 @@ function Book({
   );
 }
 
+const SOUND_PREF_KEY = "june-library-sound-v1";
+
+// Airy night-library ambience (fal.ai Stable Audio, seamless 44s loop).
+// Starts after the first interaction (browser autoplay rules), fades in
+// gently, and remembers the on/off choice. Unmounts (and stops) when a
+// book is opened, since books run their own narration.
+function AmbientSound() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      setEnabled(window.localStorage.getItem(SOUND_PREF_KEY) !== "0");
+    } catch {
+      setEnabled(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || enabled === null) return;
+    if (!enabled) {
+      audio.pause();
+      return;
+    }
+    let fade: number | undefined;
+    const start = () => {
+      audio.volume = 0;
+      audio
+        .play()
+        .then(() => {
+          fade = window.setInterval(() => {
+            audio.volume = Math.min(0.4, audio.volume + 0.02);
+            if (audio.volume >= 0.4 && fade) window.clearInterval(fade);
+          }, 100);
+        })
+        .catch(() => {}); // blocked until a real interaction — listener below retries
+    };
+    start();
+    window.addEventListener("pointerdown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      if (fade) window.clearInterval(fade);
+    };
+  }, [enabled]);
+
+  const toggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    try {
+      window.localStorage.setItem(SOUND_PREF_KEY, next ? "1" : "0");
+    } catch {}
+  };
+
+  return (
+    <>
+      <audio ref={audioRef} src="/surprise/library/ambience.mp3" loop preload="auto" />
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={enabled ? "Turn ambient sound off" : "Turn ambient sound on"}
+        className="fixed bottom-3 right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-lg backdrop-blur-md transition hover:bg-black/60"
+      >
+        {enabled ? "🔊" : "🔇"}
+      </button>
+    </>
+  );
+}
+
 /** One orientation of the painted scene with the books composited in. */
 function Scene({
   kind,
@@ -335,6 +404,9 @@ export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) 
 
       {/* butterflies + glow-bees that wander the scene and flee the cursor */}
       <Critters />
+
+      {/* airy ambient loop + sound toggle */}
+      <AmbientSound />
 
       {/* title floating in the night sky */}
       <div className="pointer-events-none absolute inset-x-0 top-4 z-10 text-center sm:top-6">

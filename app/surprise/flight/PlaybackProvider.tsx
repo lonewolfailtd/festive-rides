@@ -80,6 +80,9 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
   const lenisRef = useRef<Lenis | null>(null);
   const sectionsRef = useRef<(HTMLElement | null)[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // A second, looping bed of soft ambience under the whole book — no silent
+  // gaps between verses. Starts on the first tap, ducks under the voice.
+  const ambienceRef = useRef<HTMLAudioElement | null>(null);
   // Guards a feedback loop: programmatic scrolls in play mode would otherwise
   // make the centre-observer "report" frames we're flying past.
   const programmaticRef = useRef(false);
@@ -195,6 +198,41 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     return () => audio.removeEventListener("ended", onEnded);
   }, []);
 
+  /* ----- Ambient bed ----------------------------------------------------
+     Starts with the reader's first tap (same gesture that arms narration)
+     and loops seamlessly for the whole visit. Ducks while a verse is being
+     spoken so Kylee sits on top. */
+  const AMBIENCE_VOL = 0.22;
+  const AMBIENCE_DUCKED = 0.09;
+  useEffect(() => {
+    const bed = ambienceRef.current;
+    if (!bed || !armed) return;
+    bed.volume = AMBIENCE_DUCKED; // fade up from quiet on first start
+    bed.play().catch(() => {});
+  }, [armed]);
+
+  useEffect(() => {
+    const bed = ambienceRef.current;
+    if (bed) bed.muted = muted;
+  }, [muted]);
+
+  // Smooth ~400ms ramp between full bed and ducked-under-the-voice.
+  useEffect(() => {
+    const bed = ambienceRef.current;
+    if (!bed || !armed) return;
+    const target = narratingIndex === null ? AMBIENCE_VOL : AMBIENCE_DUCKED;
+    const from = bed.volume;
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / 400);
+      bed.volume = from + (target - from) * k;
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [armed, narratingIndex]);
+
   /* ----- Scroll mode: narrate whichever frame the reader settles on ---- */
   useEffect(() => {
     if (!armed) return; // the book opens silent — no narration before a tap
@@ -206,6 +244,9 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
   /* ----- Play mode: the slideshow sequencer ----------------------------
      glide (audio quiet) → settle → narrate → 'ended' → breath → next.
      The backstop timer only matters if the audio can't load. */
+  // On the very first play, hold on the (now text-free) living cover for a
+  // beat before the camera leaves — let the imagery have its moment.
+  const coverMomentRef = useRef(true);
   useEffect(() => {
     if (mode !== "play") return;
     const audio = audioRef.current;
@@ -213,10 +254,15 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     let done = false;
     const timers: number[] = [];
 
+    const hold = coverMomentRef.current ? 2400 : 0;
+    coverMomentRef.current = false;
+
     // Quiet the previous verse while the camera travels.
     audio?.pause();
-    scrollToIndex(index, GLIDE_MS);
-    timers.push(window.setTimeout(() => playNarration(index, true), GLIDE_MS + SETTLE_MS));
+    timers.push(window.setTimeout(() => scrollToIndex(index, GLIDE_MS), hold));
+    timers.push(
+      window.setTimeout(() => playNarration(index, true), hold + GLIDE_MS + SETTLE_MS),
+    );
 
     const advance = () => {
       if (done) return;
@@ -251,8 +297,8 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
     audio?.addEventListener("ended", onEnded);
     // …the backstop only fires when there's no playable audio (or muted).
     const backstop = muted
-      ? GLIDE_MS + SETTLE_MS + frame.durationMs
-      : GLIDE_MS + SETTLE_MS + frame.durationMs + 12000;
+      ? hold + GLIDE_MS + SETTLE_MS + frame.durationMs
+      : hold + GLIDE_MS + SETTLE_MS + frame.durationMs + 12000;
     timers.push(window.setTimeout(advance, backstop));
 
     return () => {
@@ -276,7 +322,12 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
 
   const togglePlay = useCallback(() => {
     setArmed(true); // first tap unlocks sound
-    setMode((m) => (m === "play" ? "scroll" : "play"));
+    setMode((m) => {
+      const next = m === "play" ? "scroll" : "play";
+      // Starting the story quiets any finale celebration (re-lights the cake).
+      if (next === "play") window.dispatchEvent(new Event("flight:stop-celebration"));
+      return next;
+    });
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -286,6 +337,7 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
 
   const replay = useCallback(() => {
     setArmed(true);
+    window.dispatchEvent(new Event("flight:stop-celebration"));
     setIndex(0);
     setMode("play");
   }, []);
@@ -313,6 +365,14 @@ export default function PlaybackProvider({ children }: { children: React.ReactNo
       {children}
       {/* Shared narration element. preload="none" so stub 404s stay quiet. */}
       <audio ref={audioRef} preload="none" className="hidden" />
+      {/* The looping ambient bed (seamless 18.5s loop). */}
+      <audio
+        ref={ambienceRef}
+        src="/surprise/flight/audio/ambience.mp3"
+        loop
+        preload="auto"
+        className="hidden"
+      />
     </PlaybackContext.Provider>
   );
 }
