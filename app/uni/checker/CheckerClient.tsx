@@ -67,6 +67,7 @@ type HumaniseResult = {
 
 const TEXT_MIN = 200;
 const TEXT_MAX = 50000;
+const HUMANISE_MAX = 15000;
 
 // Calibration samples. The casual-human and raw-AI ones are the easy
 // cases; the two that actually test calibration are polished human
@@ -319,6 +320,12 @@ export default function CheckerClient() {
   const onHumanise = async () => {
     if (humanisePassage.trim().length < 50) {
       toast.error("Paste at least 50 characters to rewrite.");
+      return;
+    }
+    if (humanisePassage.trim().length > HUMANISE_MAX) {
+      toast.error(
+        `Passage is too long — trim to ${HUMANISE_MAX.toLocaleString("en-NZ")} characters or fewer (currently ${humanisePassage.trim().length.toLocaleString("en-NZ")}).`,
+      );
       return;
     }
     setHumanising(true);
@@ -1035,12 +1042,12 @@ export default function CheckerClient() {
             <button
               type="button"
               onClick={() => {
-                // The humanise endpoint caps at 8000 chars; trim to fit.
-                const slice = text.slice(0, 8000);
+                // The humanise endpoint caps at HUMANISE_MAX chars; trim to fit.
+                const slice = text.slice(0, HUMANISE_MAX);
                 setHumanisePassage(slice);
-                if (text.length > 8000) {
+                if (text.length > HUMANISE_MAX) {
                   toast.success(
-                    "Loaded the first 8000 characters of your draft.",
+                    `Loaded the first ${HUMANISE_MAX.toLocaleString("en-NZ")} characters of your draft.`,
                   );
                 } else {
                   toast.success("Draft loaded into humanise box.");
@@ -1060,7 +1067,7 @@ export default function CheckerClient() {
             value={humanisePassage}
             onChange={(e) => setHumanisePassage(e.target.value)}
             rows={6}
-            placeholder="Paste the AI-sounding passage here (50–8000 characters)."
+            placeholder="Paste the AI-sounding passage here (50–15,000 characters)."
             className={`${inputStyle} font-mono text-sm`}
           />
           <button

@@ -478,8 +478,8 @@ export const humanise = action({
     if (trimmed.length < 50) {
       throw new Error("Paste at least 50 characters to rewrite.");
     }
-    if (trimmed.length > 8000) {
-      throw new Error("Passage is too long — trim to 8000 characters or fewer.");
+    if (trimmed.length > 15000) {
+      throw new Error("Passage is too long — trim to 15000 characters or fewer.");
     }
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
     const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
@@ -489,7 +489,9 @@ export const humanise = action({
       model: args.model ?? "deepseek/deepseek-v4-flash",
       responseFormatJson: true,
       temperature: 0.6,
-      maxTokens: 2500,
+      // Enough output room for a full rewrite of a 15000-char passage
+      // (~4000 tokens) plus the changes list.
+      maxTokens: 6000,
       messages: [
         { role: "system", content: HUMANISE_PROMPT },
         { role: "user", content: `<passage>\n${trimmed}\n</passage>` },
