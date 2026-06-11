@@ -150,7 +150,7 @@ export default function BirthdayCake() {
               With love from Aunty Sammi &amp; Uncle Tane 💙
             </p>
             <p className="mt-1 text-sm text-white/40" style={FONT}>
-              Aotearoa, 10 June 2026
+              10 June 2026
             </p>
           </motion.div>
         )}
