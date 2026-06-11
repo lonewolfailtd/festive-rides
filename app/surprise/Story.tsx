@@ -9,9 +9,8 @@
 // unlocks sound; from then on each scene's clip plays once when entered.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Image from "next/image";
 import BirthdayCake from "./BirthdayCake";
-import AmbientVideo, { useIsDesktop } from "./AmbientVideo";
+import AmbientVideo from "./AmbientVideo";
 import { JuneControls, useJunePlayback } from "./JunePlayback";
 import {
   motion,
@@ -162,7 +161,6 @@ function usePinned(ref: React.RefObject<HTMLElement | null>): MotionValue<number
 function Scene({ def, index }: { def: SceneDef; index: number }) {
   const ref = useRef<HTMLElement>(null);
   const p = usePinned(ref);
-  const isDesktop = useIsDesktop();
   const { reportActive, registerSection, armed, muted, narratingIndex } = useJunePlayback();
   const [inView, setInView] = useState(false);
 
@@ -203,20 +201,13 @@ function Scene({ def, index }: { def: SceneDef; index: number }) {
     <section ref={ref} className="relative" style={{ height: "240vh" }}>
       <div className="sticky top-0 h-[100svh] overflow-hidden bg-black">
         <motion.div style={style} className="absolute inset-0">
-          {/* Ambient film — plays by itself like the moon cover. Only the
-              current orientation's clip is mounted (halves the download);
-              stills render until the breakpoint is known on first paint. */}
-          {isDesktop === null ? (
-            <>
-              <Image src={`/surprise/scenes/${def.img}-portrait.jpg`} alt="" fill sizes="100vw" className="object-cover md:hidden" />
-              <Image src={`/surprise/scenes/${def.img}-wide.jpg`} alt="" fill sizes="100vw" className="hidden object-cover md:block" />
-            </>
-          ) : (
-            <AmbientVideo
-              src={`/surprise/video/${def.img}-${isDesktop ? "wide" : "portrait"}.mp4`}
-              poster={`/surprise/scenes/${def.img}-${isDesktop ? "wide" : "portrait"}.jpg`}
-            />
-          )}
+          {/* Ambient film — the SAME desktop (16:9) footage on every device;
+              phones crop into the centre of the identical scene rather than
+              playing different portrait footage. */}
+          <AmbientVideo
+            src={`/surprise/video/${def.img}-wide.mp4`}
+            poster={`/surprise/scenes/${def.img}-wide.jpg`}
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/30" />
         </motion.div>
 
@@ -244,7 +235,6 @@ function Scene({ def, index }: { def: SceneDef; index: number }) {
 function Cover() {
   const ref = useRef<HTMLElement>(null);
   const p = usePinned(ref);
-  const isDesktop = useIsDesktop();
   const scale = useTransform(p, [0, 1], [1.06, 1.3]);
   const titleOpacity = useTransform(p, [0, 0.5, 0.8], [1, 1, 0]);
   const titleY = useTransform(p, [0, 0.6], ["0%", "-35%"]);
@@ -253,20 +243,12 @@ function Cover() {
     <section ref={ref} className="relative" style={{ height: "200vh" }}>
       <div className="sticky top-0 h-[100svh] overflow-hidden bg-black">
         <motion.div style={{ scale }} className="absolute inset-0">
-          {/* Living cover: ambient moon loop, priority-loaded so it starts
-              the moment the page opens. Single orientation mounted only. */}
-          {isDesktop === null ? (
-            <>
-              <Image src="/surprise/scenes/01-moon-portrait.jpg" alt="" fill priority sizes="100vw" className="object-cover md:hidden" />
-              <Image src="/surprise/scenes/01-moon-wide.jpg" alt="" fill priority sizes="100vw" className="hidden object-cover md:block" />
-            </>
-          ) : (
-            <AmbientVideo
-              src={`/surprise/video/cover-${isDesktop ? "wide" : "portrait"}.mp4`}
-              poster={`/surprise/scenes/01-moon-${isDesktop ? "wide" : "portrait"}.jpg`}
-              priority
-            />
-          )}
+          {/* Living cover — the same desktop film on every device. */}
+          <AmbientVideo
+            src="/surprise/video/cover-wide.mp4"
+            poster="/surprise/scenes/01-moon-wide.jpg"
+            priority
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
         </motion.div>
 
