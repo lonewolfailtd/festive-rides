@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 // Family passcode check for the /surprise storybook. The code lives
 // server-side so it never ships in the client bundle. Override via the
 // SURPRISE_PASSCODE env var; defaults to the family code.
-const PASSCODE = (process.env.SURPRISE_PASSCODE ?? "JuneRaine2026").trim();
+const PASSCODE = (process.env.SURPRISE_PASSCODE ?? "JuniperRaine").trim();
 
 export async function POST(req: Request) {
   let code = "";

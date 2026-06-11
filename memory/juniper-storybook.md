@@ -63,9 +63,8 @@ Uncle Tane. Lives at `/surprise` on festiverides.online (a Next.js + Convex app)
   `app/surprise/stories/registry.ts` (id, title, spine colours, status). Flip a
   story to `status:"published"` and it becomes a clickable book.
 - June's story = first book (`id: "june"`), rendered by `app/surprise/Story.tsx`.
-- Passcode gate: code `JuneRaine2026`, server-checked at `/surprise/unlock`.
-  **Currently DISABLED for testing** (`GATE_ENABLED = false` in SurpriseClient) —
-  flip back to `true` before sharing with family.
+- Passcode gate: code `JuniperRaine`, server-checked at `/surprise/unlock`.
+  **ENABLED** (launched).
 
 ## ⚙️ Working rules (workflow)
 
@@ -94,13 +93,48 @@ memories across NZ + USA. 10 slides:
 Extra Māori for the pronunciation map: pōhutukawa → `paw-hoo-too-KAH-wah`;
 haere rā → `high-reh RAH`.
 
-## 📝 Open decisions (being discussed)
+## ✅ Locked decisions
 
-- Narration person: spoken **to June ("you")** — proposed, to confirm.
-- **Adults' likeness:** parents resemble (photo on hand); you/Sammi/Sammi's parents —
-  send photos for likeness OR keep adults warm/stylised (June = hero). TBD.
-- **Real places:** photos of Tomarata land / deck / Browns Bay would improve accuracy;
-  else stylise. TBD.
-- June ages newborn → ~1yr across slides; keep master face, age-appropriate.
-- Narration **speed pick** (1.10/1.18) still pending.
-- All art still to be generated from `june-master.jpg`.
+- **Family names:** Mum = **Beks**, Dad = **Jacob**, Nana = **Shelly**, Poppa = **Scott**,
+  plus Aunty Sammi & Uncle Tane.
+- **Script style:** bouncy RHYMING nursery-book verse, third person. ENGLISH ONLY —
+  no Māori words in audio or subtitles (pronunciation was off). NO em dashes or
+  ellipses (they cause pauses + user dislikes them).
+- **Her name:** written **"June"** (no y) everywhere on screen; SPOKEN as "Junie"
+  (feed the voice the spelling "Junie"). Full name Juniper Raine.
+- **Narration:** Voice **Kylee NZ** (`pcKdPWtbF6bM9o7NHjCI`), **speed 1.0** (natural,
+  relaxed — user picked this after trying 1.10 and several other voices).
+  Spoken respellings: "Junie" (for June), "Tah-neh" (for Tane).
+- **Adults = Pixar recreations** from the family's photos (photos are INSPIRATION ONLY,
+  never shown in the book). **Locked cast designs** (use as the reference per person):
+  `public/surprise/characters/cast-{mum,dad,nana,poppa,sammi,tane}.jpg`.
+  Real source photos live in git-ignored `.people-refs/` (never committed/public).
+- **Places:** stylised — no real-location matching needed.
+- **June:** master face/hair throughout, age-appropriate per slide.
+- All art generated from `june-master.jpg` + each person's locked design.
+
+## 🎬 Video production pipeline (how we make the short "movie")
+
+Each story is ALSO compiled into a short narrated video (not only the
+scroll-web experience). The web stills double as the video's keyframes.
+
+**Pipeline (still → motion → film):**
+1. **Stills** — generate each scene with Nano Banana Pro (`image-gen` skill /
+   `generate.sh`), June locked to `june-master.jpg` (pass it as the reference).
+   Both 9:16 + 16:9. These are the keyframes.
+2. **Motion** — animate each still into a short clip with **fal.ai** (user has it
+   connected). Use the global **`genvid`** CLI (`genvid` skill → fal.ai Seedance,
+   image-to-video; defaults Pro/1080p). One short clip per scene/frame; describe
+   the camera move + gentle subject motion in the prompt.
+3. **Stitch** — concatenate the per-scene clips in order, lay the ElevenLabs
+   narration (Kylee NZ) over the top, burn/sync the subtitles, and add gentle
+   crossfades, into one short film (ffmpeg).
+
+**Notes / conventions:**
+- "Lots of little frame shots, made together" = generate many short scene clips,
+  then assemble — don't try to one-shot a long video.
+- Keep character consistency: motion clips inherit the still's locked June face;
+  don't let the video model drift her features.
+- fal.ai usage is via the user's connected account — never hard-code keys.
+- Book 2 (`flight`) is the current pilot for this pipeline; the same steps apply
+  to every book on the shelf.
