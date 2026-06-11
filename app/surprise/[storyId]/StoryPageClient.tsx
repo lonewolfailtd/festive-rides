@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Gate from "../Gate";
+import FullscreenButton, { enterFullscreen } from "../FullscreenButton";
 import StoryPlayer from "../StoryPlayer";
 import { GATE_ENABLED, UNLOCK_KEY } from "../gate-config";
 import { getCompleted, getPlayed, markCompleted, markPlayed } from "../progress";
@@ -97,6 +98,7 @@ export default function StoryPageClient({ id }: { id: string }) {
       >
         ← Juniper&apos;s Bookcase
       </Link>
+      <FullscreenButton />
 
       {/* Same book-opening flourish the in-place player had. NOTE for book
           authors: this wrapper keeps a persistent transformPerspective, so
@@ -115,7 +117,10 @@ export default function StoryPageClient({ id }: { id: string }) {
       {showHelp && (
         <button
           type="button"
-          onClick={() => setShowHelp(false)}
+          onClick={() => {
+            setShowHelp(false);
+            enterFullscreen(); // a tap is the one moment browsers allow it
+          }}
           aria-label="Dismiss instructions"
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-[2px]"
           style={FONT}
