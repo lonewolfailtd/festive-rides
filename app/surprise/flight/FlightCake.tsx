@@ -136,7 +136,7 @@ export default function FlightCake() {
             <p className="text-3xl font-bold text-white sm:text-4xl">
               Happy 1st Birthday,{" "}
               <span className="bg-gradient-to-r from-sky-300 to-emerald-300 bg-clip-text text-transparent">
-                June
+                Juni
               </span>{" "}
               🎉
             </p>

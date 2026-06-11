@@ -84,7 +84,7 @@ export const FRAMES: Frame[] = [
     verse: [
       "Tap, tap, tap! The sun peeks through,",
       "a little bird has come for you!",
-      "“Happy birthday, June, my dear!",
+      "“Happy birthday, Juni, my dear!",
       "Your friends are waiting, far from here!”",
     ],
     audio: "/surprise/flight/audio/1A.mp3",
@@ -112,7 +112,7 @@ export const FRAMES: Frame[] = [
     title: "the strawberry & takeoff",
     motion: "parallax",
     verse: [
-      "June shares her juicy strawberry, yum!",
+      "Juni shares her juicy strawberry, yum!",
       "“Thank you, friend! Yum, yum, yum!”",
       "He spins himself a sleepy bed,",
       "and off they fly, straight ahead!",
@@ -146,7 +146,7 @@ export const FRAMES: Frame[] = [
     verse: [
       "Splish, splash! Who swims alone?",
       "A sparkly fish with no friends of her own.",
-      "June waves and calls: “Come play with me!”",
+      "Juni waves and calls: “Come play with me!”",
       "The fish lights up, so happy, whee!",
     ],
     audio: "/surprise/flight/audio/2B.mp3",
@@ -297,13 +297,13 @@ export const FRAMES: Frame[] = [
   {
     id: "5C",
     stop: "Tomarata",
-    title: "June's tree",
+    title: "Juni's tree",
     motion: "finale",
     verse: [
       "They plant a little birthday tree,",
       "to grow up tall, just like she!",
       "One small candle, shining bright,",
-      "“We love you, June! Goodnight!”",
+      "“We love you, Juni! Goodnight!”",
     ],
     audio: "/surprise/flight/audio/5C.mp3",
     durationMs: 10000,

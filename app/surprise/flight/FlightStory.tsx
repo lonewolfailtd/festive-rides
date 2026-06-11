@@ -52,34 +52,14 @@ function SceneMedia({
   overlay?: string;
   priority?: boolean;
 }) {
-  const isDesktop = useIsDesktop();
   return (
     <motion.div style={style} className="absolute inset-0">
-      {isDesktop !== null ? (
-        <AmbientVideo
-          src={`/surprise/flight/video/clips/${frame.id}${isDesktop ? "" : "-portrait"}.mp4`}
-          poster={isDesktop ? frame.landscape : frame.portrait}
-        />
-      ) : (
-        <>
-          <Image
-            src={frame.portrait}
-            alt=""
-            fill
-            sizes="100vw"
-            priority={priority}
-            className="object-cover md:hidden"
-          />
-          <Image
-            src={frame.landscape}
-            alt=""
-            fill
-            sizes="100vw"
-            priority={priority}
-            className="hidden object-cover md:block"
-          />
-        </>
-      )}
+      {/* Library standard: the SAME desktop (16:9) film on every device —
+          phones centre-crop the identical footage. */}
+      <AmbientVideo
+        src={`/surprise/flight/video/clips/${frame.id}.mp4`}
+        poster={frame.landscape}
+      />
       <div
         className={`absolute inset-0 ${
           overlay ?? "bg-gradient-to-t from-black/80 via-black/10 to-black/40"
@@ -233,7 +213,7 @@ function FinaleFlourish({ p }: { p: MotionValue<number> }) {
         className="mt-3 bg-gradient-to-r from-sky-300 to-emerald-300 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl"
         style={FONT}
       >
-        Happy 1st Birthday, June
+        Happy 1st Birthday, Juni
       </p>
     </motion.div>
   );
@@ -261,32 +241,11 @@ function Cover() {
     <section ref={ref} className="relative" style={{ height: "200vh" }}>
       <div className="sticky top-0 h-[100svh] overflow-hidden bg-black">
         <motion.div style={{ scale }} className="absolute inset-0">
-          {isDesktop !== null ? (
-            <AmbientVideo
-              src={`/surprise/flight/video/clips/cover${isDesktop ? "" : "-portrait"}.mp4`}
-              poster={isDesktop ? COVER_WIDE : COVER_PORTRAIT}
-              priority
-            />
-          ) : (
-            <>
-              <Image
-                src={COVER_PORTRAIT}
-                alt=""
-                fill
-                sizes="100vw"
-                priority
-                className="object-cover md:hidden"
-              />
-              <Image
-                src={COVER_WIDE}
-                alt=""
-                fill
-                sizes="100vw"
-                priority
-                className="hidden object-cover md:block"
-              />
-            </>
-          )}
+          <AmbientVideo
+            src="/surprise/flight/video/clips/cover.mp4"
+            poster={COVER_WIDE}
+            priority
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/75" />
         </motion.div>
 
@@ -303,7 +262,7 @@ function Cover() {
             className="flex flex-col items-center px-6 text-center"
           >
             <p className="text-xs uppercase tracking-[0.35em] text-white/75 sm:text-sm" style={FONT}>
-              A first birthday story for June
+              A first birthday story for Juni
             </p>
             <h1
               className="mt-3 text-4xl font-bold leading-[1.05] text-white drop-shadow-[0_2px_22px_rgba(0,0,0,0.7)] sm:text-6xl lg:text-7xl"

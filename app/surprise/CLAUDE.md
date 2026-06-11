@@ -83,9 +83,12 @@ ancestor **breaks `position: fixed`** for descendants. If your book has viewport
 - **Stack:** Next.js App Router · Framer Motion (`useScroll`/`useTransform`) ·
   Lenis smooth scroll · Tailwind.
 - **Font:** Fredoka via `var(--font-fredoka)` (from the shared layout).
-- **Responsive art direction:** ship a **portrait (9:16)** image for phones and
-  a **landscape (16:9)** image for desktop per scene — compose for each, don't
-  crop (`object-cover md:hidden` / `hidden md:block`).
+- **One film everywhere (library standard):** every scene ships ONE set of
+  assets — the **landscape (16:9)** still + clip — served identically on every
+  device; phones centre-crop the same footage via `object-cover`. Do NOT make
+  separate portrait variants: the owner wants mobile and desktop to show the
+  exact same videos and animations. Compose scenes with the key subject near
+  the centre so the phone crop keeps them in frame.
 - **No text baked into generated images** — overlay titles/verses in the DOM.
 - **Character consistency:** locked June references live in
   `public/surprise/characters/` (`june-master.jpg`, `june-sheet.jpg`, …) — feed
