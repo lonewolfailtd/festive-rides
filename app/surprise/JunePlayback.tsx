@@ -74,6 +74,15 @@ export function JunePlaybackProvider({ children }: { children: React.ReactNode }
   const [muted, setMuted] = useState(false);
   const [armed, setArmed] = useState(false); // book opens silent until a tap
   const [narratingIndex, setNarratingIndex] = useState<number | null>(null);
+  // The lullaby bed starts on the reader's very FIRST tap anywhere (e.g. the
+  // "Got it!" card) — browsers won't allow sound any earlier than a gesture —
+  // so the music is already playing before they press ▶.
+  const [musicOn, setMusicOn] = useState(false);
+  useEffect(() => {
+    const arm = () => setMusicOn(true);
+    window.addEventListener("pointerdown", arm, { once: true });
+    return () => window.removeEventListener("pointerdown", arm);
+  }, []);
   // The book premieres as a guided read-along: scrolling stays locked until
   // the story has been played through once, then the reader roams freely.
   const [unlocked, setUnlocked] = useState(false);
@@ -215,7 +224,7 @@ export function JunePlaybackProvider({ children }: { children: React.ReactNode }
     const TARGET = 0.1; // whisper under the narration
     const XFADE = 2.5; // seconds of overlap at the loop point
 
-    if (!(armed && !muted)) {
+    if (!((armed || musicOn) && !muted)) {
       a.pause();
       b.pause();
       return;
@@ -268,7 +277,7 @@ export function JunePlaybackProvider({ children }: { children: React.ReactNode }
     }, 200);
 
     return () => window.clearInterval(tick);
-  }, [armed, muted]);
+  }, [armed, musicOn, muted]);
 
   /* Scroll mode: narrate the scene the reader settles on. */
   useEffect(() => {
