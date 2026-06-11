@@ -207,6 +207,9 @@ export const importBrief = action({
     // ---- Find or create the course --------------------------------------
     // Use the existing public courses CRUD — actions inherit the user's
     // auth context so the mutations' getAuthUserId works correctly.
+    // Ownership note: courses.list already scopes to the authed user
+    // (requireUserId + by_user index), so any match found below is
+    // guaranteed to belong to the current user — no extra check needed.
     let courseId: Id<"courses"> | null = null;
     let isNewCourse = false;
     if (result.courseCode) {

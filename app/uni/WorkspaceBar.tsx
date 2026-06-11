@@ -21,6 +21,7 @@ import {
   colourFor,
   type CourseColour,
 } from "@/lib/courseColours";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const STORAGE_KEY = "uni-active-assignment-v1";
 const ACTIVE_EVENT = "uni:active-assignment-changed";
@@ -255,7 +256,7 @@ export default function WorkspaceBar() {
       toast.success("Grade saved");
       setEditingGrade(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
 
@@ -265,7 +266,7 @@ export default function WorkspaceBar() {
       await markSubmitted({ id: active._id });
       toast.success("Marked submitted");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
   const handleUnsubmit = async () => {
@@ -275,7 +276,7 @@ export default function WorkspaceBar() {
       await unmarkSubmitted({ id: active._id });
       toast.success("Submission cleared");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
 
@@ -288,7 +289,7 @@ export default function WorkspaceBar() {
         courseId: courseId === "" ? undefined : courseId,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
 
@@ -322,7 +323,7 @@ export default function WorkspaceBar() {
             toast.success(`Deleted "${target.name}"`);
           } catch (err) {
             toast.error(
-              err instanceof Error ? err.message : "Couldn't delete",
+              getErrorMessage(err, "Couldn't delete"),
             );
           }
         },
@@ -352,7 +353,7 @@ export default function WorkspaceBar() {
       setCreatingCourse(false);
       toast.success(`Course ${newCourseCode.trim().toUpperCase()} created`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't create");
+      toast.error(getErrorMessage(err, "Couldn't create"));
     }
   };
 
@@ -369,7 +370,7 @@ export default function WorkspaceBar() {
       await updateCourse({ id: activeCourse._id, colour: key });
       setEditingColour(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
 
@@ -390,7 +391,7 @@ export default function WorkspaceBar() {
       toast.success("Due date saved");
       setEditingDue(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
   const clearDue = async () => {
@@ -400,7 +401,7 @@ export default function WorkspaceBar() {
       toast.success("Due date cleared");
       setEditingDue(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
 
@@ -419,7 +420,7 @@ export default function WorkspaceBar() {
       setActiveIdLocal(id);
       toast.success(`Created "${newName.trim()}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't create");
+      toast.error(getErrorMessage(err, "Couldn't create"));
     }
   };
 
@@ -747,7 +748,7 @@ export default function WorkspaceBar() {
               onClick={() => void handleMarkSubmitted()}
               className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
             >
-              ✓ Mark submitted
+              <span aria-hidden>✓</span> Mark submitted
             </button>
           ) : editingGrade ? (
             <div className="flex flex-wrap items-center gap-2 w-full">
@@ -793,7 +794,7 @@ export default function WorkspaceBar() {
           ) : (
             <>
               <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
-                ✓ Submitted {new Date(active.submittedAt).toLocaleDateString("en-NZ", { day: "numeric", month: "short" })}
+                <span aria-hidden>✓</span> Submitted {new Date(active.submittedAt).toLocaleDateString("en-NZ", { day: "numeric", month: "short" })}
               </span>
               {active.grade !== undefined && (
                 <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">

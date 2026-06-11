@@ -10,6 +10,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type Severity = "recurring" | "occasional" | "one-off";
 
@@ -74,7 +75,7 @@ function FeedbackRow({
       await update({ id, markerFeedback: value.trim() });
       toast.success(`Saved feedback for "${name}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     } finally {
       setSaving(false);
     }
@@ -132,7 +133,7 @@ export default function FeedbackClient() {
       setResult(r.result as PatternResult);
       setAnalysedCount(r.assignmentsAnalysed);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed.");
+      setError(getErrorMessage(err, "Analysis failed."));
     } finally {
       setRunning(false);
     }
@@ -162,9 +163,21 @@ export default function FeedbackClient() {
                 : "Find recurring patterns across your saved feedback"
             }
           >
-            {running ? "Finding patterns…" : "🔍 Find my patterns"}
+            {running ? (
+              "Finding patterns…"
+            ) : (
+              <>
+                <span aria-hidden>🔍</span> Find my patterns
+              </>
+            )}
           </button>
         </div>
+
+        {assignments && assignments.length > 0 && withFeedback.length === 0 && (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            Save feedback on at least one assignment to find patterns.
+          </p>
+        )}
 
         {assignments === undefined ? (
           <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Loading…</p>

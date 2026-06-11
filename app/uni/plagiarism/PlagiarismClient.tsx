@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type RiskLevel = "low" | "medium" | "high";
 
@@ -121,7 +122,7 @@ export default function PlagiarismClient() {
       const res = (await selfCheck({ text })) as SelfCheckResult;
       setResult(res);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Self-check failed.";
+      const msg = getErrorMessage(err, "Self-check failed.");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -155,7 +156,7 @@ export default function PlagiarismClient() {
                 <li>If it does, rewrite in your own words or add a proper citation before submission.</li>
               </ol>
               <p className="mt-2 text-xs text-sky-900/80 dark:text-sky-300/80">
-                ⚠  This is a self-check, not a real plagiarism checker. It can&apos;t query Turnitin&apos;s database — it flags phrasing that LOOKS plagiarised so you can verify manually.
+                <span aria-hidden>⚠</span>  This is a self-check, not a real plagiarism checker. It can&apos;t query Turnitin&apos;s database — it flags phrasing that LOOKS plagiarised so you can verify manually.
               </p>
             </div>
             <button

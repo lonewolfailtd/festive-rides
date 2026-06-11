@@ -21,7 +21,9 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { extractDocxText } from "@/lib/extractDocxText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const ACTIVE_EVENT = "uni:active-assignment-changed";
 const STORAGE_KEY = "uni-active-assignment-v1";
@@ -217,6 +219,19 @@ export default function SubmissionAuditClient() {
     return () => window.removeEventListener(ACTIVE_EVENT, onChange);
   }, []);
 
+  // A stored id can go stale (assignment deleted on another device or
+  // session). Once the assignments list arrives, drop any active id that
+  // no longer exists and clear the stale localStorage value.
+  useEffect(() => {
+    if (!activeId || !assignments) return;
+    if (!assignments.some((a) => a._id === activeId)) {
+      setActiveId("");
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {}
+    }
+  }, [activeId, assignments]);
+
   // When the active assignment changes (or assignments list arrives),
   // pull its stored rubric + brief into the inputs. We do NOT overwrite
   // a rubric the user has already typed/pasted — only fill if empty.
@@ -239,38 +254,19 @@ export default function SubmissionAuditClient() {
     target: "draft" | "rubric",
     maxChars: number,
   ): Promise<string | null> => {
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("PDF over 20MB — please trim.");
-      return null;
-    }
     setExtractingFor(target);
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await loadPdfjs();
-      const buffer = await file.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const total = doc.numPages;
-      setPdfProgress({ done: 0, total });
-      const parts: string[] = [];
-      for (let i = 1; i <= total; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const t = content.items
-          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
-          .join(" ");
-        parts.push(t);
-        setPdfProgress({ done: i, total });
-      }
-      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
-      if (extracted.length < 50) {
-        toast.error("Could not pull text from this PDF — it might be image-based.");
-        return null;
-      }
-      if (extracted.length > maxChars) extracted = extracted.slice(0, maxChars);
+      const { text: extracted, pages: total } = await extractPdfText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+        maxChars,
+        onProgress: (done, totalPages) => setPdfProgress({ done, total: totalPages }),
+      });
       toast.success(`Extracted ${total} page${total === 1 ? "" : "s"} from "${file.name}"`);
       return extracted;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+      toast.error(getErrorMessage(err, "PDF extraction failed"));
       return null;
     } finally {
       setExtractingFor(null);
@@ -283,25 +279,17 @@ export default function SubmissionAuditClient() {
     target: "draft" | "rubric",
     maxChars: number,
   ): Promise<string | null> => {
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("Word doc over 20MB — please trim.");
-      return null;
-    }
     setExtractingFor(target);
     try {
-      const mammoth = await import("mammoth/mammoth.browser");
-      const buffer = await file.arrayBuffer();
-      const out = await mammoth.extractRawText({ arrayBuffer: buffer });
-      let extracted = (out.value ?? "").trim();
-      if (extracted.length < 50) {
-        toast.error("Could not pull text from this Word doc.");
-        return null;
-      }
-      if (extracted.length > maxChars) extracted = extracted.slice(0, maxChars);
+      const extracted = await extractDocxText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+        maxChars,
+      });
       toast.success(`Extracted text from "${file.name}"`);
       return extracted;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Word doc extraction failed");
+      toast.error(getErrorMessage(err, "Word doc extraction failed"));
       return null;
     } finally {
       setExtractingFor(null);
@@ -366,7 +354,7 @@ export default function SubmissionAuditClient() {
       })) as AuditResult;
       setResult(r);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Audit failed.");
+      setError(getErrorMessage(err, "Audit failed."));
     } finally {
       stopProgressTimer();
       setLastRunSeconds((performance.now() - startedAt) / 1000);

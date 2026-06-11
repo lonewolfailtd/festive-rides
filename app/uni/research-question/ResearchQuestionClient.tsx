@@ -8,6 +8,7 @@ import { useAction } from "convex/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 interface BuildResult {
   componentsToDefine: { component: string; prompt: string }[];
@@ -42,8 +43,7 @@ export default function ResearchQuestionClient() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BuildResult | null>(null);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const runBuild = async () => {
     setError(null);
     if (futureDirection.trim().length < 15) {
       setError("Describe the future direction your question should build on (at least 15 characters).");
@@ -59,10 +59,15 @@ export default function ResearchQuestionClient() {
       })) as BuildResult;
       setResult(r);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Build failed.");
+      setError(getErrorMessage(err, "Build failed."));
     } finally {
       setRunning(false);
     }
+  };
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    await runBuild();
   };
 
   return (
@@ -114,12 +119,35 @@ export default function ResearchQuestionClient() {
               className={inputStyle}
             />
           </div>
-          {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+          {error && (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
+              <button
+                type="button"
+                onClick={() => void runBuild()}
+                disabled={running}
+                className="text-sm font-medium text-sky-700 underline-offset-2 hover:underline disabled:opacity-60 dark:text-sky-300"
+              >
+                Try again
+              </button>
+            </div>
+          )}
           <button type="submit" disabled={running} className={buttonPrimary}>
             {running ? "Building…" : "Build the scaffold"}
           </button>
         </form>
       </section>
+
+      {running && !result && (
+        <div className={sectionCard} role="status" aria-label="Building the scaffold">
+          <div className="space-y-3 animate-pulse">
+            <div className="h-3 w-1/3 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-11/12 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-9/12 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-10/12 rounded bg-slate-200 dark:bg-slate-800" />
+          </div>
+        </div>
+      )}
 
       {result && (
         <div className="space-y-5">

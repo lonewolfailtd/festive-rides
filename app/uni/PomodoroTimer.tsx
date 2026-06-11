@@ -731,7 +731,15 @@ export default function PomodoroTimer() {
               : "border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           }`}
         >
-          {state.notificationsEnabled ? "🔔 On" : "🔕 Off"}
+          {state.notificationsEnabled ? (
+            <>
+              <span aria-hidden>🔔</span> On
+            </>
+          ) : (
+            <>
+              <span aria-hidden>🔕</span> Off
+            </>
+          )}
         </button>
       </div>
 
@@ -746,7 +754,9 @@ export default function PomodoroTimer() {
           className="shrink-0 rounded-md p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           title={state.volume > 0 ? "Mute" : "Unmute"}
         >
-          {state.volume <= 0 ? "🔇" : state.volume < 0.4 ? "🔈" : state.volume < 0.7 ? "🔉" : "🔊"}
+          <span aria-hidden>
+            {state.volume <= 0 ? "🔇" : state.volume < 0.4 ? "🔈" : state.volume < 0.7 ? "🔉" : "🔊"}
+          </span>
         </button>
         <input
           type="range"
@@ -828,7 +838,7 @@ export default function PomodoroTimer() {
           className="inline-flex items-center justify-center gap-1 rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-800 transition-colors hover:border-rose-500 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-200 dark:hover:border-rose-500 dark:hover:bg-rose-900/40"
           title="Trigger the whip + Get-back-to-work modal right now"
         >
-          🧪 Test boss mode
+          <span aria-hidden>🧪</span> Test boss mode
         </button>
         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
           Boss mode auto-fires at the end of a BREAK. Use this to test
@@ -852,7 +862,7 @@ export default function PomodoroTimer() {
             loop needed. */}
         <div className="relative w-full max-w-md rounded-2xl border-2 border-rose-500 bg-white p-8 text-center shadow-2xl dark:bg-slate-900">
           <div className="pointer-events-none absolute inset-0 animate-pulse rounded-2xl ring-4 ring-rose-500/40" />
-          <p className="text-5xl">🐎</p>
+          <p className="text-5xl" aria-hidden>🐎</p>
           <h2
             id="boss-modal-title"
             className="mt-3 text-3xl font-extrabold tracking-tight text-rose-700 dark:text-rose-300"

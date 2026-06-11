@@ -127,7 +127,8 @@ export const _resolveToken = internalQuery({
       .query("icalTokens")
       .withIndex("by_token", (q) => q.eq("token", token))
       .unique();
-    return row?.userId ?? null;
+    // Return createdAt too so the HTTP route can expire stale tokens.
+    return row ? { userId: row.userId, createdAt: row.createdAt } : null;
   },
 });
 

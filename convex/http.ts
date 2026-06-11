@@ -24,12 +24,22 @@ const icalHandler = httpAction(async (ctx, request) => {
   }
   const token = m[1];
 
-  const userId = (await ctx.runQuery(internal.icalSubscription._resolveToken, {
+  const resolved = (await ctx.runQuery(internal.icalSubscription._resolveToken, {
     token,
-  })) as Id<"users"> | null;
-  if (!userId) {
+  })) as { userId: Id<"users">; createdAt: number } | null;
+  if (!resolved) {
     return new Response("Subscription revoked or invalid", { status: 404 });
   }
+  // Expire tokens after 180 days — calendar URLs leak (shared screens,
+  // exported configs) and an old token shouldn't grant access forever.
+  // The user just rotates the token in the UI to get a fresh URL.
+  const MAX_TOKEN_AGE_MS = 180 * 24 * 60 * 60 * 1000;
+  if (Date.now() - resolved.createdAt > MAX_TOKEN_AGE_MS) {
+    return new Response("Subscription expired — generate a new link in the app", {
+      status: 410,
+    });
+  }
+  const userId = resolved.userId;
 
   const assignments = (await ctx.runQuery(
     internal.icalSubscription._assignmentsForUser,

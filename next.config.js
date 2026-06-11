@@ -1,8 +1,14 @@
 /** @type {import('next').NextConfig} */
 
+const isDev = process.env.NODE_ENV === "development";
+
 const cspValue = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com https://*.convex.cloud https://*.convex.site",
+  // 'unsafe-eval' is only needed in development (Next.js HMR uses eval).
+  // 'unsafe-inline' has to stay: the App Router injects inline hydration
+  // scripts that would otherwise be blocked. The proper fix is a
+  // nonce-based CSP via middleware — until then this is the floor.
+  `script-src 'self'${isDev ? " 'unsafe-eval'" : ""} 'unsafe-inline' https://unpkg.com https://*.convex.cloud https://*.convex.site`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",

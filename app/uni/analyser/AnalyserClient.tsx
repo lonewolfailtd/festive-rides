@@ -9,7 +9,8 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import EmptyState from "../EmptyState";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type AnalysisTask = {
   taskNumber: string;
@@ -302,7 +303,7 @@ export default function AnalyserClient() {
       await updateAnalysis({ id: analysisId, result: next });
       toast.success("Saved");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
 
@@ -413,35 +414,18 @@ export default function AnalyserClient() {
       toast.error("Please choose a PDF file.");
       return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("PDF is over 20MB — please trim and try again.");
-      return;
-    }
     setExtractingPdf(target);
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await loadPdfjs();
-      const buffer = await file.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const total = doc.numPages;
-      setPdfProgress({ done: 0, total });
-      const parts: string[] = [];
-      for (let i = 1; i <= total; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const text = content.items
-          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
-          .join(" ");
-        parts.push(text);
-        setPdfProgress({ done: i, total });
-      }
-      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
-      if (extracted.length < 30) {
-        toast.error(
-          "Couldn't pull text from that PDF — it might be scanned / image-based. Try OCR'ing it first."
-        );
-        return;
-      }
+      const { text, pages: total } = await extractPdfText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        tooLargeMessage: "PDF is over 20MB — please trim and try again.",
+        minChars: 30,
+        minCharsMessage:
+          "Couldn't pull text from that PDF — it might be scanned / image-based. Try OCR'ing it first.",
+        onProgress: (done, totalPages) => setPdfProgress({ done, total: totalPages }),
+      });
+      let extracted = text;
       // Clean up repeated page headers/footers (Open Polytech briefs have
       // "Set B ver. 1.0 © The Open Polytechnic of New Zealand Ltd N" on
       // every page) and other PDF noise before storing.
@@ -476,7 +460,7 @@ export default function AnalyserClient() {
             : `Extracted ${total} pages from "${file.name}" into ${target}`
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+      toast.error(getErrorMessage(err, "PDF extraction failed"));
     } finally {
       setExtractingPdf(null);
       setPdfProgress(null);
@@ -523,6 +507,7 @@ export default function AnalyserClient() {
   };
 
   const onIterate = async () => {
+    if (iterating) return;
     if (!analysisId || !feedback.trim()) {
       toast.error("Add some feedback first.");
       return;
@@ -538,7 +523,7 @@ export default function AnalyserClient() {
       setShowFeedback(false);
       toast.success("Updated with your feedback");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't iterate.");
+      toast.error(getErrorMessage(err, "Couldn't iterate."));
     } finally {
       setIterating(false);
     }
@@ -562,7 +547,7 @@ export default function AnalyserClient() {
             setWordCountTarget("");
             setCheckedBullets(new Set());
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Couldn't delete");
+            toast.error(getErrorMessage(err, "Couldn't delete"));
           }
         },
       },
@@ -618,7 +603,7 @@ export default function AnalyserClient() {
       setOpenSections({});
       toast.success("Plan saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(getErrorMessage(err, "Something went wrong."));
     } finally {
       setRunning(false);
     }
@@ -1348,7 +1333,7 @@ export default function AnalyserClient() {
                         const r = (await mapRubric({ id: analysisId })) as { mapping: RubricMapping };
                         setRubricMapping(r.mapping);
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Mapping failed");
+                        toast.error(getErrorMessage(err, "Mapping failed"));
                       } finally {
                         setMappingRubric(false);
                       }

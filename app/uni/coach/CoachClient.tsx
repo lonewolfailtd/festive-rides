@@ -4,8 +4,10 @@ import { api } from "@/convex/_generated/api";
 import { useAction } from "convex/react";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { useStoredState } from "@/lib/useStoredState";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const MAX_DRAFT = 30000;
 const MIN_DRAFT = 100;
@@ -248,9 +250,7 @@ export default function CoachClient() {
       setResult(res);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Could not get feedback. Please try again."
+        getErrorMessage(err, "Could not get feedback. Please try again.")
       );
     } finally {
       setRunning(false);
@@ -271,8 +271,9 @@ export default function CoachClient() {
       await navigator.clipboard.writeText(buildMarkdown(result));
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
+      toast.success("Copied summary as markdown");
     } catch {
-      // ignore
+      toast.error("Couldn't copy");
     }
   };
 
@@ -352,7 +353,12 @@ export default function CoachClient() {
                   <>
                     {" / "}
                     {target.toLocaleString("en-NZ")} words
-                    {wordStatus === "ok" && " ✓"}
+                    {wordStatus === "ok" && (
+                      <>
+                        <span aria-hidden> ✓</span>
+                        <span className="sr-only"> on target</span>
+                      </>
+                    )}
                     {wordStatus === "under" && ` (need ~${Math.max(0, Math.round(target - targetTolerance) - draftWords)} more)`}
                     {wordStatus === "over" && ` (over by ~${draftWords - Math.round(target + targetTolerance)})`}
                   </>

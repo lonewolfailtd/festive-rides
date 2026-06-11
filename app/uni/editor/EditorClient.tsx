@@ -10,7 +10,9 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { extractDocxText } from "@/lib/extractDocxText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 interface Issue {
   category: "spelling" | "grammar" | "punctuation" | "tereo" | "style" | "structure";
@@ -288,66 +290,38 @@ export default function EditorClient() {
   // PDF extraction — page-by-page via pdfjs-dist (loaded lazily through
   // the polyfill shim). 20 MB cap mirrors the other tools.
   const handlePdf = async (file: File) => {
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("PDF over 20MB — please trim.");
-      return;
-    }
     setExtractingFile("pdf");
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await loadPdfjs();
-      const buffer = await file.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const total = doc.numPages;
-      setPdfProgress({ done: 0, total });
-      const parts: string[] = [];
-      for (let i = 1; i <= total; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const t = content.items
-          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
-          .join(" ");
-        parts.push(t);
-        setPdfProgress({ done: i, total });
-      }
-      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
-      if (extracted.length < 50) {
-        toast.error("Could not pull text from this PDF — it might be image-based.");
-        return;
-      }
-      if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
+      const { text: extracted, pages: total } = await extractPdfText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+        maxChars: TEXT_MAX,
+        onProgress: (done, totalPages) => setPdfProgress({ done, total: totalPages }),
+      });
       setText(extracted);
       toast.success(`Extracted ${total} page${total === 1 ? "" : "s"} from "${file.name}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+      toast.error(getErrorMessage(err, "PDF extraction failed"));
     } finally {
       setExtractingFile(null);
       setPdfProgress(null);
     }
   };
 
-  // .docx extraction — Mammoth runs entirely in the browser. Note we
-  // import the browser bundle explicitly to avoid Node-only deps.
+  // .docx extraction — Mammoth runs entirely in the browser.
   const handleDocx = async (file: File) => {
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("Word doc over 20MB — please trim.");
-      return;
-    }
     setExtractingFile("docx");
     try {
-      const mammoth = await import("mammoth/mammoth.browser");
-      const buffer = await file.arrayBuffer();
-      const out = await mammoth.extractRawText({ arrayBuffer: buffer });
-      let extracted = (out.value ?? "").trim();
-      if (extracted.length < 50) {
-        toast.error("Could not pull text from this Word doc.");
-        return;
-      }
-      if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
+      const extracted = await extractDocxText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+        maxChars: TEXT_MAX,
+      });
       setText(extracted);
       toast.success(`Extracted text from "${file.name}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Word doc extraction failed");
+      toast.error(getErrorMessage(err, "Word doc extraction failed"));
     } finally {
       setExtractingFile(null);
     }
@@ -392,6 +366,11 @@ export default function EditorClient() {
       if (wordCount <= CHUNK_THRESHOLD_WORDS) {
         setTotalChunks(0);
         const r = (await editAction({ text })) as EditResult;
+        if (!r || !Array.isArray(r.issues) || typeof r.summary !== "string") {
+          throw new Error(
+            "The editor returned an unexpected response — please try again.",
+          );
+        }
         setResult(r);
         setFilter("all");
       } else {
@@ -425,7 +404,7 @@ export default function EditorClient() {
           Promise.allSettled(chunkPromises),
           structurePromise.catch((err: unknown) => ({
             __failed: true,
-            error: err instanceof Error ? err.message : "Structure analysis failed",
+            error: getErrorMessage(err, "Structure analysis failed"),
           })),
         ]);
 
@@ -475,7 +454,7 @@ export default function EditorClient() {
         setFilter("all");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Edit failed.");
+      setError(getErrorMessage(err, "Edit failed."));
     } finally {
       stopProgressTimer();
       const ranFor = (performance.now() - runStartedAt) / 1000;

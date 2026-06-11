@@ -15,7 +15,8 @@ import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import Link from "next/link";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type UnpackResult = {
   // Plain-English comprehension layer — optional so a model response that
@@ -99,40 +100,24 @@ export default function UnpackClient() {
 
   // ============= PDF upload → text =============
   const handlePdfUpload = async (file: File) => {
-    if (file.size > PDF_MAX_MB * 1024 * 1024) {
-      toast.error(`PDF over ${PDF_MAX_MB} MB — please trim.`);
-      return;
-    }
     setExtracting(true);
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await loadPdfjs();
-      const buffer = await file.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const total = doc.numPages;
-      const maxPages = Math.min(total, PDF_MAX_PAGES);
-      setPdfProgress({ done: 0, total: maxPages });
-      const parts: string[] = [];
-      for (let i = 1; i <= maxPages; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const t = content.items
-          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
-          .join(" ");
-        parts.push(`[Page ${i}]\n${t}`);
-        setPdfProgress({ done: i, total: maxPages });
-      }
-      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
-      if (extracted.length < 100) {
-        toast.error("Couldn't extract enough text — may be a scanned image.");
-        return;
-      }
-      if (extracted.length > BRIEF_TEXT_MAX) extracted = extracted.slice(0, BRIEF_TEXT_MAX);
+      const { text: extracted, pages: maxPages } = await extractPdfText(file, {
+        maxBytes: PDF_MAX_MB * 1024 * 1024,
+        tooLargeMessage: `PDF over ${PDF_MAX_MB} MB — please trim.`,
+        maxPages: PDF_MAX_PAGES,
+        pageMarkers: true,
+        minChars: 100,
+        minCharsMessage: "Couldn't extract enough text — may be a scanned image.",
+        maxChars: BRIEF_TEXT_MAX,
+        onProgress: (done, total) => setPdfProgress({ done, total }),
+      });
       setBriefText(extracted);
       setBriefContext(extracted);
       toast.success(`Extracted ${maxPages} page${maxPages === 1 ? "" : "s"} from "${file.name}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+      toast.error(getErrorMessage(err, "PDF extraction failed"));
     } finally {
       setExtracting(false);
       setPdfProgress(null);
@@ -155,7 +140,7 @@ export default function UnpackClient() {
       }
       setTasks(r.tasks);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't extract tasks");
+      toast.error(getErrorMessage(err, "Couldn't extract tasks"));
     } finally {
       setFindingTasks(false);
     }
@@ -184,7 +169,7 @@ export default function UnpackClient() {
         document.getElementById("unpack-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unpack failed");
+      setError(getErrorMessage(err, "Unpack failed"));
     } finally {
       setUnpacking(false);
     }
@@ -253,7 +238,7 @@ export default function UnpackClient() {
 
         <div className="mt-3 grid gap-3 sm:grid-cols-[auto_1fr]">
           <label className={`${buttonSecondary} cursor-pointer`}>
-            📤 Upload PDF
+            <span aria-hidden>📤</span> Upload PDF
             <input
               type="file"
               accept="application/pdf"
@@ -292,7 +277,13 @@ export default function UnpackClient() {
             disabled={findingTasks || briefText.trim().length < 100}
             className={buttonSecondary}
           >
-            {findingTasks ? "Finding tasks…" : "🔍 Find tasks in this brief"}
+            {findingTasks ? (
+              "Finding tasks…"
+            ) : (
+              <>
+                <span aria-hidden>🔍</span> Find tasks in this brief
+              </>
+            )}
           </button>
           {tasks.length > 0 && (
             <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -368,7 +359,13 @@ export default function UnpackClient() {
             disabled={unpacking || question.trim().length < 15}
             className={buttonPrimary}
           >
-            {unpacking ? "Unpacking…" : "🧠 Unpack this question"}
+            {unpacking ? (
+              "Unpacking…"
+            ) : (
+              <>
+                <span aria-hidden>🧠</span> Unpack this question
+              </>
+            )}
           </button>
           {unpacking && (
             <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -465,7 +462,7 @@ export default function UnpackClient() {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <div className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                  ✅ In scope
+                  <span aria-hidden>✅</span> In scope
                 </div>
                 <ul className="mt-1 space-y-1 text-sm text-slate-700 dark:text-slate-300">
                   {result.scopeAndTopic.inScope.map((s, i) => (
@@ -475,7 +472,7 @@ export default function UnpackClient() {
               </div>
               <div>
                 <div className="text-xs font-medium text-rose-700 dark:text-rose-400">
-                  ❌ Out of scope (don&apos;t drift here)
+                  <span aria-hidden>❌</span> Out of scope (don&apos;t drift here)
                 </div>
                 <ul className="mt-1 space-y-1 text-sm text-slate-700 dark:text-slate-300">
                   {result.scopeAndTopic.outOfScope.map((s, i) => (
@@ -605,7 +602,7 @@ export default function UnpackClient() {
                       className="inline-flex items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/40"
                       title="Open Source Finder with this query"
                     >
-                      🔎 {q}
+                      <span aria-hidden>🔎</span> {q}
                     </button>
                   ))}
                 </div>
@@ -637,7 +634,7 @@ export default function UnpackClient() {
           {result.warningFlags.length > 0 && (
             <section className={sectionCard}>
               <h2 className="text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">
-                ⚠️ Common ways to lose marks on this
+                <span aria-hidden>⚠️</span> Common ways to lose marks on this
               </h2>
               <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
                 {result.warningFlags.map((w, i) => (
@@ -657,13 +654,13 @@ export default function UnpackClient() {
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={handoffToArticleQA} className={buttonSecondary}>
-                💬 Ask an article (Article Q&A)
+                <span aria-hidden>💬</span> Ask an article (Article Q&A)
               </button>
               <button type="button" onClick={handoffToCoach} className={buttonSecondary}>
-                📝 Send to Coach when you have a draft
+                <span aria-hidden>📝</span> Send to Coach when you have a draft
               </button>
               <Link href="/uni/analyser" className={buttonSecondary}>
-                🗺️ Plan the whole assignment (Analyser)
+                <span aria-hidden>🗺️</span> Plan the whole assignment (Analyser)
               </Link>
             </div>
           </section>

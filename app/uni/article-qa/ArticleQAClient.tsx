@@ -17,7 +17,8 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 import { buildCitations } from "@/lib/apaCitations";
 
 const ACTIVE_EVENT = "uni:active-assignment-changed";
@@ -254,43 +255,26 @@ export default function ArticleQAClient() {
   // PDF upload handler — extracts text client-side, populates the
   // textarea. Same pdfjs pattern as Source Lens Upload PDF.
   const handlePdfUpload = async (file: File) => {
-    if (file.size > 30 * 1024 * 1024) {
-      toast.error("PDF over 30MB — please trim.");
-      return;
-    }
     setExtracting(true);
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await loadPdfjs();
-      const buffer = await file.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const total = doc.numPages;
-      setPdfProgress({ done: 0, total });
-      const parts: string[] = [];
-      const maxPages = Math.min(total, 50);
-      for (let i = 1; i <= maxPages; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const t = content.items
-          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
-          .join(" ");
-        parts.push(`[Page ${i}]\n${t}`);
-        setPdfProgress({ done: i, total: maxPages });
-      }
-      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
-      if (extracted.length < TEXT_MIN) {
-        toast.error(
+      const { text: extracted, pages: maxPages } = await extractPdfText(file, {
+        maxBytes: 30 * 1024 * 1024,
+        tooLargeMessage: "PDF over 30MB — please trim.",
+        maxPages: 50,
+        pageMarkers: true,
+        minChars: TEXT_MIN,
+        minCharsMessage:
           "Couldn't extract enough text from this PDF — may be a scanned image (no OCR).",
-        );
-        return;
-      }
-      if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
+        maxChars: TEXT_MAX,
+        onProgress: (done, total) => setPdfProgress({ done, total }),
+      });
       setArticleText(extracted);
       toast.success(
         `Extracted ${maxPages} page${maxPages === 1 ? "" : "s"} from "${file.name}"`,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+      toast.error(getErrorMessage(err, "PDF extraction failed"));
     } finally {
       setExtracting(false);
       setPdfProgress(null);
@@ -315,7 +299,11 @@ export default function ArticleQAClient() {
       .map((q) => q.replace(/^\s*\d+[.)]\s*/, ""))
       .filter((q) => q.length > 0);
     if (questionList.length === 0) {
-      setError("Paste at least one question.");
+      setError(
+        questions.trim().length > 0
+          ? "No valid questions found after cleanup — check the formatting."
+          : "Paste at least one question.",
+      );
       return;
     }
     if (questionList.length > 20) {
@@ -347,7 +335,7 @@ export default function ArticleQAClient() {
           "Article",
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Article Q&A failed.");
+      setError(getErrorMessage(err, "Article Q&A failed."));
     } finally {
       stopTimer();
       setLastRunSeconds((performance.now() - startedAt) / 1000);
@@ -511,9 +499,7 @@ export default function ArticleQAClient() {
                           );
                         } catch (err) {
                           toast.error(
-                            err instanceof Error
-                              ? err.message
-                              : "Couldn't extract questions",
+                            getErrorMessage(err, "Couldn't extract questions"),
                           );
                         } finally {
                           setExtractingQuestions(false);
@@ -583,9 +569,7 @@ export default function ArticleQAClient() {
                           );
                         } catch (err) {
                           toast.error(
-                            err instanceof Error
-                              ? err.message
-                              : "Couldn't extract questions",
+                            getErrorMessage(err, "Couldn't extract questions"),
                           );
                         } finally {
                           setExtractingQuestions(false);
@@ -734,9 +718,16 @@ export default function ArticleQAClient() {
                         // 1 hour — keeps localStorage from bloating
                         // with old article texts.
                         const now = Date.now();
+                        // Collect keys first — removing while iterating
+                        // by index shifts the remaining keys and skips
+                        // entries.
+                        const keys: string[] = [];
                         for (let i = 0; i < window.localStorage.length; i++) {
                           const k = window.localStorage.key(i);
-                          if (!k || !k.startsWith("uni-source-reader-")) continue;
+                          if (k) keys.push(k);
+                        }
+                        for (const k of keys) {
+                          if (!k.startsWith("uni-source-reader-")) continue;
                           const tsMatch = k.match(/-(\d{13,})$/);
                           if (!tsMatch) continue;
                           const ts = Number(tsMatch[1]);
@@ -1107,6 +1098,11 @@ export default function ArticleQAClient() {
                 ))}
               </div>
             </section>
+          )}
+          {result.suggestedSearches && result.suggestedSearches.length === 0 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              No follow-up searches suggested.
+            </p>
           )}
 
           {/* Copy all as markdown */}

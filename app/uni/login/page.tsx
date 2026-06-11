@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState } from "react";
 import { ThemeToggle } from "../ThemeProvider";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type Mode = "signIn" | "signUp" | "reset";
 
@@ -44,7 +45,7 @@ export default function UniLoginPage() {
       // Redirect handled by middleware on success.
     } catch (err) {
       setSubmitting(false);
-      const msg = err instanceof Error ? err.message : "Could not sign in.";
+      const msg = getErrorMessage(err, "Could not sign in.");
       if (msg.includes("InvalidAccountId") || msg.includes("InvalidSecret")) {
         setError(
           mode === "signIn"
@@ -82,7 +83,7 @@ export default function UniLoginPage() {
       // res.action used internally only, never surfaced.
       void res;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Reset failed.");
+      setError(getErrorMessage(err, "Reset failed."));
     } finally {
       setSubmitting(false);
     }

@@ -15,7 +15,9 @@ import { useAction } from "convex/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { extractDocxText } from "@/lib/extractDocxText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const STORAGE_KEY = "uni-active-assignment-v1";
 const ACTIVE_EVENT = "uni:active-assignment-changed";
@@ -111,7 +113,12 @@ export default function QuickImport() {
       setStage("idle");
       return;
     }
-    if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT);
+    if (text.length > MAX_TEXT) {
+      text = text.slice(0, MAX_TEXT);
+      toast.warning(
+        `Brief is longer than ${MAX_TEXT.toLocaleString("en-NZ")} characters — only the first part was analysed, so the extraction may be partial.`,
+      );
+    }
     setStage("analysing");
     startProgressTimer();
     try {
@@ -149,43 +156,23 @@ export default function QuickImport() {
       }, 200);
     } catch (err) {
       stopProgressTimer();
-      setError(err instanceof Error ? err.message : "Import failed.");
+      setError(getErrorMessage(err, "Import failed."));
       setStage("idle");
     }
   };
 
   const handlePdf = async (file: File) => {
-    if (file.size > 20 * 1024 * 1024) {
-      setError("PDF over 20MB — please trim.");
-      return;
-    }
     setStage("extracting");
     setProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await loadPdfjs();
-      const buffer = await file.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const total = doc.numPages;
-      setProgress({ done: 0, total });
-      const parts: string[] = [];
-      for (let i = 1; i <= total; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const t = content.items
-          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
-          .join(" ");
-        parts.push(t);
-        setProgress({ done: i, total });
-      }
-      const extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
-      if (extracted.length < 50) {
-        setError("Could not pull text from this PDF — it might be image-based.");
-        setStage("idle");
-        return;
-      }
+      const { text: extracted } = await extractPdfText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+        onProgress: (done, total) => setProgress({ done, total }),
+      });
       await handleText(extracted, file.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF extraction failed.");
+      setError(getErrorMessage(err, "PDF extraction failed."));
       setStage("idle");
     } finally {
       setProgress(null);
@@ -193,24 +180,15 @@ export default function QuickImport() {
   };
 
   const handleDocx = async (file: File) => {
-    if (file.size > 20 * 1024 * 1024) {
-      setError("Word doc over 20MB — please trim.");
-      return;
-    }
     setStage("extracting");
     try {
-      const mammoth = await import("mammoth/mammoth.browser");
-      const buffer = await file.arrayBuffer();
-      const out = await mammoth.extractRawText({ arrayBuffer: buffer });
-      const extracted = (out.value ?? "").trim();
-      if (extracted.length < 50) {
-        setError("Could not pull text from this Word doc.");
-        setStage("idle");
-        return;
-      }
+      const extracted = await extractDocxText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+      });
       await handleText(extracted, file.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Word doc extraction failed.");
+      setError(getErrorMessage(err, "Word doc extraction failed."));
       setStage("idle");
     }
   };

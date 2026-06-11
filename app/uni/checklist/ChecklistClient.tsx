@@ -18,6 +18,7 @@ import { useMutation, useQuery, useAction } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const ACTIVE_EVENT = "uni:active-assignment-changed";
 const STORAGE_KEY = "uni-active-assignment-v1";
@@ -108,7 +109,7 @@ export default function ChecklistClient() {
     try {
       await setChecklist({ id: activeId as Id<"assignments">, taskChecklist: next });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save");
+      toast.error(getErrorMessage(err, "Couldn't save"));
     }
   };
 
@@ -142,7 +143,7 @@ export default function ChecklistClient() {
       await persist(next);
       toast.success(`Loaded ${next.length} task${next.length === 1 ? "" : "s"} from the brief`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't pull tasks");
+      toast.error(getErrorMessage(err, "Couldn't pull tasks"));
     } finally {
       setPulling(false);
     }
@@ -166,7 +167,7 @@ export default function ChecklistClient() {
     try {
       await toggleTask({ id: activeId as Id<"assignments">, taskId: id });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't update");
+      toast.error(getErrorMessage(err, "Couldn't update"));
     }
   };
 
@@ -228,14 +229,14 @@ export default function ChecklistClient() {
 
             {total > 0 && doneCount < total && (
               <div className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                ⚠️ {total - doneCount} task{total - doneCount === 1 ? "" : "s"} still to do
+                <span aria-hidden>⚠️</span> {total - doneCount} task{total - doneCount === 1 ? "" : "s"} still to do
                 {undoneMarks > 0 ? ` — up to ${undoneMarks} marks at stake` : ""}. Don&apos;t
                 submit with a blank section.
               </div>
             )}
             {total > 0 && doneCount === total && (
               <div className="mt-4 rounded-lg border-2 border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-                ✓ Every task is ticked off. Run the Submission Audit next for a final rubric
+                <span aria-hidden>✓</span> Every task is ticked off. Run the Submission Audit next for a final rubric
                 check.
               </div>
             )}
@@ -252,7 +253,13 @@ export default function ChecklistClient() {
                 className={buttonSecondary}
                 title="Read the saved brief and list every task automatically"
               >
-                {pulling ? "Reading brief…" : "⬇ Pull tasks from brief"}
+                {pulling ? (
+                  "Reading brief…"
+                ) : (
+                  <>
+                    <span aria-hidden>⬇</span> Pull tasks from brief
+                  </>
+                )}
               </button>
             </div>
 

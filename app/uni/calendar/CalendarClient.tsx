@@ -19,6 +19,7 @@ import PageHeader from "../PageHeader";
 import { NZ_HOLIDAYS, type NzHoliday, toIsoDay, buildIcs } from "@/lib/nzHolidays";
 import { useStoredState } from "@/lib/useStoredState";
 import { colourFor } from "@/lib/courseColours";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -147,12 +148,41 @@ export default function CalendarClient() {
     try {
       const [y, m, d] = iso.split("-").map(Number);
       const newDue = new Date(y, m - 1, d, 23, 59, 0).getTime();
+      if (!Number.isFinite(newDue)) {
+        toast.error("Couldn't work out the new due date — try again.");
+        return;
+      }
       await updateAssignment({ id: draggingId, dueDate: newDue });
       toast.success("Due date updated");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't update");
+      toast.error(getErrorMessage(err, "Couldn't update"));
     }
   };
+
+  // Loading shimmer — keeps page shape stable while Convex queries load
+  // instead of flashing an empty grid.
+  if (assignments === undefined || courses === undefined) {
+    return (
+      <main className="mx-auto max-w-6xl px-4 py-10">
+        <PageHeader
+          eyebrow="Calendar"
+          title="Assignments and NZ public holidays"
+          description="See what's due when, with NZ national holidays and regional anniversaries marked. Drag an assignment to reschedule it."
+        />
+        <div className="space-y-3 animate-pulse" aria-label="Loading calendar">
+          <div className="h-12 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+          <div className="grid grid-cols-7 gap-1.5">
+            {Array.from({ length: 42 }).map((_, i) => (
+              <div
+                key={i}
+                className="min-h-[4rem] sm:min-h-[5.5rem] rounded-md bg-slate-200 dark:bg-slate-800"
+              />
+            ))}
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
@@ -657,7 +687,7 @@ export default function CalendarClient() {
                 await ensureToken({});
                 toast.success("Subscription URL ready");
               } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Couldn't create");
+                toast.error(getErrorMessage(err, "Couldn't create"));
               }
             }}
             className="mt-3 inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-medium text-white hover:from-emerald-400 hover:to-emerald-500"
@@ -764,7 +794,7 @@ export default function CalendarClient() {
                         await rotateToken({});
                         toast.success("URL rotated");
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Couldn't rotate");
+                        toast.error(getErrorMessage(err, "Couldn't rotate"));
                       }
                     }}
                     className="ml-auto rounded-md border border-amber-400 bg-white px-2 py-1 text-xs text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:bg-slate-900 dark:text-amber-200 dark:hover:bg-amber-900/30"
@@ -779,7 +809,7 @@ export default function CalendarClient() {
                         await revokeToken({});
                         toast.success("Subscription revoked");
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Couldn't revoke");
+                        toast.error(getErrorMessage(err, "Couldn't revoke"));
                       }
                     }}
                     className="rounded-md border border-rose-400 bg-white px-2 py-1 text-xs text-rose-800 hover:bg-rose-50 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-200 dark:hover:bg-rose-900/30"

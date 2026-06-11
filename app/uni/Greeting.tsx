@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 // Time-of-day greeting variants. We pick one stable per day so it doesn't
 // shuffle every time the page rerenders, but does feel different across
@@ -124,7 +125,7 @@ export default function Greeting() {
       setEditing(false);
       setDraft("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save.");
+      toast.error(getErrorMessage(err, "Couldn't save."));
     } finally {
       setSaving(false);
     }
@@ -136,7 +137,7 @@ export default function Greeting() {
       return (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm dark:border-sky-900/60 dark:bg-sky-950/30">
           <span className="text-sky-900 dark:text-sky-200">
-            Welcome 👋 What should I call you?
+            Welcome <span aria-hidden>👋</span> What should I call you?
           </span>
           <button
             type="button"

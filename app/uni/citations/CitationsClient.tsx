@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const MIN_TEXT = 100;
 const MAX_TEXT = 50000;
@@ -97,7 +98,7 @@ export default function CitationsClient() {
       }
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Could not extract citations."
+        getErrorMessage(err, "Could not extract citations.")
       );
     } finally {
       setRunning(false);
@@ -280,6 +281,15 @@ export default function CitationsClient() {
             </div>
           </section>
 
+          {result.totalCitations === 0 && (
+            <section className={sectionCard}>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                No citations found in this draft. If you expected some, check the draft uses APA-style
+                in-text citations like (Smith, 2020) or Smith (2020) and run it again.
+              </p>
+            </section>
+          )}
+
           {result.summary && (
             <section className={sectionCard}>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
@@ -418,7 +428,7 @@ export default function CitationsClient() {
                             {c.year}
                           </td>
                           <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
-                            {c.page ?? "”"}
+                            {c.page ?? "—"}
                           </td>
                           <td className="py-2 pr-3 text-slate-600 dark:text-slate-400">
                             {c.paragraphIndex + 1}

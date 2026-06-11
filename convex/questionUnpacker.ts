@@ -66,10 +66,15 @@ export const extractTasks = action({
         "Assignment brief is too short — please paste at least 100 characters of the brief.",
       );
     }
+    // Hard cap rather than silently truncating — a sliced brief loses
+    // tasks off the end and the student never finds out.
+    if (brief.length > 30000) {
+      throw new Error(
+        "Assignment brief is too long (>30000 chars). Trim to just the assessment you're working on and try again.",
+      );
+    }
 
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
-
-    const briefCapped = brief.length > 30000 ? brief.slice(0, 30000) : brief;
 
     const r = await callOpenRouterDetailed({
       model: "deepseek/deepseek-v4-flash",
@@ -80,7 +85,7 @@ export const extractTasks = action({
         { role: "system", content: EXTRACT_TASKS_PROMPT },
         {
           role: "user",
-          content: `=== ASSIGNMENT BRIEF ===\n${briefCapped}\n\nList every distinct task or sub-question.`,
+          content: `=== ASSIGNMENT BRIEF ===\n${brief}\n\nList every distinct task or sub-question.`,
         },
       ],
     });

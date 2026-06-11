@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { PALETTES, useTheme } from "../ThemeProvider";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
@@ -68,7 +69,7 @@ export default function SettingsClient() {
       toast.success("Saved");
       setEditingName(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save.");
+      toast.error(getErrorMessage(err, "Couldn't save."));
     } finally {
       setSavingName(false);
     }
@@ -103,7 +104,7 @@ export default function SettingsClient() {
       }, 1200);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Could not change password."
+        getErrorMessage(err, "Could not change password.")
       );
     } finally {
       setChangingPassword(false);
@@ -123,7 +124,7 @@ export default function SettingsClient() {
       }, 800);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Could not sign out everywhere."
+        getErrorMessage(err, "Could not sign out everywhere.")
       );
       setSigningOutAll(false);
     }
@@ -149,7 +150,7 @@ export default function SettingsClient() {
       toast.success("Export downloaded.");
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Could not build the export file."
+        getErrorMessage(err, "Could not build the export file.")
       );
     } finally {
       setExporting(false);
@@ -170,7 +171,7 @@ export default function SettingsClient() {
       router.push("/uni/login");
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Could not delete account."
+        getErrorMessage(err, "Could not delete account.")
       );
       setDeletingAccount(false);
     }
@@ -595,7 +596,7 @@ function ThemeSection() {
                 </span>
                 {selected && (
                   <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    ✓ Active
+                    <span aria-hidden>✓</span> Active
                   </span>
                 )}
               </div>

@@ -7,12 +7,33 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { useStoredState } from "@/lib/useStoredState";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { extractDocxText } from "@/lib/extractDocxText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type ParagraphScore = {
   preview: string;
   score: number;
   reason: string;
+};
+
+type Stylometrics = {
+  words: number;
+  sentences: number;
+  paragraphs: number;
+  meanSentenceLen: number;
+  sentenceLenStdev: number;
+  sentenceLenCV: number;
+  transitionsPer1000: number;
+  aiVocabPer1000: number;
+  typeTokenRatio: number;
+};
+
+type ConsensusInfo = {
+  median: number;
+  spread: number;
+  runs: Array<{ model: string; overallScore: number; verdict: string }>;
+  detailModel: string;
 };
 
 type CheckResult = {
@@ -24,6 +45,8 @@ type CheckResult = {
   humanTells: string[];
   naturalisationTips: string[];
   calibration: string;
+  stats?: Stylometrics;
+  consensus?: ConsensusInfo;
 };
 
 type HumaniseResult = {
@@ -33,6 +56,57 @@ type HumaniseResult = {
 
 const TEXT_MIN = 200;
 const TEXT_MAX = 50000;
+
+// Calibration samples. The casual-human and raw-AI ones are the easy
+// cases; the two that actually test calibration are polished human
+// writing (where false positives happen) and lightly edited AI (where
+// false negatives happen). A model that only passes the easy three
+// hasn't earned trust.
+type SampleKey = "human" | "humanPolished" | "ai" | "aiEdited" | "mixed";
+
+const SAMPLE_KEYS: readonly SampleKey[] = [
+  "human",
+  "humanPolished",
+  "ai",
+  "aiEdited",
+  "mixed",
+];
+
+const SAMPLES: Record<
+  SampleKey,
+  { label: string; expected: string; range: [number, number]; text: string }
+> = {
+  human: {
+    label: "Human (casual)",
+    expected: "under 30",
+    range: [0, 30],
+    text: `okay so I've been thinking about this for a while and I'm not really sure if Bowlby's attachment thing actually fits what I've seen with my own kids. like, my eldest was the textbook secure-attached baby — clung to me for about six months, then started doing his own thing. but my second? totally different. she barely cared if I left the room from about four months on, which Ainsworth's framework would call avoidant or whatever. Bowlby would probably say I screwed something up but honestly I think she just has a different temperament. the strange situation test always rubbed me the wrong way too — twenty minutes in a weird room with a stranger isn't exactly representative of a kid's actual home life. I get why it became the gold standard, it's reproducible, but reproducible isn't the same as valid. anyway that's my two cents.`,
+  },
+  humanPolished: {
+    label: "Human (polished)",
+    expected: "under 50",
+    range: [0, 50],
+    text: `Bowlby's central claim — that the infant-caregiver bond is an evolved behavioural system rather than a by-product of feeding — was genuinely radical in 1958, and the field has never fully digested it. Ainsworth's Strange Situation made the claim testable, which is both its triumph and its trap. Once attachment had a twenty-minute laboratory measure, the measure started standing in for the construct. Van IJzendoorn's meta-analyses show respectable stability of classifications across Western samples, yet the Sapporo studies found nearly half of Japanese infants classified as ambivalent, a rate that says more about the procedure's assumptions than about Japanese mothers. My view, after sitting with this literature for a semester, is that the theory survives the cross-cultural critique but the categories do not. Security is probably real; the ABC taxonomy is an artefact of one clever experiment that we have asked to carry far more weight than it can bear.`,
+  },
+  ai: {
+    label: "AI (raw)",
+    expected: "over 70",
+    range: [70, 100],
+    text: `Attachment theory, originally proposed by John Bowlby and further developed through the seminal work of Mary Ainsworth, represents a multifaceted framework for understanding the nuanced dynamics of early caregiver-infant relationships. It is important to note that this theory underscores the comprehensive nature of attachment as a foundational element of human development. Furthermore, the strange situation paradigm has been instrumental in delineating distinct attachment styles. Moreover, contemporary research continues to navigate the complexities of these multifaceted developmental trajectories. Additionally, the implications of attachment theory extend across diverse cultural contexts, illuminating the tapestry of human bonding. In conclusion, Bowlby's foundational contributions, alongside Ainsworth's empirical extensions, have profoundly shaped our holistic understanding of socio-emotional development in today's rapidly evolving psychological landscape.`,
+  },
+  aiEdited: {
+    label: "AI (lightly edited)",
+    expected: "over 50",
+    range: [50, 100],
+    text: `Attachment theory, first proposed by John Bowlby and developed through the work of Mary Ainsworth, offers a framework for understanding the dynamics of early caregiver-infant relationships. The theory positions attachment as a foundational element of human development, shaping emotional regulation and later relational patterns. The Strange Situation procedure has been instrumental in identifying distinct attachment styles, providing researchers with a standardised method of assessment. I found this part of the reading quite interesting. Research also continues to examine how these developmental trajectories operate across diverse cultural contexts, raising questions about the universality of attachment classifications. The implications of attachment theory extend into clinical practice, educational settings and parenting interventions. Bowlby's contributions, alongside Ainsworth's empirical extensions, have shaped our understanding of socio-emotional development and continue to inform contemporary research directions.`,
+  },
+  mixed: {
+    label: "Mixed",
+    expected: "40–60",
+    range: [40, 60],
+    text: `Bowlby's attachment theory has been hugely influential — there's no real argument about that. The Strange Situation gave the field a way to actually measure something that had been fuzzy. But it's important to note that the theory operates within a multifaceted framework, and contemporary research continues to navigate the complexities of cross-cultural application. Honestly though, when I read Rothbaum's 2000 critique of how poorly attachment categories transfer to Japanese samples, it knocked some of the wind out of the universalist claims for me. Furthermore, the strange situation paradigm presents methodological limitations that warrant comprehensive examination. I think the framework still has legs, just narrower legs than the textbooks make out.`,
+  },
+};
 
 const labelStyle =
   "block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
@@ -80,6 +154,7 @@ function scoreColour(score: number): { text: string; bar: string; bg: string; bo
 
 export default function CheckerClient() {
   const check = useAction(api.aiChecker.check);
+  const checkConsensus = useAction(api.aiChecker.checkConsensus);
   const humanise = useAction(api.aiChecker.humanise);
 
   const [text, setText] = useState("");
@@ -96,14 +171,20 @@ export default function CheckerClient() {
   // if the result still feels off after trying both.
   const [model, setModel] = useStoredState<string>("uni-checker-model", "deepseek/deepseek-v4-flash");
 
-  // Calibration sub-tool — runs three known samples through the checker
+  // Consensus mode — runs the check across three different model families
+  // in parallel and reports the median score plus the spread between them.
+  // Slower and three times the cost, but a single model's bad day can't
+  // pass itself off as a verdict. Off by default.
+  const [consensusMode, setConsensusMode] = useStoredState<boolean>("uni-checker-consensus", false);
+
+  // Calibration sub-tool — runs known samples through the checker
   // back-to-back so the student can sanity-check the model's calibration.
-  const [calibrating, setCalibrating] = useState<null | "human" | "ai" | "mixed">(null);
-  const [calibrationResults, setCalibrationResults] = useState<{
-    human?: CheckResult;
-    ai?: CheckResult;
-    mixed?: CheckResult;
-  }>({});
+  // The two hard cases are the ones that matter: polished human writing
+  // (false-positive risk) and lightly edited AI (false-negative risk).
+  const [calibrating, setCalibrating] = useState<null | SampleKey>(null);
+  const [calibrationResults, setCalibrationResults] = useState<
+    Partial<Record<SampleKey, CheckResult>>
+  >({});
 
   // Humanise sub-feature state
   const [humanisePassage, setHumanisePassage] = useState("");
@@ -125,38 +206,19 @@ export default function CheckerClient() {
   };
 
   const handlePdf = async (file: File) => {
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("PDF over 20MB — please trim.");
-      return;
-    }
     setExtractingFile("pdf");
     setPdfProgress({ done: 0, total: 0 });
     try {
-      const pdfjs = await loadPdfjs();
-      const buffer = await file.arrayBuffer();
-      const doc = await pdfjs.getDocument({ data: buffer }).promise;
-      const total = doc.numPages;
-      setPdfProgress({ done: 0, total });
-      const parts: string[] = [];
-      for (let i = 1; i <= total; i++) {
-        const page = await doc.getPage(i);
-        const content = await page.getTextContent();
-        const t = content.items
-          .map((it) => ("str" in it ? (it as { str: string }).str : ""))
-          .join(" ");
-        parts.push(t);
-        setPdfProgress({ done: i, total });
-      }
-      let extracted = parts.join("\n\n").replace(/[ \t]+/g, " ").trim();
-      if (extracted.length < 50) {
-        toast.error("Could not pull text from this PDF — it might be image-based.");
-        return;
-      }
-      if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
+      const { text: extracted, pages: total } = await extractPdfText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+        maxChars: TEXT_MAX,
+        onProgress: (done, totalPages) => setPdfProgress({ done, total: totalPages }),
+      });
       setText(extracted);
       toast.success(`Extracted ${total} pages from "${file.name}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF extraction failed");
+      toast.error(getErrorMessage(err, "PDF extraction failed"));
     } finally {
       setExtractingFile(null);
       setPdfProgress(null);
@@ -164,25 +226,17 @@ export default function CheckerClient() {
   };
 
   const handleDocx = async (file: File) => {
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("Word doc over 20MB — please trim.");
-      return;
-    }
     setExtractingFile("docx");
     try {
-      const mammoth = await import("mammoth/mammoth.browser");
-      const buffer = await file.arrayBuffer();
-      const out = await mammoth.extractRawText({ arrayBuffer: buffer });
-      let extracted = (out.value ?? "").trim();
-      if (extracted.length < 50) {
-        toast.error("Could not pull text from this Word doc.");
-        return;
-      }
-      if (extracted.length > TEXT_MAX) extracted = extracted.slice(0, TEXT_MAX);
+      const extracted = await extractDocxText(file, {
+        maxBytes: 20 * 1024 * 1024,
+        minChars: 50,
+        maxChars: TEXT_MAX,
+      });
       setText(extracted);
       toast.success(`Extracted text from "${file.name}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Word doc extraction failed");
+      toast.error(getErrorMessage(err, "Word doc extraction failed"));
     } finally {
       setExtractingFile(null);
     }
@@ -214,42 +268,35 @@ export default function CheckerClient() {
     }
     setRunning(true);
     try {
-      const res = (await check({ text, model })) as CheckResult;
+      const res = (consensusMode
+        ? await checkConsensus({ text })
+        : await check({ text, model })) as CheckResult;
       setResult(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Check failed.");
+      setError(getErrorMessage(err, "Check failed."));
     } finally {
       setRunning(false);
     }
   };
 
-  // Three calibration samples. Human one is messy / personal-voice; AI one is
-  // raw ChatGPT-style filler; mixed is a sandwich. Lets the student see at a
-  // glance whether the current model is calibrated correctly.
-  const SAMPLES = {
-    human: `okay so I've been thinking about this for a while and I'm not really sure if Bowlby's attachment thing actually fits what I've seen with my own kids. like, my eldest was the textbook secure-attached baby — clung to me for about six months, then started doing his own thing. but my second? totally different. she barely cared if I left the room from about four months on, which Ainsworth's framework would call avoidant or whatever. Bowlby would probably say I screwed something up but honestly I think she just has a different temperament. the strange situation test always rubbed me the wrong way too — twenty minutes in a weird room with a stranger isn't exactly representative of a kid's actual home life. I get why it became the gold standard, it's reproducible, but reproducible isn't the same as valid. anyway that's my two cents.`,
-    ai: `Attachment theory, originally proposed by John Bowlby and further developed through the seminal work of Mary Ainsworth, represents a multifaceted framework for understanding the nuanced dynamics of early caregiver-infant relationships. It is important to note that this theory underscores the comprehensive nature of attachment as a foundational element of human development. Furthermore, the strange situation paradigm has been instrumental in delineating distinct attachment styles. Moreover, contemporary research continues to navigate the complexities of these multifaceted developmental trajectories. Additionally, the implications of attachment theory extend across diverse cultural contexts, illuminating the tapestry of human bonding. In conclusion, Bowlby's foundational contributions, alongside Ainsworth's empirical extensions, have profoundly shaped our holistic understanding of socio-emotional development in today's rapidly evolving psychological landscape.`,
-    mixed: `Bowlby's attachment theory has been hugely influential — there's no real argument about that. The Strange Situation gave the field a way to actually measure something that had been fuzzy. But it's important to note that the theory operates within a multifaceted framework, and contemporary research continues to navigate the complexities of cross-cultural application. Honestly though, when I read Rothbaum's 2000 critique of how poorly attachment categories transfer to Japanese samples, it knocked some of the wind out of the universalist claims for me. Furthermore, the strange situation paradigm presents methodological limitations that warrant comprehensive examination. I think the framework still has legs, just narrower legs than the textbooks make out.`,
-  } as const;
-
-  const runCalibration = async (which: "human" | "ai" | "mixed") => {
+  const runCalibration = async (which: SampleKey) => {
     setCalibrating(which);
     setError(null);
     try {
-      const res = (await check({ text: SAMPLES[which], model })) as CheckResult;
+      const res = (await check({ text: SAMPLES[which].text, model })) as CheckResult;
       setCalibrationResults((prev) => ({ ...prev, [which]: res }));
-      toast.success(`${which === "ai" ? "AI" : which === "human" ? "Human" : "Mixed"} sample scored ${Math.round(res.overallScore)}/100`);
+      toast.success(`${SAMPLES[which].label} sample scored ${Math.round(res.overallScore)}/100`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Calibration run failed.");
+      toast.error(getErrorMessage(err, "Calibration run failed."));
     } finally {
       setCalibrating(null);
     }
   };
 
   const runAllCalibrations = async () => {
-    await runCalibration("human");
-    await runCalibration("ai");
-    await runCalibration("mixed");
+    for (const key of SAMPLE_KEYS) {
+      await runCalibration(key);
+    }
   };
 
   const onHumanise = async () => {
@@ -263,7 +310,7 @@ export default function CheckerClient() {
       const res = (await humanise({ text: humanisePassage, model })) as HumaniseResult;
       setHumaniseResult(res);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Rewrite failed.");
+      toast.error(getErrorMessage(err, "Rewrite failed."));
     } finally {
       setHumanising(false);
     }
@@ -292,7 +339,7 @@ export default function CheckerClient() {
                 <li>Use the <em>Humanise a passage</em> tool below to rewrite specific bits.</li>
               </ol>
               <p className="mt-2 text-xs text-sky-900/80 dark:text-sky-300/80">
-                ⚠  AI detectors are imperfect. Real tools (Turnitin, GPTZero) have 5“15% false-positive rates. Use this as a guide, not a verdict — and write in your own voice from the start when you can.
+                ⚠  AI detectors are imperfect. Real tools (Turnitin, GPTZero) have 5–15% false-positive rates. Use this as a guide, not a verdict — and write in your own voice from the start when you can.
               </p>
             </div>
             <button
@@ -383,7 +430,11 @@ export default function CheckerClient() {
               disabled={running || extractingFile !== null}
               className={buttonPrimary}
             >
-              {running ? "Checking…" : "Check for AI"}
+              {running
+                ? consensusMode
+                  ? "Checking with 3 models…"
+                  : "Checking…"
+                : "Check for AI"}
             </button>
             <button
               type="button"
@@ -404,7 +455,7 @@ export default function CheckerClient() {
                 id="model-picker"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                disabled={running || calibrating !== null}
+                disabled={running || calibrating !== null || consensusMode}
                 className="flex-1 sm:flex-initial min-w-0 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 transition-colors hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (default — fastest)</option>
@@ -413,6 +464,18 @@ export default function CheckerClient() {
               </select>
             </div>
           </div>
+          <label className="flex cursor-pointer items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <input
+              type="checkbox"
+              checked={consensusMode}
+              onChange={(e) => setConsensusMode(e.target.checked)}
+              disabled={running}
+              className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-slate-700"
+            />
+            <span>
+              <strong className="font-medium text-slate-700 dark:text-slate-300">Consensus mode</strong> — run all three models in parallel and report the median score plus how far apart they landed. Slower and uses three checks of quota, but one model&apos;s bad day can&apos;t pose as a verdict. Use this for anything high-stakes.
+            </span>
+          </label>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Your text is sent to OpenRouter and discarded after the response. Different models score the same text slightly differently — flip between them if a verdict feels off.
           </p>
@@ -429,7 +492,7 @@ export default function CheckerClient() {
         <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Three known samples — a human-written, an obviously-AI, and a mixed paragraph. Run them to see if the model is calibrated correctly today before you trust its verdict on your own draft.
+              Five known samples, from casual human writing through to raw AI output. The two that matter most are <strong>Human (polished)</strong> — formal academic writing that detectors wrongly flag — and <strong>AI (lightly edited)</strong> — AI text someone tidied up. Run them to see how the current model handles the hard cases before you trust its verdict on your own draft.
             </p>
           </div>
           <button
@@ -438,14 +501,18 @@ export default function CheckerClient() {
             disabled={running || calibrating !== null}
             className={buttonSecondary}
           >
-            {calibrating ? `Running ${calibrating}…` : "Run all three"}
+            {calibrating ? `Running ${SAMPLES[calibrating].label}…` : "Run all five"}
           </button>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {(["human", "ai", "mixed"] as const).map((which) => {
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {SAMPLE_KEYS.map((which) => {
+            const sample = SAMPLES[which];
             const r = calibrationResults[which];
             const c = r ? scoreColour(r.overallScore) : null;
-            const expected = which === "human" ? "low" : which === "ai" ? "high" : "mid";
+            const inRange =
+              r !== undefined &&
+              r.overallScore >= sample.range[0] &&
+              r.overallScore <= sample.range[1];
             return (
               <div
                 key={which}
@@ -453,12 +520,12 @@ export default function CheckerClient() {
                   r && c ? `${c.border} ${c.bg}` : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
                 }`}
               >
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                    {which === "human" ? "Human" : which === "ai" ? "AI" : "Mixed"} sample
+                    {sample.label}
                   </span>
                   <span className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    expected: {expected}
+                    expected: {sample.expected}
                   </span>
                 </div>
                 {r && c ? (
@@ -467,7 +534,18 @@ export default function CheckerClient() {
                       {Math.round(r.overallScore)}
                       <span className="text-xs text-slate-500 dark:text-slate-400">/100</span>
                     </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">{r.verdict}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      {r.verdict}
+                      <span
+                        className={`ml-2 font-medium ${
+                          inRange
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-rose-600 dark:text-rose-400"
+                        }`}
+                      >
+                        {inRange ? "✓ in range" : "✗ off"}
+                      </span>
+                    </p>
                   </>
                 ) : (
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -486,9 +564,9 @@ export default function CheckerClient() {
             );
           })}
         </div>
-        {(calibrationResults.human || calibrationResults.ai || calibrationResults.mixed) && (
+        {SAMPLE_KEYS.some((k) => calibrationResults[k]) && (
           <p className="mt-3 text-xs italic text-slate-600 dark:text-slate-400">
-            Healthy calibration: human under 30, AI over 70, mixed somewhere between 40“60. If the human sample scores high or the AI sample scores low, switch models.
+            Healthy calibration: casual human under 30, polished human under 50, raw AI over 70, edited AI over 50, mixed 40–60. If polished human scores high the model over-flags formal writing — treat its verdicts on your own work with suspicion. If edited AI scores low, light editing fools it. Either way, try a different model or consensus mode.
           </p>
         )}
         </details>
@@ -525,6 +603,116 @@ export default function CheckerClient() {
               {result.calibration}
             </p>
           </section>
+
+          {/* Consensus agreement (consensus mode only) */}
+          {result.consensus && (
+            <section className={sectionCard}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Model agreement
+                </h3>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    result.consensus.spread <= 12
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      : result.consensus.spread <= 25
+                        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                        : "bg-rose-500/10 text-rose-700 dark:text-rose-400"
+                  }`}
+                >
+                  {result.consensus.spread <= 12
+                    ? "Strong agreement"
+                    : result.consensus.spread <= 25
+                      ? "Moderate agreement"
+                      : "Models disagree — treat with caution"}
+                  {" · "}spread {Math.round(result.consensus.spread)}
+                </span>
+              </div>
+              <ul className="mt-3 space-y-2">
+                {result.consensus.runs.map((run) => {
+                  const c = scoreColour(run.overallScore);
+                  return (
+                    <li key={run.model} className="flex items-center gap-3">
+                      <span className="w-44 shrink-0 truncate font-mono text-xs text-slate-500 dark:text-slate-400">
+                        {run.model.split("/")[1] ?? run.model}
+                      </span>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className={`h-full ${c.bar}`} style={{ width: `${run.overallScore}%` }} />
+                      </div>
+                      <span className={`w-14 shrink-0 text-right text-sm font-medium ${c.text}`}>
+                        {Math.round(run.overallScore)}/100
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                The headline score is the median of the three. The detailed breakdown below comes from {result.consensus.detailModel.split("/")[1] ?? result.consensus.detailModel} (closest to the median). A wide spread means the models can&apos;t agree — which is itself useful information: the text sits in the grey zone where no detector verdict is reliable.
+              </p>
+            </section>
+          )}
+
+          {/* Deterministic stylometrics — measured in code, not model opinion */}
+          {result.stats && (
+            <section className={sectionCard}>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Measured signals
+              </h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Computed directly from your text — these numbers are exact and repeatable, unlike the model&apos;s judgement.
+              </p>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                  <dt className="text-xs text-slate-500 dark:text-slate-400">Sentence-length variation</dt>
+                  <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                    {result.stats.sentenceLenCV}
+                  </dd>
+                  <dd className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {result.stats.sentenceLenCV >= 0.45
+                      ? "Varied — leans human"
+                      : result.stats.sentenceLenCV >= 0.35
+                        ? "Middling"
+                        : "Uniform — leans AI"}
+                  </dd>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                  <dt className="text-xs text-slate-500 dark:text-slate-400">AI-filler transitions /1000 words</dt>
+                  <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                    {result.stats.transitionsPer1000}
+                  </dd>
+                  <dd className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {result.stats.transitionsPer1000 <= 2
+                      ? "Low — leans human"
+                      : result.stats.transitionsPer1000 <= 6
+                        ? "Noticeable"
+                        : "Heavy — leans AI"}
+                  </dd>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                  <dt className="text-xs text-slate-500 dark:text-slate-400">AI-vocabulary hits /1000 words</dt>
+                  <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                    {result.stats.aiVocabPer1000}
+                  </dd>
+                  <dd className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {result.stats.aiVocabPer1000 <= 1
+                      ? "Low — leans human"
+                      : result.stats.aiVocabPer1000 <= 4
+                        ? "Noticeable"
+                        : "Heavy — leans AI"}
+                  </dd>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                  <dt className="text-xs text-slate-500 dark:text-slate-400">Length analysed</dt>
+                  <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                    {result.stats.words.toLocaleString("en-NZ")} words
+                  </dd>
+                  <dd className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {result.stats.sentences} sentences · {result.stats.paragraphs} paragraphs
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          )}
 
           {/* Paragraph breakdown */}
           {result.paragraphs.length > 0 && (

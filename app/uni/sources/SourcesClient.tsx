@@ -16,7 +16,8 @@ import {
   type LensDeepResult,
 } from "../SourceLensPanel";
 import { toast } from "sonner";
-import { loadPdfjs } from "@/lib/pdfjs";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type SearchResult = {
   id?: string;
@@ -312,7 +313,7 @@ export default function SourcesClient() {
       setLastQuery(q);
       setExpanded({});
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed.");
+      setError(getErrorMessage(err, "Search failed."));
       setResponse(null);
     } finally {
       setSearching(false);
@@ -358,7 +359,7 @@ export default function SourcesClient() {
       });
       setAdded((s) => ({ ...s, [key]: true }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add reference.");
+      setError(getErrorMessage(err, "Could not add reference."));
     } finally {
       setAdding((s) => ({ ...s, [key]: false }));
     }
@@ -418,8 +419,7 @@ export default function SourcesClient() {
       } catch (err) {
         setLensErrors((s) => ({
           ...s,
-          [key]:
-            err instanceof Error ? err.message : "Lens analysis failed",
+          [key]: getErrorMessage(err, "Lens analysis failed"),
         }));
       } finally {
         setLensRunning((s) => ({ ...s, [key]: false }));
@@ -814,9 +814,13 @@ export default function SourcesClient() {
                   className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800 transition-colors hover:border-violet-500 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
                   title="Analyse the top 10 results in parallel against your active assignment"
                 >
-                  {batchRunning && batchProgress
-                    ? `Lens batch: ${batchProgress.done}/${batchProgress.total}…`
-                    : "🔍 Lens top 10"}
+                  {batchRunning && batchProgress ? (
+                    `Lens batch: ${batchProgress.done}/${batchProgress.total}…`
+                  ) : (
+                    <>
+                      <span aria-hidden>🔍</span> Lens top 10
+                    </>
+                  )}
                 </button>
               )}
               {/* Hide-low-relevance filter. Only shows up once at least
@@ -1022,7 +1026,7 @@ export default function SourcesClient() {
                           className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:bg-sky-950/30 dark:hover:text-sky-300"
                           title="Search Google Scholar — often surfaces a free copy on an author's site"
                         >
-                          🔍 Find free copy
+                          <span aria-hidden>🔍</span> Find free copy
                         </a>
                       )}
                       {r.doi && (
@@ -1079,10 +1083,10 @@ export default function SourcesClient() {
                             } catch (err) {
                               setLensErrors((s) => ({
                                 ...s,
-                                [key]:
-                                  err instanceof Error
-                                    ? err.message
-                                    : "Lens analysis failed",
+                                [key]: getErrorMessage(
+                                  err,
+                                  "Lens analysis failed",
+                                ),
                               }));
                             } finally {
                               setLensRunning((s) => ({ ...s, [key]: false }));
@@ -1091,7 +1095,7 @@ export default function SourcesClient() {
                           className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800 transition-colors hover:border-violet-500 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:border-violet-500 dark:hover:bg-violet-900/40"
                           title="Analyse this source against your active assignment"
                         >
-                          🔍 {lensRunning[key] ? "Analysing…" : lensOpen[key] ? "Hide Lens" : "Source Lens"}
+                          <span aria-hidden>🔍</span> {lensRunning[key] ? "Analysing…" : lensOpen[key] ? "Hide Lens" : "Source Lens"}
                         </button>
                       )}
                       {/* Read with highlights — opens the in-app reader.
@@ -1167,7 +1171,7 @@ export default function SourcesClient() {
                             className="inline-flex items-center gap-1 rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 transition-colors hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:border-amber-500 dark:hover:bg-amber-900/40"
                             title="Open the paper with AI highlights overlaid (new tab)"
                           >
-                            📖 Read with highlights
+                            <span aria-hidden>📖</span> Read with highlights
                           </button>
                         );
                       })()}
@@ -1215,34 +1219,14 @@ export default function SourcesClient() {
                               try {
                                 // Client-side extraction — same pdfjs
                                 // helper QuickImport / Checker use.
-                                const pdfjs = await loadPdfjs();
-                                const buffer = await file.arrayBuffer();
-                                const doc = await pdfjs.getDocument({
-                                  data: buffer,
-                                }).promise;
-                                const parts: string[] = [];
-                                const maxPages = Math.min(doc.numPages, 50);
-                                for (let i = 1; i <= maxPages; i++) {
-                                  const page = await doc.getPage(i);
-                                  const content = await page.getTextContent();
-                                  const t = content.items
-                                    .map((it) =>
-                                      "str" in it
-                                        ? (it as { str: string }).str
-                                        : "",
-                                    )
-                                    .join(" ");
-                                  parts.push(`[Page ${i}]\n${t}`);
-                                }
-                                const fullText = parts
-                                  .join("\n\n")
-                                  .replace(/[ \t]+/g, " ")
-                                  .trim();
-                                if (fullText.length < 200) {
-                                  throw new Error(
-                                    "Couldn't extract text — the PDF may be a scanned image. No OCR available.",
-                                  );
-                                }
+                                const { text: fullText, pages: maxPages } =
+                                  await extractPdfText(file, {
+                                    maxPages: 50,
+                                    pageMarkers: true,
+                                    minChars: 200,
+                                    minCharsMessage:
+                                      "Couldn't extract text — the PDF may be a scanned image. No OCR available.",
+                                  });
                                 const result = (await sourceLensDeepFromText({
                                   sourceTitle: r.title,
                                   sourceAuthors: (r.authors ?? []).map(
@@ -1269,10 +1253,10 @@ export default function SourcesClient() {
                               } catch (err) {
                                 setLensErrors((s) => ({
                                   ...s,
-                                  [key]:
-                                    err instanceof Error
-                                      ? err.message
-                                      : "PDF deep read failed",
+                                  [key]: getErrorMessage(
+                                    err,
+                                    "PDF deep read failed",
+                                  ),
                                 }));
                               } finally {
                                 setLensRunning((s) => ({
@@ -1282,7 +1266,7 @@ export default function SourcesClient() {
                               }
                             }}
                           />
-                          📤 Upload PDF
+                          <span aria-hidden>📤</span> Upload PDF
                         </label>
                       )}
 
@@ -1329,33 +1313,16 @@ export default function SourcesClient() {
 
                               // 2) Extract text via client-side pdfjs.
                               // Same helper Quick Import + Checker use.
-                              const pdfjs = await loadPdfjs();
-                              const doc = await pdfjs.getDocument({
-                                data: buffer,
-                              }).promise;
-                              const parts: string[] = [];
-                              const maxPages = Math.min(doc.numPages, 50);
-                              for (let i = 1; i <= maxPages; i++) {
-                                const page = await doc.getPage(i);
-                                const content = await page.getTextContent();
-                                const t = content.items
-                                  .map((it) =>
-                                    "str" in it
-                                      ? (it as { str: string }).str
-                                      : "",
-                                  )
-                                  .join(" ");
-                                parts.push(`[Page ${i}]\n${t}`);
-                              }
-                              const fullText = parts
-                                .join("\n\n")
-                                .replace(/[ \t]+/g, " ")
-                                .trim();
-                              if (fullText.length < 200) {
-                                throw new Error(
-                                  "Couldn't extract text from this PDF — it may be a scanned image. Try a different result.",
-                                );
-                              }
+                              const { text: fullText } = await extractPdfText(
+                                buffer,
+                                {
+                                  maxPages: 50,
+                                  pageMarkers: true,
+                                  minChars: 200,
+                                  minCharsMessage:
+                                    "Couldn't extract text from this PDF — it may be a scanned image. Try a different result.",
+                                },
+                              );
 
                               // 3) Send just the extracted text to the
                               // server for AI analysis (deepReadFromText).
@@ -1384,10 +1351,10 @@ export default function SourcesClient() {
                               // TypeError with "Failed to fetch" or
                               // "NetworkError". Translate that to the
                               // upload-PDF prompt explicitly.
-                              const msg =
-                                err instanceof Error
-                                  ? err.message
-                                  : "Deep read failed";
+                              const msg = getErrorMessage(
+                                err,
+                                "Deep read failed",
+                              );
                               const isCors =
                                 msg.includes("Failed to fetch") ||
                                 msg.includes("NetworkError") ||
@@ -1409,7 +1376,7 @@ export default function SourcesClient() {
                           className="inline-flex items-center gap-1 rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:border-emerald-500 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
                           title="Fetch the PDF in your browser, extract text, and run a deeper analysis — section-level relevance, page-numbered quotes (~30-60s)"
                         >
-                          📖 Deep Read PDF
+                          <span aria-hidden>📖</span> Deep Read PDF
                         </button>
                       )}
                       <button

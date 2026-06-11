@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import type { Id } from "@/convex/_generated/dataModel";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const MIN_TEXT = 50;
 const MAX_TEXT = 100000;
@@ -130,9 +131,7 @@ export default function BibliographyClient() {
       );
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Could not parse the bibliography. Please try again."
+        getErrorMessage(err, "Could not parse the bibliography. Please try again.")
       );
     } finally {
       setRunning(false);
@@ -208,9 +207,7 @@ export default function BibliographyClient() {
             next[i] = { status: "done" };
           } else {
             const msg =
-              r.reason instanceof Error
-                ? r.reason.message
-                : "Import failed";
+              getErrorMessage(r.reason, "Import failed");
             next[i] = { status: "failed", error: msg };
             // eslint-disable-next-line no-console
             console.error("Import failed", r.reason);
@@ -243,8 +240,8 @@ export default function BibliographyClient() {
         }
       );
     } else {
-      toast.success(
-        `Imported ${done} (${failed} failed)`,
+      toast.warning(
+        `Imported ${done} reference${done === 1 ? "" : "s"} — ${failed} failed. Failed rows are marked below; fix and retry them.`,
         { id: toastId }
       );
     }
@@ -400,6 +397,12 @@ export default function BibliographyClient() {
             </details>
           </section>
 
+          {result.references.length === 0 && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:shadow-none">
+              No references found in that text. Check you pasted the reference list itself (not the essay body) and try again.
+            </section>
+          )}
+
           {result.references.length > 0 && (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -450,12 +453,12 @@ export default function BibliographyClient() {
                         </span>
                         {status?.status === "done" && (
                           <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
-                            ✓ Imported
+                            <span aria-hidden>✓</span> Imported
                           </span>
                         )}
                         {status?.status === "failed" && (
                           <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs font-medium text-white">
-                            ✗ Failed
+                            <span aria-hidden>✗</span> Failed
                           </span>
                         )}
                         {status?.status === "importing" && (

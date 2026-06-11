@@ -9,6 +9,7 @@ import { useAction } from "convex/react";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type Status = "ok" | "minor" | "major";
 
@@ -82,7 +83,7 @@ export default function ApaCheckClient() {
       const r = (await review({ referenceList: text })) as ReviewResult;
       setResult(r);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Check failed.");
+      setError(getErrorMessage(err, "Check failed."));
     } finally {
       setRunning(false);
     }

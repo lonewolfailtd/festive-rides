@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatReference } from "@/lib/apa7/format";
+import { sanitizeFormatted } from "@/lib/sanitizeFormatted";
 import {
   SOURCE_LABELS,
   type Author,
@@ -20,6 +21,7 @@ import {
   lensResultToMarkdown,
   type LensDeepResult,
 } from "../SourceLensPanel";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const SOURCE_TYPES: SourceType[] = [
   "book",
@@ -691,7 +693,7 @@ export default function ReferencesManager() {
     try {
       await updateRef({ id, tags: [...existing, cleaned] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not add tag");
+      toast.error(getErrorMessage(err, "Could not add tag"));
     }
   };
 
@@ -704,7 +706,7 @@ export default function ReferencesManager() {
     try {
       await updateRef({ id, tags: next });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not remove tag");
+      toast.error(getErrorMessage(err, "Could not remove tag"));
     }
   };
 
@@ -759,7 +761,7 @@ export default function ReferencesManager() {
       setEditingAssignment(false);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Could not rename list"
+        getErrorMessage(err, "Could not rename list")
       );
     }
   };
@@ -784,7 +786,7 @@ export default function ReferencesManager() {
             setSelectedAssignment("all");
           } catch (err) {
             toast.error(
-              err instanceof Error ? err.message : "Could not delete list"
+              getErrorMessage(err, "Could not delete list")
             );
           }
         },
@@ -861,7 +863,7 @@ export default function ReferencesManager() {
         setForm(emptyForm());
       }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not save.");
+      setFormError(getErrorMessage(err, "Could not save."));
     } finally {
       setSubmitting(false);
     }
@@ -892,7 +894,7 @@ export default function ReferencesManager() {
       }
       setReverseRows(res.rows);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lookup failed.");
+      toast.error(getErrorMessage(err, "Lookup failed."));
     } finally {
       setReverseLookupRunning(false);
     }
@@ -937,7 +939,7 @@ export default function ReferencesManager() {
       });
       toast.success(`Added "${cand.title.slice(0, 50)}${cand.title.length > 50 ? "…" : ""}"`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't add reference");
+      toast.error(getErrorMessage(err, "Couldn't add reference"));
     }
   };
 
@@ -1153,7 +1155,10 @@ export default function ReferencesManager() {
         1500
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save notes");
+      // Clear any lingering "saved" flash so the UI doesn't claim the
+      // notes were saved when the mutation failed.
+      setSavedFlash((s) => ({ ...s, [id]: false }));
+      toast.error(getErrorMessage(err, "Could not save notes"));
     }
   };
 
@@ -1213,7 +1218,7 @@ export default function ReferencesManager() {
       });
     } catch (err) {
       setLookupError(
-        err instanceof Error ? err.message : "Lookup failed. Please try again.",
+        getErrorMessage(err, "Lookup failed. Please try again."),
       );
     } finally {
       setLookupBusy(null);
@@ -1231,7 +1236,7 @@ export default function ReferencesManager() {
       "margin:0 0 12.0pt 0;text-indent:0;margin-left:36.0pt;line-height:200%;mso-line-height-rule:exactly;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;";
     const items = sortedRefs
       .map((r) => {
-        const ref = `<p class=MsoNormal style='${paragraphStyle}'>${r.formatted ?? ""}</p>`;
+        const ref = `<p class=MsoNormal style='${paragraphStyle}'>${sanitizeFormatted(r.formatted ?? "")}</p>`;
         if (annotatedMode && r.annotation && r.annotation.trim()) {
           const ann = `<p class=MsoNormal style='${annotationStyle}'>${escapeHtml(r.annotation.trim())}</p>`;
           return ref + ann;
@@ -1286,12 +1291,22 @@ ${items}
   };
 
   const [refreshingFormatting, setRefreshingFormatting] = useState(false);
+  // Cancellation flag for the refresh loop below — set on unmount so the
+  // loop stops issuing mutations and state updates after navigation.
+  const refreshCancelledRef = useRef(false);
+  useEffect(() => {
+    refreshCancelledRef.current = false;
+    return () => {
+      refreshCancelledRef.current = true;
+    };
+  }, []);
   const refreshAllFormatting = async () => {
     if (sortedRefs.length === 0) return;
     setRefreshingFormatting(true);
     let updated = 0;
     let failed = 0;
     for (const r of sortedRefs) {
+      if (refreshCancelledRef.current) return;
       try {
         const built = buildSourceFields(
           r.sourceType as SourceType,
@@ -1314,6 +1329,7 @@ ${items}
         failed++;
       }
     }
+    if (refreshCancelledRef.current) return;
     setRefreshingFormatting(false);
     if (failed === 0) {
       toast.success(`Refreshed formatting on ${updated} reference${updated === 1 ? "" : "s"}`);
@@ -1343,7 +1359,7 @@ ${items}
       "mso-style-name:\"Normal\";margin:0 0 12.0pt 0;margin-left:36.0pt;text-indent:0;line-height:200%;mso-line-height-rule:exactly;font-family:\"Times New Roman\",serif;font-size:12.0pt;font-weight:normal;font-style:normal;color:black;";
     const items = sortedRefs
       .map((r) => {
-        const ref = `<p class=MsoNormal style='${paragraphStyle}'><span style='font-weight:normal;font-style:normal;'>${r.formatted ?? ""}</span></p>`;
+        const ref = `<p class=MsoNormal style='${paragraphStyle}'><span style='font-weight:normal;font-style:normal;'>${sanitizeFormatted(r.formatted ?? "")}</span></p>`;
         if (annotatedMode && r.annotation && r.annotation.trim()) {
           const ann = `<p class=MsoNormal style='${annotationStyle}'>${escapeHtml(r.annotation.trim())}</p>`;
           return ref + ann;
@@ -2628,7 +2644,9 @@ i { font-style:italic; font-weight:normal; }
                       marginLeft: "1.27cm",
                       lineHeight: 2,
                     }}
-                    dangerouslySetInnerHTML={{ __html: r.formatted ?? "" }}
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeFormatted(r.formatted ?? ""),
+                    }}
                   />
                 </div>
 
@@ -2766,7 +2784,7 @@ i { font-style:italic; font-weight:normal; }
                               toast.success("Reference deleted");
                             } catch (err) {
                               toast.error(
-                                err instanceof Error ? err.message : "Could not delete reference"
+                                getErrorMessage(err, "Could not delete reference")
                               );
                             }
                           },
@@ -2921,9 +2939,7 @@ i { font-style:italic; font-weight:normal; }
                       setLensErrors((s) => ({
                         ...s,
                         [r._id]:
-                          err instanceof Error
-                            ? err.message
-                            : "Lens analysis failed",
+                          getErrorMessage(err, "Lens analysis failed"),
                       }));
                     } finally {
                       setLensRunning((s) => ({ ...s, [r._id]: false }));

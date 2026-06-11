@@ -65,7 +65,7 @@ export function LensPanel(props: {
   if (props.running) {
     return (
       <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 text-sm text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="status" aria-label="Analysing this source">
           <svg
             className="h-3.5 w-3.5 animate-spin"
             xmlns="http://www.w3.org/2000/svg"
@@ -93,10 +93,13 @@ export function LensPanel(props: {
   if (!props.result) return null;
 
   const r = props.result;
+  // Clamp to the 0-10 scale before any colour/badge logic — the AI can
+  // occasionally return out-of-range scores.
+  const relevanceScore = Math.min(10, Math.max(0, r.relevance.score));
   const scoreColor =
-    r.relevance.score >= 7
+    relevanceScore >= 7
       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
-      : r.relevance.score >= 4
+      : relevanceScore >= 4
         ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
         : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200";
 
@@ -120,7 +123,7 @@ export function LensPanel(props: {
     <div className="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 text-sm dark:border-violet-900/40 dark:bg-violet-950/20">
       {/* Header: lens icon + relevance score + verdict */}
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-base">🔍</span>
+        <span className="text-base" aria-hidden>🔍</span>
         <span className="font-semibold uppercase tracking-wide text-xs text-violet-900 dark:text-violet-200">
           {r.deepRead ? "Source Lens · Deep read" : "Source Lens"}
         </span>
@@ -128,7 +131,7 @@ export function LensPanel(props: {
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${scoreColor}`}
           title="0 = not relevant; 10 = strongly relevant"
         >
-          Relevance {r.relevance.score}/10
+          Relevance {relevanceScore}/10
         </span>
         {!props.hasAssignmentContext && (
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -284,7 +287,7 @@ export function LensPanel(props: {
       {/* Abstract-only caveat (only for Tier 1) */}
       {r.abstractLimitation && !r.deepRead && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-          ⚠ {r.abstractLimitation}
+          <span aria-hidden>⚠</span> {r.abstractLimitation}
         </p>
       )}
     </div>
