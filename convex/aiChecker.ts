@@ -329,6 +329,21 @@ export const checkConsensus = action({
     const settled = await Promise.allSettled(
       CONSENSUS_MODELS.map((m) => runDetection(m, trimmed, stats)),
     );
+    // One retry round for models that failed — provider blips (rate
+    // limits, brief outages) are common and usually pass in seconds.
+    // Without this, a momentary DeepSeek outage kills the whole run
+    // even though Claude answered fine.
+    const retryIdx = settled
+      .map((s, i) => (s.status === "rejected" ? i : -1))
+      .filter((i) => i >= 0);
+    if (retryIdx.length > 0) {
+      const retried = await Promise.allSettled(
+        retryIdx.map((i) => runDetection(CONSENSUS_MODELS[i], trimmed, stats)),
+      );
+      retried.forEach((r, k) => {
+        settled[retryIdx[k]] = r;
+      });
+    }
     const runs: Array<{
       model: string;
       result: Record<string, unknown>;
@@ -359,10 +374,34 @@ export const checkConsensus = action({
         // One model returning malformed JSON shouldn't sink the run.
       }
     }
-    if (runs.length < 2) {
+    if (runs.length === 0) {
       throw new Error(
-        "Consensus needs at least two models to respond — the providers are struggling right now. Try a single-model check instead."
+        "None of the three models responded — OpenRouter looks to be having an outage. Wait a minute and try again, or use a single-model check."
       );
+    }
+    // Only one model survived (even after the retry round): don't throw
+    // away a good, paid-for result — return it as a single-model read
+    // with an honest warning instead of a consensus.
+    if (runs.length === 1) {
+      const only = runs[0];
+      const shortName = only.model.split("/")[1] ?? only.model;
+      try {
+        await ctx.runMutation(internal.checkerHistory.record, {
+          userId,
+          mode: "single",
+          model: only.model,
+          words: stats.words,
+          draftText: trimmed,
+          ...historyFields(only.result),
+        });
+      } catch {
+        // History must never break a check.
+      }
+      return {
+        ...only.result,
+        stats,
+        warning: `Only ${shortName} responded — the other models failed even after a retry, so this is a single-model read, not a consensus. Re-run in a few minutes for the full three-model verdict.`,
+      };
     }
     const scores = runs.map((r) => r.overallScore).sort((a, b) => a - b);
     const median =

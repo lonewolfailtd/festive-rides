@@ -56,6 +56,8 @@ type CheckResult = {
   stats?: Stylometrics;
   consensus?: ConsensusInfo;
   turnitin?: TurnitinProjection;
+  // Set when consensus mode degraded to a single model (provider outage).
+  warning?: string;
 };
 
 type HumaniseResult = {
@@ -594,6 +596,12 @@ export default function CheckerClient() {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="space-y-6"
         >
+          {result.warning && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
+              <span aria-hidden>⚠</span> {result.warning}
+            </div>
+          )}
+
           {/* Overall score card */}
           <section className={`rounded-2xl border ${overall!.border} ${overall!.bg} p-5 shadow-sm`}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
