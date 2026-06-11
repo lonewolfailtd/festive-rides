@@ -19,6 +19,7 @@ import type * as auditLog from "../auditLog.js";
 import type * as auth from "../auth.js";
 import type * as bibliographyImport from "../bibliographyImport.js";
 import type * as bookings from "../bookings.js";
+import type * as checkerHistory from "../checkerHistory.js";
 import type * as citations from "../citations.js";
 import type * as coach from "../coach.js";
 import type * as courses from "../courses.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   bibliographyImport: typeof bibliographyImport;
   bookings: typeof bookings;
+  checkerHistory: typeof checkerHistory;
   citations: typeof citations;
   coach: typeof coach;
   courses: typeof courses;

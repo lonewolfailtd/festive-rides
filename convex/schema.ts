@@ -162,6 +162,27 @@ export default defineSchema({
     .index("by_user_day", ["userId", "dayKey"])
     .index("by_user_month", ["userId", "monthKey"]),
 
+  // AI checker result history. Scores and projections only — the draft
+  // text itself is never stored (that's the tool's privacy promise).
+  // Lets the student compare runs across devices and, later, log what
+  // Turnitin actually reported against what we projected.
+  checkerRuns: defineTable({
+    userId: v.id("users"),
+    mode: v.union(v.literal("single"), v.literal("consensus")),
+    model: v.string(),
+    overallScore: v.number(),
+    verdict: v.string(),
+    words: v.optional(v.number()),
+    turnitinProjected: v.optional(v.number()),
+    turnitinDisplay: v.optional(v.string()),
+    falsePositiveRisk: v.optional(v.string()),
+    // Consensus-only: spread between the highest and lowest model score.
+    spread: v.optional(v.number()),
+    // Filled in later by the student when the real Turnitin report
+    // comes back — the ground truth for tuning the projection.
+    actualTurnitinScore: v.optional(v.number()),
+  }).index("by_user", ["userId"]),
+
   // Per-user profile data that doesn't fit in the auth-managed users
   // table. Lazily created on first set.
   userProfile: defineTable({

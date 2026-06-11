@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
-import { useAction } from "convex/react";
+import type { Id } from "@/convex/_generated/dataModel";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -178,6 +179,12 @@ export default function CheckerClient() {
   // precision is worth the wait. Claude Sonnet 4.6 is the premium pick
   // if the result still feels off after trying both.
   const [model, setModel] = useStoredState<string>("uni-checker-model", "deepseek/deepseek-v4-flash");
+
+  // Result history — scores only, synced across devices via Convex.
+  const history = useQuery(api.checkerHistory.list);
+  const setActualScore = useMutation(api.checkerHistory.setActualScore);
+  const removeRun = useMutation(api.checkerHistory.remove);
+  const [actualInputs, setActualInputs] = useState<Record<string, string>>({});
 
   // Consensus mode — runs the check across three different model families
   // in parallel and reports the median score plus the spread between them.
@@ -485,7 +492,7 @@ export default function CheckerClient() {
             </span>
           </label>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Your text is sent to OpenRouter and discarded after the response. Different models score the same text slightly differently — flip between them if a verdict feels off.
+            Your text is sent to OpenRouter and discarded after the response — only the scores are kept, in your Recent checks history below. Different models score the same text slightly differently — flip between them if a verdict feels off.
           </p>
         </form>
       </section>
@@ -847,6 +854,132 @@ export default function CheckerClient() {
             </section>
           )}
         </motion.div>
+      )}
+
+      {/* Recent checks — score history synced across devices. Never
+          stores draft text, only the numbers. Includes a field to log
+          what Turnitin actually reported once the marked work comes
+          back, so the projection can be tuned against ground truth. */}
+      {history !== undefined && history.length > 0 && (
+        <section className={`${sectionCard} mt-8`}>
+          <details className="group">
+            <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Recent checks
+                <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                  · {history.length} saved (scores only, never your text)
+                </span>
+              </h2>
+              <span className="text-xs text-sky-600 group-open:hidden dark:text-sky-400">Show</span>
+              <span className="hidden text-xs text-slate-500 group-open:inline dark:text-slate-400">Hide</span>
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {history.map((run) => {
+                const c = scoreColour(run.overallScore);
+                const when = new Date(run._creationTime).toLocaleString("en-NZ", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                return (
+                  <li
+                    key={run._id}
+                    className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950"
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className={`text-lg font-bold ${c.text}`}>
+                        {Math.round(run.overallScore)}
+                        <span className="text-xs text-slate-500 dark:text-slate-400">/100</span>
+                      </span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">{run.verdict}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                        {run.mode === "consensus"
+                          ? `consensus${run.spread !== undefined ? ` · spread ${Math.round(run.spread)}` : ""}`
+                          : (run.model.split("/")[1] ?? run.model)}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {when}
+                        {run.words ? ` · ${run.words.toLocaleString("en-NZ")} words` : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await removeRun({ runId: run._id as Id<"checkerRuns"> });
+                          } catch (err) {
+                            toast.error(getErrorMessage(err, "Couldn't delete"));
+                          }
+                        }}
+                        aria-label="Delete this saved check"
+                        className="ml-auto rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800"
+                      >
+                        <span aria-hidden>✕</span>
+                      </button>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                      {run.turnitinDisplay && (
+                        <span>
+                          Turnitin projection: <strong>{run.turnitinDisplay}</strong>
+                          {run.falsePositiveRisk ? ` (FP risk: ${run.falsePositiveRisk})` : ""}
+                        </span>
+                      )}
+                      {run.actualTurnitinScore !== undefined ? (
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          Actual Turnitin: {run.actualTurnitinScore}%
+                          {run.turnitinProjected !== undefined && (
+                            <span className="ml-1 text-slate-500 dark:text-slate-400">
+                              ({run.actualTurnitinScore - run.turnitinProjected >= 0 ? "+" : ""}
+                              {Math.round(run.actualTurnitinScore - run.turnitinProjected)} vs projection)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5">
+                          <label htmlFor={`actual-${run._id}`}>Got the real report?</label>
+                          <input
+                            id={`actual-${run._id}`}
+                            type="number"
+                            min={0}
+                            max={100}
+                            placeholder="%"
+                            value={actualInputs[run._id] ?? ""}
+                            onChange={(e) =>
+                              setActualInputs((prev) => ({ ...prev, [run._id]: e.target.value }))
+                            }
+                            className="w-16 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const n = Number(actualInputs[run._id]);
+                              if (!Number.isFinite(n) || n < 0 || n > 100) {
+                                toast.error("Enter the Turnitin percentage (0–100).");
+                                return;
+                              }
+                              try {
+                                await setActualScore({
+                                  runId: run._id as Id<"checkerRuns">,
+                                  actualTurnitinScore: n,
+                                });
+                                toast.success("Logged — this tunes future projections.");
+                              } catch (err) {
+                                toast.error(getErrorMessage(err, "Couldn't save"));
+                              }
+                            }}
+                            className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                          >
+                            Log it
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
+        </section>
       )}
 
       {/* Humanise sub-tool — collapsed by default. It's a useful

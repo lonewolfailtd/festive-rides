@@ -106,6 +106,29 @@ export function computeStylometrics(text: string): Stylometrics {
   };
 }
 
+// Pull the history-worthy numbers out of a parsed check result. Never
+// throws — history recording must never break a check.
+function historyFields(parsed: Record<string, unknown>): {
+  overallScore: number;
+  verdict: string;
+  turnitinProjected?: number;
+  turnitinDisplay?: string;
+  falsePositiveRisk?: string;
+} {
+  const t = parsed.turnitin as Record<string, unknown> | undefined;
+  const num = (x: unknown): number | undefined => {
+    const n = Number(x);
+    return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : undefined;
+  };
+  return {
+    overallScore: num(parsed.overallScore) ?? 0,
+    verdict: String(parsed.verdict ?? ""),
+    turnitinProjected: t ? num(t.projectedScore) : undefined,
+    turnitinDisplay: t && t.display ? String(t.display) : undefined,
+    falsePositiveRisk: t && t.falsePositiveRisk ? String(t.falsePositiveRisk) : undefined,
+  };
+}
+
 function statsBlock(s: Stylometrics): string {
   return `MEASURED STATISTICS (computed deterministically in code — trust these numbers over your own counting):
 - ${s.words} words, ${s.sentences} sentences, ${s.paragraphs} paragraphs
@@ -257,6 +280,17 @@ export const check = action({
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
     });
+    try {
+      await ctx.runMutation(internal.checkerHistory.record, {
+        userId,
+        mode: "single",
+        model: modelUsed,
+        words: stats.words,
+        ...historyFields(parsed as Record<string, unknown>),
+      });
+    } catch {
+      // History must never break a check.
+    }
     return { ...(parsed as Record<string, unknown>), stats };
   },
 });
@@ -340,6 +374,19 @@ export const checkConsensus = action({
     const detail = runs.reduce((best, r) =>
       Math.abs(r.overallScore - median) < Math.abs(best.overallScore - median) ? r : best,
     );
+    try {
+      await ctx.runMutation(internal.checkerHistory.record, {
+        userId,
+        mode: "consensus",
+        model: detail.model,
+        words: stats.words,
+        spread,
+        ...historyFields(detail.result),
+        overallScore: median,
+      });
+    } catch {
+      // History must never break a check.
+    }
     return {
       ...detail.result,
       overallScore: median,
