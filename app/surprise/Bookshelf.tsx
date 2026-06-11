@@ -329,7 +329,7 @@ function Scene({
           }}
         />
 
-        {/* June's books, standing on the painted shelf */}
+        {/* Juni's books, standing on the painted shelf */}
         <div
           className="absolute flex items-end justify-center gap-[1.5%]"
           style={{
@@ -415,7 +415,7 @@ export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) 
           className="mt-1 text-3xl font-bold text-amber-50 sm:text-4xl"
           style={{ textShadow: "0 2px 14px rgba(0,0,0,.75), 0 0 30px rgba(255,214,140,.4)" }}
         >
-          June&apos;s Library
+          Juni&apos;s Library
         </h1>
         {fresh && firstTitle ? (
           <p className="mt-1 animate-pulse text-xs font-medium text-amber-200/95 sm:text-sm">
@@ -446,7 +446,7 @@ export default function Bookshelf({ onOpen }: { onOpen: (id: string) => void }) 
             className="mx-6 flex max-w-sm flex-col items-center gap-2.5 rounded-2xl border border-amber-200/30 bg-[#2b1a0c]/95 px-7 py-6 text-center shadow-[0_18px_50px_rgba(0,0,0,.7)]"
           >
             <span className="text-4xl">🌙</span>
-            <span className="text-lg font-semibold text-amber-50">Welcome to June&apos;s Library!</span>
+            <span className="text-lg font-semibold text-amber-50">Welcome to Juni&apos;s Library!</span>
             <span className="text-sm leading-relaxed text-amber-100/85">
               Click the <span className="font-semibold text-amber-300">glowing book</span> —{" "}
               “{firstTitle}” — to begin. The other books unlock after the first story.

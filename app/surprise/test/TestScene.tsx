@@ -119,7 +119,7 @@ function ActTitle() {
             style={{ x: tagX, opacity: tagOpacity, ...FONT }}
             className="mt-3 text-xl text-white/90 sm:text-2xl lg:text-3xl"
           >
-            June&apos;s First Kiwi Adventure
+            Juni&apos;s First Kiwi Adventure
           </motion.p>
         </div>
         <div className="absolute inset-x-0 bottom-8 text-center text-sm text-white/60" style={FONT}>
@@ -215,7 +215,7 @@ function ActWords() {
         </div>
         <motion.div style={{ scale: nameScale, opacity: nameOp }} className="mt-10">
           <span className="bg-gradient-to-r from-sky-300 to-blue-500 bg-clip-text text-6xl font-extrabold text-transparent drop-shadow-[0_0_40px_rgba(56,189,248,0.6)] sm:text-8xl">
-            June 🌿
+            Juni 🌿
           </span>
         </motion.div>
         <div className="absolute inset-x-0 bottom-8 text-center text-sm text-white/60">4 / 4 · kinetic words</div>
@@ -231,7 +231,7 @@ export default function TestScene() {
         <p className="text-xs uppercase tracking-[0.3em] text-sky-300">motion test</p>
         <h1 className="mt-2 text-3xl font-bold sm:text-5xl">Scroll down slowly ↓</h1>
         <p className="mt-2 max-w-sm px-6 text-sm text-white/60">
-          Four techniques for the book. Tell me which you love and I&apos;ll apply them to June&apos;s scenes.
+          Four techniques for the book. Tell me which you love and I&apos;ll apply them to Juni&apos;s scenes.
         </p>
       </div>
       <ActTitle />

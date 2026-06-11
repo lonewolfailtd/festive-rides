@@ -26,9 +26,11 @@ type Phase = "lit" | "blowing" | "blown";
 
 export default function BirthdayCake() {
   const [phase, setPhase] = useState<Phase>("lit");
-  const litRef = useRef<HTMLVideoElement | null>(null);
-  const blowRef = useRef<HTMLVideoElement | null>(null);
+  const vidRef = useRef<HTMLVideoElement | null>(null);
   const songRef = useRef<HTMLAudioElement | null>(null);
+
+  // One cake, one film — and it holds PERFECTLY STILL (lit candle, frozen
+  // first frame) until the tap. Nothing plays automatically.
 
   // When the story is replayed (or play is pressed), kill the birthday song
   // and re-light the candle so the finale is fresh on the next arrival.
@@ -36,11 +38,12 @@ export default function BirthdayCake() {
     const reset = () => {
       const a = songRef.current;
       if (a) a.pause();
-      const b = blowRef.current;
-      if (b) b.pause();
       setPhase("lit");
-      const lit = litRef.current;
-      if (lit) void lit.play().catch(() => {});
+      const v = vidRef.current;
+      if (v) {
+        v.pause();
+        v.currentTime = 0; // back to the frozen lit-candle frame
+      }
     };
     window.addEventListener("june:stop-celebration", reset);
     return () => window.removeEventListener("june:stop-celebration", reset);
@@ -48,11 +51,11 @@ export default function BirthdayCake() {
 
   const blowOut = () => {
     if (phase !== "lit") return;
-    setPhase("blowing");
-    const b = blowRef.current;
-    if (b) {
-      b.currentTime = 0;
-      void b.play().catch(() => {});
+    setPhase("blowing"); // the film starts here, only on the tap
+    const v = vidRef.current;
+    if (v) {
+      v.currentTime = 0;
+      void v.play().catch(() => {});
     }
     // The flame dies partway through the clip — celebrate right at that beat.
     window.setTimeout(() => {
@@ -91,7 +94,8 @@ export default function BirthdayCake() {
         )}
       </AnimatePresence>
 
-      {/* The cake — two stacked videos, lit loop + blow-out */}
+      {/* The cake — frozen on its lit frame until tapped, then the film
+          plays through (flame dies, candle tumbles) */}
       <button
         type="button"
         onClick={blowOut}
@@ -102,26 +106,13 @@ export default function BirthdayCake() {
         style={{ WebkitTapHighlightColor: "transparent", aspectRatio: "1 / 1" }}
       >
         <video
-          ref={litRef}
-          src="/surprise/video/cake-v3a-lit.mp4"
-          poster="/surprise/scenes/cake-v3a-realistic.jpg"
-          autoPlay
-          muted
-          loop
-          playsInline
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-            phase === "lit" ? "opacity-100" : "opacity-0"
-          }`}
-        />
-        <video
-          ref={blowRef}
+          ref={vidRef}
           src="/surprise/video/cake-v2-blowout.mp4"
+          poster="/surprise/scenes/cake-final-poster.jpg"
           muted
           playsInline
           preload="auto"
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-            phase === "lit" ? "opacity-0" : "opacity-100"
-          }`}
+          className="absolute inset-0 h-full w-full object-cover"
         />
       </button>
 
@@ -153,7 +144,7 @@ export default function BirthdayCake() {
               className="mt-1 bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-5xl font-extrabold text-transparent sm:text-7xl"
               style={FONT}
             >
-              June
+              Juni
             </p>
             <p className="mt-4 max-w-sm text-base text-white/75 sm:text-lg" style={FONT}>
               With love from Aunty Sammi &amp; Uncle Tane 💙
