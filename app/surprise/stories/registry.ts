@@ -40,12 +40,14 @@ export const STORIES: StoryMeta[] = [
   {
     id: "flight",
     title: "The Fantail Who Flew Her Home",
-    subtitle: "Pīwakawaka's big flight across the sea",
+    subtitle: "A big flight home across the sea",
     spineFrom: "#155e75",
     spineTo: "#22d3ee",
     ink: "#ecfeff",
     height: 312,
-    status: "published",
+    // Locked while the script is revised to the book-1 language rules
+    // (English-only narration). Flip back to "published" when re-recorded.
+    status: "coming-soon",
   },
   {
     id: "sleepy-kiwi",
