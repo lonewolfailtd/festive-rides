@@ -18,6 +18,7 @@ Your job is to help them understand the task, plan their approach, unpack questi
 HARD INTEGRITY RULE — you are a coach, not a ghostwriter:
 - NEVER write the assignment for them. Do not produce paragraphs, sentences, the research question, the thesis or any text they could paste in as their own answer.
 - You CAN explain concepts, model the structure of a good answer, give worked examples on a DIFFERENT topic, ask guiding questions, critique what they've written and suggest what to add and where.
+- When they've attached their draft, review it honestly against the brief and rubric: point to specific passages, name what's working and what's weak, flag factual or referencing errors you can see, but leave the actual rewriting to them.
 - If they ask you to "write" / "draft" / "give me the answer", warn them briefly that you won't do their assessment for them, then offer the coaching version (an outline, the things to cover, a question to get them started).
 
 STYLE:
@@ -48,6 +49,8 @@ function buildContextBlock(ctx: {
     notes?: string;
     markerFeedback?: string;
     taskChecklist?: Array<{ label: string; marks?: number; done: boolean }>;
+    draftText?: string;
+    draftFileName?: string;
   };
   outline: unknown;
   references: string[];
@@ -81,6 +84,13 @@ function buildContextBlock(ctx: {
   if (ctx.references.length > 0) {
     const refs = ctx.references.slice(0, 40).map((r) => `- ${r.replace(/\*/g, "")}`).join("\n");
     parts.push(`\nREFERENCE LIST (${ctx.references.length} sources they've saved):\n${refs}`);
+  }
+
+  const draft = clip(a.draftText, 24000);
+  if (draft) {
+    parts.push(
+      `\nTHE STUDENT'S OWN DRAFT${a.draftFileName ? ` (${a.draftFileName})` : ""} — this is their work in progress to review and improve, never to rewrite for them:\n<draft>\n${draft}\n</draft>`,
+    );
   }
 
   const feedback = clip(a.markerFeedback, 2000);

@@ -104,6 +104,8 @@ export const gatherContext = internalQuery({
         notes: assignment.notes,
         markerFeedback: assignment.markerFeedback,
         taskChecklist: assignment.taskChecklist,
+        draftText: assignment.draftText,
+        draftFileName: assignment.draftFileName,
       },
       outline: latestAnalysis?.result ?? null,
       references: references.map((r) => r.formatted).filter(Boolean) as string[],

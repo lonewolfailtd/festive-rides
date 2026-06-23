@@ -86,6 +86,30 @@ export const update = mutation({
   },
 });
 
+// Attach (or clear) the student's draft document for the assignment.
+// Pass an empty string to detach. Used by the dashboard tutor chat so the
+// model can review the student's actual working document.
+export const setDraft = mutation({
+  args: {
+    id: v.id("assignments"),
+    draftText: v.string(),
+    draftFileName: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, draftText, draftFileName }) => {
+    const userId = await requireUserId(ctx);
+    const existing = await ctx.db.get(id);
+    if (!existing || existing.userId !== userId) throw new Error("Not found");
+    const text = draftText.trim();
+    if (text.length > 60000) {
+      throw new Error("That document is very long — trim it to 60000 characters or fewer.");
+    }
+    await ctx.db.patch(id, {
+      draftText: text ? text : undefined,
+      draftFileName: text ? draftFileName : undefined,
+    });
+  },
+});
+
 // Mark assignment as submitted (default: now). Idempotent — calling it
 // again just bumps the timestamp.
 export const markSubmitted = mutation({

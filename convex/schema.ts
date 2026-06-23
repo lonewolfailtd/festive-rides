@@ -62,6 +62,10 @@ export default defineSchema({
     grade: v.optional(v.number()), // 0-100 numeric
     gradeLetter: v.optional(v.string()), // "A+", "B-", "Pass", etc.
     markerFeedback: v.optional(v.string()),
+    // The student's own draft/working document, uploaded in the dashboard
+    // tutor chat so the tutor can review it. Plain extracted text.
+    draftText: v.optional(v.string()),
+    draftFileName: v.optional(v.string()),
     // Completion checklist — one entry per required task/section the
     // student must answer. Drives the dashboard "what's left" card. The
     // single biggest score lever after analysing real result sheets was

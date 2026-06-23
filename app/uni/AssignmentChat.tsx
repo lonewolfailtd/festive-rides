@@ -13,6 +13,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useStoredState } from "@/lib/useStoredState";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import { extractPdfText } from "@/lib/extractPdfText";
+import { extractDocxText } from "@/lib/extractDocxText";
 
 const STORAGE_KEY = "uni-active-assignment-v1";
 const ACTIVE_EVENT = "uni:active-assignment-changed";
@@ -95,10 +97,13 @@ export default function AssignmentChat() {
   );
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const ask = useAction(api.assignmentChat.ask);
   const clear = useMutation(api.assignmentChatHistory.clear);
+  const setDraftDoc = useMutation(api.assignments.setDraft);
 
   // Track the active assignment from the workspace bar.
   useEffect(() => {
@@ -152,6 +157,48 @@ export default function AssignmentChat() {
       toast.error(getErrorMessage(err, "Couldn't clear."));
     }
   };
+
+  const onUpload = async (file: File) => {
+    if (!assignmentId) return;
+    const name = file.name.toLowerCase();
+    const isPdf = name.endsWith(".pdf") || file.type === "application/pdf";
+    const isDocx =
+      name.endsWith(".docx") ||
+      file.type ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (!isPdf && !isDocx) {
+      toast.error("Upload a PDF or .docx file. Legacy .doc isn't supported.");
+      return;
+    }
+    setExtracting(true);
+    try {
+      const text = isPdf
+        ? (await extractPdfText(file, { maxChars: 60000 })).text
+        : await extractDocxText(file, { maxChars: 60000 });
+      await setDraftDoc({ id: assignmentId, draftText: text, draftFileName: file.name });
+      toast.success(
+        `Attached "${file.name}" — the tutor can now read your draft.`,
+      );
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Couldn't read that document."));
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const onRemoveDraft = async () => {
+    if (!assignmentId) return;
+    try {
+      await setDraftDoc({ id: assignmentId, draftText: "" });
+      toast.success("Draft removed.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Couldn't remove draft."));
+    }
+  };
+
+  const draftWordCount = activeAssignment?.draftText
+    ? activeAssignment.draftText.trim().split(/\s+/).filter(Boolean).length
+    : 0;
 
   const sectionCard =
     "rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50/60 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] dark:border-slate-800/80 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950";
@@ -215,7 +262,7 @@ export default function AssignmentChat() {
         ) : messages.length === 0 ? (
           <div className="py-2">
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Ask me anything about this assignment. I can see your brief, rubric, checklist, outline and references — but I won&apos;t write it for you. Try:
+              Ask me anything about this assignment. I can see your brief, rubric, checklist, outline and references — and if you attach your draft with the 📎 button I&apos;ll review that too. I won&apos;t write it for you though. Try:
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
@@ -268,6 +315,24 @@ export default function AssignmentChat() {
         )}
       </div>
 
+      {assignmentId && activeAssignment?.draftFileName && (
+        <div className="flex items-center gap-2 border-t border-slate-200/70 px-4 py-2 text-xs text-slate-600 dark:border-slate-800/70 dark:text-slate-400">
+          <span aria-hidden>📎</span>
+          <span className="min-w-0 truncate">
+            Draft attached: <strong className="font-medium">{activeAssignment.draftFileName}</strong>
+            {draftWordCount ? ` · ${draftWordCount.toLocaleString("en-NZ")} words` : ""}
+          </span>
+          <button
+            type="button"
+            onClick={onRemoveDraft}
+            aria-label="Remove attached draft"
+            className="ml-auto rounded-md px-1.5 py-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -275,6 +340,31 @@ export default function AssignmentChat() {
         }}
         className="flex items-end gap-2 border-t border-slate-200/70 px-4 py-3 dark:border-slate-800/70"
       >
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void onUpload(f);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={!assignmentId || extracting || sending}
+          aria-label="Attach your draft document (PDF or Word)"
+          title="Attach your draft (PDF or Word)"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 transition-colors hover:border-sky-400 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500"
+        >
+          {extracting ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-sky-500" role="status" aria-label="Reading document" />
+          ) : (
+            <span aria-hidden>📎</span>
+          )}
+        </button>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
