@@ -127,6 +127,20 @@ export default defineSchema({
     .index("by_user_assignment", ["userId", "assignmentId"])
     .index("by_user_sortKey", ["userId", "sortKey"]),
 
+  // Assignment tutor chat. One row per message in an ongoing, per-
+  // assignment conversation — the dashboard chat panel reads and appends
+  // here. The thread is grounded server-side in the assignment's brief,
+  // rubric, checklist, outline and references, so the model answers about
+  // the student's actual work rather than in the abstract.
+  assignmentChatMessages: defineTable({
+    userId: v.id("users"),
+    assignmentId: v.id("assignments"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    // Model that produced an assistant message (null for user messages).
+    model: v.optional(v.string()),
+  }).index("by_user_assignment", ["userId", "assignmentId"]),
+
   // Long random opaque tokens that grant read-only access to a user's
   // calendar subscription feed. The token lives in the URL, so it has to
   // be unguessable; revoking simply deletes the row.

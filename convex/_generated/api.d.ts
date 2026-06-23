@@ -14,6 +14,8 @@ import type * as analyser from "../analyser.js";
 import type * as analysisStore from "../analysisStore.js";
 import type * as apaReview from "../apaReview.js";
 import type * as articleQA from "../articleQA.js";
+import type * as assignmentChat from "../assignmentChat.js";
+import type * as assignmentChatHistory from "../assignmentChatHistory.js";
 import type * as assignments from "../assignments.js";
 import type * as auditLog from "../auditLog.js";
 import type * as auth from "../auth.js";
@@ -57,6 +59,8 @@ declare const fullApi: ApiFromModules<{
   analysisStore: typeof analysisStore;
   apaReview: typeof apaReview;
   articleQA: typeof articleQA;
+  assignmentChat: typeof assignmentChat;
+  assignmentChatHistory: typeof assignmentChatHistory;
   assignments: typeof assignments;
   auditLog: typeof auditLog;
   auth: typeof auth;

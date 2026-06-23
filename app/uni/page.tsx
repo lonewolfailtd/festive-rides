@@ -6,6 +6,7 @@ import DashboardCards from "./DashboardCards";
 import GradesChart from "./GradesChart";
 import Greeting from "./Greeting";
 import QuickImport from "./QuickImport";
+import AssignmentChat from "./AssignmentChat";
 
 const cards = [
   {
@@ -158,9 +159,15 @@ export default function UniHomePage() {
       {/* Workspace bar + grades chart sit side-by-side on lg+ so they share
           one visual row instead of stacking. On mobile they stack naturally
           via grid-cols-1 default. */}
-      <section className="mb-8 grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <section className="mb-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
         <WorkspaceBar />
         <GradesChart />
+      </section>
+
+      {/* Assignment tutor — conversational front door to all the tools,
+          grounded in the active assignment's brief, rubric and work. */}
+      <section className="mb-8">
+        <AssignmentChat />
       </section>
 
       <DashboardCards cards={cards} />
