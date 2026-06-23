@@ -37,6 +37,46 @@ export const list = query({
   },
 });
 
+// Ground-truth calibration: compare past projections against the real
+// Turnitin scores the student later logged, and report the systematic
+// bias so the current projection can be corrected. Closes the loop the
+// "Got the real report?" field opens.
+export const calibrationStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const runs = await ctx.db
+      .query("checkerRuns")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    // Pairs where we have both a projection and the real reported score.
+    const pairs = runs.filter(
+      (r) =>
+        typeof r.turnitinProjected === "number" &&
+        typeof r.actualTurnitinScore === "number",
+    );
+    if (pairs.length === 0) return { count: 0 } as const;
+
+    // Signed error = actual - projected. Positive mean => we under-project
+    // (real Turnitin runs higher than we say); negative => we over-project.
+    const errors = pairs.map(
+      (r) => (r.actualTurnitinScore as number) - (r.turnitinProjected as number),
+    );
+    const meanError =
+      errors.reduce((a, b) => a + b, 0) / errors.length;
+    const mae =
+      errors.reduce((a, b) => a + Math.abs(b), 0) / errors.length;
+
+    return {
+      count: pairs.length,
+      // Round to whole points — false precision helps no one.
+      bias: Math.round(meanError),
+      meanAbsoluteError: Math.round(mae),
+    } as const;
+  },
+});
+
 // The student records what Turnitin actually showed once the marked
 // report comes back — the ground truth for tuning the projection.
 export const setActualScore = mutation({

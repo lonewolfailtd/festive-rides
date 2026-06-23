@@ -21,6 +21,7 @@ type ParagraphScore = {
 
 type Stylometrics = {
   words: number;
+  rawWords?: number;
   sentences: number;
   paragraphs: number;
   meanSentenceLen: number;
@@ -29,6 +30,15 @@ type Stylometrics = {
   transitionsPer1000: number;
   aiVocabPer1000: number;
   typeTokenRatio: number;
+  compressionRatio?: number;
+  bigramRepeatRate?: number;
+  removedSections?: string[];
+};
+
+type FlaggedSentence = {
+  text: string;
+  score: number;
+  why: string;
 };
 
 type ConsensusInfo = {
@@ -50,6 +60,7 @@ type CheckResult = {
   verdict: "Mostly human" | "Mixed" | "Likely AI" | "Heavily AI";
   summary: string;
   paragraphs: ParagraphScore[];
+  flaggedSentences?: FlaggedSentence[];
   tells: string[];
   humanTells: string[];
   naturalisationTips: string[];
@@ -186,6 +197,7 @@ export default function CheckerClient() {
 
   // Result history — scores only, synced across devices via Convex.
   const history = useQuery(api.checkerHistory.list);
+  const calibration = useQuery(api.checkerHistory.calibrationStats);
   const setActualScore = useMutation(api.checkerHistory.setActualScore);
   const removeRun = useMutation(api.checkerHistory.remove);
   const [actualInputs, setActualInputs] = useState<Record<string, string>>({});
@@ -343,6 +355,11 @@ export default function CheckerClient() {
 
   const wordCount = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
   const overall = result ? scoreColour(result.overallScore) : null;
+  // Ground-truth bias from logged Turnitin reports, narrowed to a clean shape.
+  const cal =
+    calibration && "bias" in calibration && typeof calibration.bias === "number"
+      ? { count: calibration.count, bias: calibration.bias, mae: calibration.meanAbsoluteError ?? 0 }
+      : null;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
@@ -666,6 +683,20 @@ export default function CheckerClient() {
               <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                 {result.turnitin.note}
               </p>
+              {cal && cal.count >= 2 && Math.abs(cal.bias) >= 2 && (
+                <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50/60 p-3 text-sm dark:border-sky-900/50 dark:bg-sky-950/30">
+                  <p className="text-slate-700 dark:text-slate-200">
+                    <strong>Adjusted for your history:</strong> across {cal.count} reports you&apos;ve logged, real Turnitin came in {Math.abs(cal.bias)} points {cal.bias > 0 ? "higher" : "lower"} than projected on average. So your likely real score is closer to{" "}
+                    <strong>
+                      {Math.max(0, Math.min(100, Math.round(result.turnitin.projectedScore + cal.bias)))}%
+                    </strong>
+                    .
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Typical miss so far: ±{cal.mae} points. The more reports you log, the better this gets.
+                  </p>
+                </div>
+              )}
               <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                 How this projection works: Turnitin scores each prose sentence and reports the percentage of the document it thinks is AI-written — reference lists, bullet points and quotes don&apos;t count. Scores from 1–19% display only as an asterisk because Turnitin itself treats that range as too unreliable to report. Markers are told the score is an indicator, not proof.
               </p>
@@ -727,9 +758,9 @@ export default function CheckerClient() {
                 Measured signals
               </h3>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Computed directly from your text — these numbers are exact and repeatable, unlike the model&apos;s judgement.
+                Computed directly from your text — these numbers are exact and repeatable, unlike the model&apos;s judgement. The first two are the strongest signals.
               </p>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
                   <dt className="text-xs text-slate-500 dark:text-slate-400">Sentence-length variation</dt>
                   <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
@@ -743,6 +774,21 @@ export default function CheckerClient() {
                         : "Uniform — leans AI"}
                   </dd>
                 </div>
+                {typeof result.stats.compressionRatio === "number" && result.stats.compressionRatio > 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                    <dt className="text-xs text-slate-500 dark:text-slate-400">Predictability (compression)</dt>
+                    <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                      {result.stats.compressionRatio}
+                    </dd>
+                    <dd className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {result.stats.compressionRatio >= 0.4
+                        ? "High-entropy — leans human"
+                        : result.stats.compressionRatio >= 0.34
+                          ? "Middling"
+                          : "Templated — leans AI"}
+                    </dd>
+                  </div>
+                )}
                 <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
                   <dt className="text-xs text-slate-500 dark:text-slate-400">AI-filler transitions /1000 words</dt>
                   <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
@@ -769,16 +815,84 @@ export default function CheckerClient() {
                         : "Heavy — leans AI"}
                   </dd>
                 </div>
+                {typeof result.stats.bigramRepeatRate === "number" && result.stats.bigramRepeatRate > 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                    <dt className="text-xs text-slate-500 dark:text-slate-400">Phrase repetition</dt>
+                    <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                      {result.stats.bigramRepeatRate}%
+                    </dd>
+                    <dd className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {result.stats.bigramRepeatRate <= 6
+                        ? "Low — leans human"
+                        : result.stats.bigramRepeatRate <= 12
+                          ? "Noticeable"
+                          : "Formulaic — leans AI"}
+                    </dd>
+                  </div>
+                )}
                 <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-                  <dt className="text-xs text-slate-500 dark:text-slate-400">Length analysed</dt>
+                  <dt className="text-xs text-slate-500 dark:text-slate-400">Qualifying prose</dt>
                   <dd className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
                     {result.stats.words.toLocaleString("en-NZ")} words
                   </dd>
                   <dd className="text-[11px] text-slate-500 dark:text-slate-400">
                     {result.stats.sentences} sentences · {result.stats.paragraphs} paragraphs
+                    {result.stats.removedSections && result.stats.removedSections.length > 0
+                      ? ` · stripped ${result.stats.removedSections.join(", ")}`
+                      : ""}
                   </dd>
                 </div>
               </dl>
+            </section>
+          )}
+
+          {/* Most AI-like sentences — what Turnitin would highlight, with
+              one-click humanise. The model returns these verbatim so they
+              can be matched in the draft. */}
+          {result.flaggedSentences && result.flaggedSentences.length > 0 && (
+            <section className={sectionCard}>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Most AI-like sentences
+              </h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                The specific sentences most likely to be flagged — these are the ones worth rewriting in your own voice first.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {result.flaggedSentences
+                  .slice()
+                  .sort((a, b) => b.score - a.score)
+                  .map((fs, i) => {
+                    const c = scoreColour(fs.score);
+                    return (
+                      <li
+                        key={i}
+                        className={`rounded-lg border p-3 ${c.border} ${c.bg}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm text-slate-800 dark:text-slate-100">
+                            &ldquo;{fs.text}&rdquo;
+                          </p>
+                          <span className={`shrink-0 text-sm font-semibold ${c.text}`}>
+                            {Math.round(fs.score)}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">{fs.why}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHumanisePassage(fs.text);
+                              toast.success("Loaded into the humanise box below.");
+                            }}
+                            className="shrink-0 rounded-md border border-sky-300 bg-white px-2 py-0.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-700 dark:bg-slate-900 dark:text-sky-300"
+                          >
+                            Humanise this
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+              </ul>
             </section>
           )}
 

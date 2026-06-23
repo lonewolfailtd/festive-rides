@@ -95,6 +95,18 @@ export async function callOpenRouterDetailed(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
+    // 402 = the OpenRouter account is out of credits. Surface that plainly
+    // instead of a raw JSON blob — it's an account top-up, not a code bug.
+    if (response.status === 402) {
+      throw new Error(
+        "OpenRouter is out of credits, so the AI tools can't run. Top up the balance at https://openrouter.ai/settings/credits, then try again.",
+      );
+    }
+    if (response.status === 429) {
+      throw new Error(
+        "The AI provider is rate-limiting right now. Wait a moment and try again.",
+      );
+    }
     throw new Error(`OpenRouter ${response.status}: ${errorText.slice(0, 500)}`);
   }
 
