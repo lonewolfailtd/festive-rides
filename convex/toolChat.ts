@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, type OpenRouterMessage } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 // Generic per-page "ask about this result" chat. Stateless on the server:
 // the client holds the conversation and sends it back each turn along with
@@ -53,7 +54,7 @@ export const ask = action({
     ),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("toolChat.ask", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     if (args.messages.length === 0) throw new Error("Ask a question first.");
@@ -77,7 +78,10 @@ export const ask = action({
         role: "system",
         content: `The tool is: ${toolLabel}.\n\nITS RESULT (what's on the student's screen):\n<result>\n${context}\n</result>`,
       },
-      ...recent.map((m) => ({ role: m.role, content: m.content }) as OpenRouterMessage),
+      ...recent.map(
+        (m: { role: "user" | "assistant"; content: string }) =>
+          ({ role: m.role, content: m.content }) as OpenRouterMessage,
+      ),
     ];
 
     const { content, modelUsed, usage } = await callOpenRouterDetailed({
@@ -98,5 +102,5 @@ export const ask = action({
     });
 
     return { reply, model: modelUsed };
-  },
+  }),
 });

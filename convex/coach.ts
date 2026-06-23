@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an academic writing coach for Open Polytechnic of New Zealand students. The student will paste a draft (or part of one) and optionally the assignment brief it relates to.
 
@@ -58,7 +59,7 @@ export const coach = action({
     model: v.optional(v.string()),
     assignmentId: v.optional(v.id("assignments")),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("coach.coach", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.draft.trim();
@@ -156,5 +157,5 @@ export const coach = action({
     }
 
     return parsed;
-  },
+  }),
 });

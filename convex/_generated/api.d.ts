@@ -28,6 +28,7 @@ import type * as coach from "../coach.js";
 import type * as courses from "../courses.js";
 import type * as crons from "../crons.js";
 import type * as dataExport from "../dataExport.js";
+import type * as errorLog from "../errorLog.js";
 import type * as feedbackMemory from "../feedbackMemory.js";
 import type * as http from "../http.js";
 import type * as icalSubscription from "../icalSubscription.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   courses: typeof courses;
   crons: typeof crons;
   dataExport: typeof dataExport;
+  errorLog: typeof errorLog;
   feedbackMemory: typeof feedbackMemory;
   http: typeof http;
   icalSubscription: typeof icalSubscription;

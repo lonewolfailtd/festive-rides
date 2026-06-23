@@ -236,6 +236,18 @@ export default defineSchema({
     details: v.optional(v.string()), // JSON-stringified blob, capped to ~1KB
   }).index("by_user", ["userId"]),
 
+  // Durable error log for the uni tools. Every AI action records its
+  // failures here (which tool, the message, the model if known) so
+  // failures survive past the rolling Convex log buffer and can be
+  // reviewed and pattern-spotted later. Prunable after a while.
+  errorLog: defineTable({
+    userId: v.optional(v.id("users")),
+    action: v.string(), // e.g. "coach.coach", "toolChat.ask"
+    message: v.string(),
+    model: v.optional(v.string()),
+    context: v.optional(v.string()), // short extra detail, capped
+  }).index("by_user", ["userId"]),
+
   // Festive Rides bookings
   bookings: defineTable({
     passengerName: v.string(),

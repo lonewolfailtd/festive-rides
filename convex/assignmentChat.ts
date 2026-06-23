@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, type OpenRouterMessage } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 // Assignment tutor chat. Answers the student's questions about a specific
 // assignment, grounded in that assignment's brief, rubric, checklist,
@@ -118,7 +119,7 @@ export const ask = action({
     message: v.string(),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("assignmentChat.ask", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const message = args.message.trim();
@@ -145,7 +146,10 @@ export const ask = action({
     const messages: OpenRouterMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "system", content: buildContextBlock(context) },
-      ...context.history.map((m) => ({ role: m.role, content: m.content }) as OpenRouterMessage),
+      ...context.history.map(
+        (m: { role: "user" | "assistant"; content: string }) =>
+          ({ role: m.role, content: m.content }) as OpenRouterMessage,
+      ),
       { role: "user", content: message },
     ];
 
@@ -179,5 +183,5 @@ export const ask = action({
     });
 
     return { reply, model: modelUsed };
-  },
+  }),
 });

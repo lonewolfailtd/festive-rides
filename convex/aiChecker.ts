@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 // Calibrated AI-text detection. The prompt asks the model to evaluate whether
 // the draft was likely written by a human or by a large language model
@@ -224,7 +225,7 @@ export const check = action({
     text: v.string(),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("aiChecker.check", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.text.trim();
@@ -293,7 +294,7 @@ export const check = action({
       // History must never break a check.
     }
     return { ...(parsed as Record<string, unknown>), stats };
-  },
+  }),
 });
 
 // Consensus mode: the same detection run across three different model
@@ -311,7 +312,7 @@ export const checkConsensus = action({
   args: {
     text: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("aiChecker.checkConsensus", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.text.trim();
@@ -443,7 +444,7 @@ export const checkConsensus = action({
         detailModel: detail.model,
       },
     };
-  },
+  }),
 });
 
 const HUMANISE_PROMPT = `You are an academic writing coach helping a student rewrite a passage to sound more human and less like AI-generated text — without changing the meaning, evidence or argument.
@@ -471,7 +472,7 @@ export const humanise = action({
     text: v.string(),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("aiChecker.humanise", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.text.trim();
@@ -513,5 +514,5 @@ export const humanise = action({
       outputTokens: usage.outputTokens,
     });
     return parsed;
-  },
+  }),
 });
