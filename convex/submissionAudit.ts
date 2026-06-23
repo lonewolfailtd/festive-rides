@@ -107,6 +107,109 @@ NON-NEGOTIABLE RULES:
 
 12. CITATION TYPE CHECK. Open Polytechnic rubrics often require BOTH a narrative/in-text citation (author named in the sentence, e.g. "Smith (2020) found...") AND a parenthetical citation (e.g. "(Smith, 2020)") — frequently for a specific pre-selected article. If the rubric calls for specific citation TYPES, set citationTypeCheck.required = true, then scan the draft and set parentheticalFound / narrativeFound honestly. In 'note', name which type is missing and where to add one — DIRECTION ONLY, never write the citation itself. If the rubric does NOT single out citation types, set citationTypeCheck to null.`;
 
+// Result shape, mirroring the JSON the model is told to emit (see
+// SYSTEM_PROMPT) and the client's AuditResult interface. Only the fields
+// the digest reads are typed; everything is optional/loose because the
+// model output is not schema-validated.
+type AuditCriterion = {
+  name?: string;
+  status?: "covered" | "partial" | "missing";
+};
+type AuditSection = {
+  sectionName?: string;
+  criteria?: AuditCriterion[];
+};
+type AuditResultShape = {
+  overall?: {
+    predictedScoreRange?: { min?: number; max?: number; outOf?: number };
+    readinessLevel?: string;
+    summary?: string;
+    unattemptedSections?: { sectionName?: string; marksAtStake?: number }[];
+  };
+  sections?: AuditSection[];
+  quickWins?: string[];
+};
+
+// Build a compact plain-text digest (max ~1500 chars) of an audit result
+// for the shared assignment memory. Reads the actual result shape: the
+// predicted mark/band, counts of covered/partial/missing criteria, the
+// names of partial + missing criteria, and the top quick wins / gaps.
+function buildAuditDigest(raw: unknown): string {
+  const r = (raw ?? {}) as AuditResultShape;
+  const overall = r.overall ?? {};
+  const sections = Array.isArray(r.sections) ? r.sections : [];
+
+  const lines: string[] = ["Submission Audit"];
+
+  const score = overall.predictedScoreRange;
+  if (score && typeof score.min === "number" && typeof score.max === "number") {
+    const outOf = typeof score.outOf === "number" ? ` / ${score.outOf}` : "";
+    lines.push(`Predicted mark: ${score.min}-${score.max}${outOf} (rubric-compliance floor; markers typically add ~5-10).`);
+  }
+  if (overall.readinessLevel) {
+    lines.push(`Readiness: ${overall.readinessLevel}.`);
+  }
+
+  // Coverage counts + names of the partial/missing criteria.
+  let covered = 0;
+  let partial = 0;
+  let missing = 0;
+  const partialNames: string[] = [];
+  const missingNames: string[] = [];
+  for (const s of sections) {
+    const crits = Array.isArray(s.criteria) ? s.criteria : [];
+    for (const c of crits) {
+      const label = c.name ? `${c.name} (${s.sectionName ?? "section"})` : null;
+      if (c.status === "covered") covered++;
+      else if (c.status === "partial") {
+        partial++;
+        if (label) partialNames.push(label);
+      } else if (c.status === "missing") {
+        missing++;
+        if (label) missingNames.push(label);
+      }
+    }
+  }
+  lines.push(`Criteria: ${covered} covered, ${partial} partial, ${missing} missing.`);
+
+  const unattempted = Array.isArray(overall.unattemptedSections)
+    ? overall.unattemptedSections
+    : [];
+  if (unattempted.length > 0) {
+    const names = unattempted
+      .map((u) => u.sectionName)
+      .filter((n): n is string => !!n);
+    lines.push(`Unattempted sections: ${names.join("; ") || unattempted.length}.`);
+  }
+
+  if (partialNames.length > 0) {
+    lines.push(`Partial: ${partialNames.join("; ")}.`);
+  }
+  if (missingNames.length > 0) {
+    lines.push(`Missing: ${missingNames.join("; ")}.`);
+  }
+
+  const quickWins = Array.isArray(r.quickWins) ? r.quickWins : [];
+  if (quickWins.length > 0) {
+    lines.push("Top recommendations:");
+    for (const w of quickWins.slice(0, 5)) {
+      if (typeof w === "string" && w.trim()) lines.push(`- ${w.trim()}`);
+    }
+  }
+
+  if (overall.summary) {
+    lines.push(`Verdict: ${overall.summary}`);
+  }
+
+  let digest = lines.join("\n");
+  // Hard cap at ~1500 chars so the shared memory stays compact.
+  const MAX = 1500;
+  if (digest.length > MAX) {
+    digest = digest.slice(0, MAX - 1).trimEnd() + "…";
+  }
+  return digest;
+}
+
 export const audit = action({
   args: {
     draftText: v.string(),
@@ -114,6 +217,10 @@ export const audit = action({
     briefText: v.optional(v.string()),
     // Optional name so the result UI can label what was audited.
     assignmentName: v.optional(v.string()),
+    // When set, a compact digest of the result is saved into the shared
+    // assignment memory so the dashboard tutor chat can answer questions
+    // about this audit.
+    assignmentId: v.optional(v.id("assignments")),
     model: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -242,6 +349,29 @@ export const audit = action({
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
     });
+
+    // Save a compact digest of this audit into the shared assignment
+    // memory so the dashboard tutor chat can answer questions about it.
+    // Wrapped in try/catch: a digest failure must never break the audit.
+    if (args.assignmentId) {
+      try {
+        const summary = buildAuditDigest(result);
+        await ctx.runMutation(internal.assignmentArtifacts.record, {
+          userId,
+          assignmentId: args.assignmentId,
+          tool: "submissionAudit",
+          title: "Submission Audit",
+          summary,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `submissionAudit.audit: failed to record assignment artifact: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
 
     return result;
   },

@@ -48,6 +48,7 @@ export const selfCheck = action({
   args: {
     text: v.string(),
     model: v.optional(v.string()),
+    assignmentId: v.optional(v.id("assignments")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -80,6 +81,54 @@ export const selfCheck = action({
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
     });
+
+    if (args.assignmentId) {
+      try {
+        const r = (parsed ?? {}) as {
+          summary?: unknown;
+          overallRisk?: unknown;
+          phrases?: unknown;
+        };
+        const phrases = Array.isArray(r.phrases) ? r.phrases : [];
+        const overall =
+          typeof r.overallRisk === "string" ? r.overallRisk : null;
+
+        const lines: string[] = [];
+        lines.push(
+          `Plagiarism Self-Check (not a real database query, flags phrasing that looks plagiarised).`
+        );
+        lines.push(`Phrases flagged: ${phrases.length}.`);
+        if (overall) lines.push(`Overall risk read: ${overall}.`);
+        if (typeof r.summary === "string" && r.summary.trim()) {
+          lines.push(`Summary: ${r.summary.trim().slice(0, 300)}`);
+        }
+        if (phrases.length > 0) {
+          lines.push("Flagged phrases:");
+          for (const item of phrases.slice(0, 8)) {
+            const p = (item ?? {}) as { phrase?: unknown; risk?: unknown };
+            const text =
+              typeof p.phrase === "string" ? p.phrase.trim().slice(0, 120) : "";
+            if (!text) continue;
+            const risk = typeof p.risk === "string" ? p.risk : "?";
+            lines.push(`- [${risk}] "${text}"`);
+          }
+        }
+
+        let summary = lines.join("\n");
+        if (summary.length > 1200) summary = summary.slice(0, 1200);
+
+        await ctx.runMutation(internal.assignmentArtifacts.record, {
+          userId,
+          assignmentId: args.assignmentId,
+          tool: "plagiarism",
+          title: "Plagiarism Self-Check",
+          summary,
+        });
+      } catch {
+        // Non-fatal: the digest is a convenience for the tutor chat.
+      }
+    }
+
     return parsed;
   },
 });

@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import Link from "next/link";
 import { extractPdfText } from "@/lib/extractPdfText";
@@ -157,10 +158,24 @@ export default function UnpackClient() {
     setUnpacking(true);
     setResult(null);
     try {
+      // Tie this unpack to the active assignment (if the student has one)
+      // so the dashboard tutor chat can answer questions about it. No
+      // selector UI here — we read the active assignment the dashboard set.
+      let activeAssignmentId = "";
+      try {
+        activeAssignmentId =
+          localStorage.getItem("uni-active-assignment-v1")?.trim() || "";
+      } catch {
+        activeAssignmentId = "";
+      }
+
       const r = await unpack({
         question: q,
         briefContext: briefContext.trim() || undefined,
         courseContext: courseContext.trim() || undefined,
+        ...(activeAssignmentId
+          ? { assignmentId: activeAssignmentId as Id<"assignments"> }
+          : {}),
       });
       setResult(r.result as UnpackResult);
       setResultQuestion(q);

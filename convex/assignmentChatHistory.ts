@@ -81,6 +81,14 @@ export const gatherContext = internalQuery({
       )
       .collect();
 
+    // Digests dropped by the other tools (Submission Audit, Coach, etc.).
+    const artifacts = await ctx.db
+      .query("assignmentArtifacts")
+      .withIndex("by_user_assignment", (q) =>
+        q.eq("userId", userId).eq("assignmentId", assignmentId),
+      )
+      .collect();
+
     // Recent conversation for continuity (last 16 turns).
     const allMessages = await ctx.db
       .query("assignmentChatMessages")
@@ -109,6 +117,7 @@ export const gatherContext = internalQuery({
       },
       outline: latestAnalysis?.result ?? null,
       references: references.map((r) => r.formatted).filter(Boolean) as string[],
+      artifacts: artifacts.map((a) => ({ title: a.title, summary: a.summary })),
       history,
     };
   },

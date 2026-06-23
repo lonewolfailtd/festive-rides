@@ -344,6 +344,10 @@ export default function SubmissionAuditClient() {
         rubricText: rubric,
         briefText: brief.trim() ? brief : undefined,
         assignmentName: activeAssignment?.name,
+        // Pass the active assignment id (if one is selected) so the audit
+        // saves a digest into the shared assignment memory for the tutor
+        // chat. activeId is "" when none is selected — send undefined then.
+        assignmentId: activeId || undefined,
         model:
           // Map the UI toggle to actual model IDs. Gemini family by
           // default — Pro is the mark-prediction default; Flash is the

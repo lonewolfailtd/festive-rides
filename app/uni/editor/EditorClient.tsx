@@ -5,6 +5,7 @@
 // draft, get categorised issues + structural notes.
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useAction } from "convex/react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
@@ -363,9 +364,22 @@ export default function EditorClient() {
       // Decide path: short drafts go single-shot (one round-trip is
       // faster than splitting). Long drafts go parallel — each chunk is
       // a separate Convex action call, all running simultaneously.
+      // Read the active assignment (if any) so the editor can save a
+      // digest into shared assignment memory for the tutor chat. No
+      // selector UI here — we just pick up whatever the dashboard set.
+      let assignmentId: Id<"assignments"> | undefined;
+      try {
+        const stored = window.localStorage.getItem("uni-active-assignment-v1");
+        if (stored && stored.trim()) {
+          assignmentId = stored.trim() as Id<"assignments">;
+        }
+      } catch {
+        // localStorage unavailable (private mode etc) — no assignment.
+      }
+
       if (wordCount <= CHUNK_THRESHOLD_WORDS) {
         setTotalChunks(0);
-        const r = (await editAction({ text })) as EditResult;
+        const r = (await editAction({ text, assignmentId })) as EditResult;
         if (!r || !Array.isArray(r.issues) || typeof r.summary !== "string") {
           throw new Error(
             "The editor returned an unexpected response — please try again.",

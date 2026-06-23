@@ -357,6 +357,7 @@ export const edit = action({
   args: {
     text: v.string(),
     model: v.optional(v.string()),
+    assignmentId: v.optional(v.id("assignments")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -453,6 +454,113 @@ export const edit = action({
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
     });
+
+    // Save a compact digest into the shared assignment memory so the
+    // dashboard tutor chat can answer questions about this edit. One
+    // digest per (user, assignment, tool); the mutation replaces any
+    // prior. Wrapped in try/catch so a memory hiccup never sinks the
+    // edit result the student is waiting on.
+    if (args.assignmentId) {
+      try {
+        const r = result as {
+          summary?: string;
+          totalIssues?: number;
+          byCategory?: Record<string, number>;
+          issues?: Array<{
+            category?: string;
+            severity?: string;
+            where?: string;
+            problem?: string;
+            suggestion?: string;
+          }>;
+          structureNotes?: {
+            topImprovements?: string[];
+          };
+        };
+
+        const CATEGORY_LABELS: Record<string, string> = {
+          spelling: "spelling",
+          grammar: "grammar",
+          punctuation: "punctuation",
+          tereo: "te reo macrons",
+          style: "style",
+          structure: "structure",
+        };
+
+        const lines: string[] = [];
+        lines.push("NZ Editor digest");
+        if (typeof r.summary === "string" && r.summary.trim()) {
+          lines.push("");
+          lines.push(`Overall: ${r.summary.trim()}`);
+        }
+
+        const total =
+          typeof r.totalIssues === "number"
+            ? r.totalIssues
+            : Array.isArray(r.issues)
+              ? r.issues.length
+              : 0;
+        lines.push("");
+        lines.push(`Total issues: ${total}`);
+
+        const byCat = r.byCategory ?? {};
+        const catParts = Object.entries(byCat)
+          .filter(([, n]) => typeof n === "number" && n > 0)
+          .map(([k, n]) => `${CATEGORY_LABELS[k] ?? k}: ${n}`);
+        if (catParts.length > 0) {
+          lines.push(`By category – ${catParts.join(", ")}`);
+        }
+
+        // Top issues by severity (high first), capped at 8.
+        const SEV: Record<string, number> = { high: 0, medium: 1, low: 2 };
+        const ranked = (Array.isArray(r.issues) ? r.issues : [])
+          .slice()
+          .sort(
+            (a, b) =>
+              (SEV[a.severity ?? "low"] ?? 2) - (SEV[b.severity ?? "low"] ?? 2),
+          )
+          .slice(0, 8);
+        if (ranked.length > 0) {
+          lines.push("");
+          lines.push("Top issues:");
+          for (const i of ranked) {
+            const cat = CATEGORY_LABELS[i.category ?? ""] ?? i.category ?? "issue";
+            const sev = i.severity ?? "";
+            const problem = (i.problem ?? "").trim();
+            const where = (i.where ?? "").trim();
+            const wherePart = where ? ` ("${where}")` : "";
+            lines.push(`- [${cat}${sev ? "/" + sev : ""}] ${problem}${wherePart}`);
+          }
+        }
+
+        const topImps = r.structureNotes?.topImprovements;
+        if (Array.isArray(topImps) && topImps.length > 0) {
+          lines.push("");
+          lines.push("Structure – top improvements:");
+          for (const t of topImps.slice(0, 5)) {
+            if (typeof t === "string" && t.trim()) lines.push(`- ${t.trim()}`);
+          }
+        }
+
+        let summary = lines.join("\n");
+        if (summary.length > 1500) summary = summary.slice(0, 1497) + "...";
+
+        await ctx.runMutation(internal.assignmentArtifacts.record, {
+          userId,
+          assignmentId: args.assignmentId,
+          tool: "nzEditor",
+          title: "NZ Editor",
+          summary,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `nzEditor.edit: failed to record assignment digest: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
 
     return result;
   },

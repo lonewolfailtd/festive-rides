@@ -131,6 +131,20 @@ export default defineSchema({
     .index("by_user_assignment", ["userId", "assignmentId"])
     .index("by_user_sortKey", ["userId", "sortKey"]),
 
+  // Cross-tool memory for an assignment. Each tool (Submission Audit,
+  // Coach, Question Unpacker, etc.) drops a short text digest of its
+  // latest output here when run against an active assignment, so the
+  // dashboard tutor can answer questions about what those tools found.
+  // One row per (user, assignment, tool) — re-running a tool replaces
+  // its previous digest rather than piling up.
+  assignmentArtifacts: defineTable({
+    userId: v.id("users"),
+    assignmentId: v.id("assignments"),
+    tool: v.string(), // e.g. "submissionAudit", "coach", "unpack"
+    title: v.string(), // human label e.g. "Submission Audit"
+    summary: v.string(), // compact digest the tutor reads
+  }).index("by_user_assignment", ["userId", "assignmentId"]),
+
   // Assignment tutor chat. One row per message in an ongoing, per-
   // assignment conversation — the dashboard chat panel reads and appends
   // here. The thread is grounded server-side in the assignment's brief,

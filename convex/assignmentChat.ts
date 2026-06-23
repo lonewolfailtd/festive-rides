@@ -54,6 +54,7 @@ function buildContextBlock(ctx: {
   };
   outline: unknown;
   references: string[];
+  artifacts: Array<{ title: string; summary: string }>;
 }): string {
   const a = ctx.assignment;
   const parts: string[] = [];
@@ -79,6 +80,15 @@ function buildContextBlock(ctx: {
   if (ctx.outline) {
     const outlineStr = clip(JSON.stringify(ctx.outline), 4000);
     if (outlineStr) parts.push(`\nSAVED OUTLINE / ANALYSIS (from the Assignment Analyser):\n${outlineStr}`);
+  }
+
+  if (ctx.artifacts.length > 0) {
+    const blocks = ctx.artifacts
+      .map((a) => `### ${a.title}\n${a.summary}`)
+      .join("\n\n");
+    parts.push(
+      `\nWHAT THE OTHER TOOLS FOUND (results the student has run on this assignment — you can answer questions about these):\n${blocks}`,
+    );
   }
 
   if (ctx.references.length > 0) {

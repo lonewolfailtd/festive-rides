@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useAction } from "convex/react";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
@@ -243,9 +244,21 @@ export default function CoachClient() {
     }
     setRunning(true);
     try {
+      // Read the active assignment (if any) so the coach can save a
+      // digest into shared assignment memory for the tutor chat.
+      let assignmentId: Id<"assignments"> | undefined;
+      try {
+        const stored = window.localStorage.getItem("uni-active-assignment-v1");
+        if (stored && stored.trim()) {
+          assignmentId = stored.trim() as Id<"assignments">;
+        }
+      } catch {
+        // ignore (private mode etc.)
+      }
       const res = (await coach({
         draft,
         brief: brief.trim() ? brief : undefined,
+        assignmentId,
       })) as CoachResult;
       setResult(res);
     } catch (err) {

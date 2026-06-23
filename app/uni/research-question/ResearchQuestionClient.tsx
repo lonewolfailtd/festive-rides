@@ -4,6 +4,7 @@
 // question from a "future direction". Never writes the finished question.
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useAction } from "convex/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -52,10 +53,19 @@ export default function ResearchQuestionClient() {
     setRunning(true);
     setResult(null);
     try {
+      let activeAssignment = "";
+      try {
+        activeAssignment = localStorage.getItem("uni-active-assignment-v1") ?? "";
+      } catch {
+        activeAssignment = "";
+      }
       const r = (await build({
         futureDirection,
         draftQuestion: draftQuestion.trim() || undefined,
         articleContext: articleContext.trim() || undefined,
+        ...(activeAssignment
+          ? { assignmentId: activeAssignment as Id<"assignments"> }
+          : {}),
       })) as BuildResult;
       setResult(r);
     } catch (err) {

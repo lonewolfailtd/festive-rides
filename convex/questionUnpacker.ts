@@ -205,6 +205,7 @@ export const unpack = action({
     briefContext: v.optional(v.string()),
     courseContext: v.optional(v.string()),
     model: v.optional(v.string()),
+    assignmentId: v.optional(v.id("assignments")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -296,6 +297,71 @@ export const unpack = action({
       inputTokens: r.usage.inputTokens,
       outputTokens: r.usage.outputTokens,
     });
+
+    // Save a compact digest into shared assignment memory so the
+    // dashboard tutor chat can answer questions about this unpack.
+    if (args.assignmentId) {
+      try {
+        const res = result as {
+          commandWord?: { verb?: string; meaning?: string; markerImplication?: string };
+          scopeAndTopic?: { topic?: string; inScope?: string[]; outOfScope?: string[] };
+          approachOptions?: Array<{ name?: string; howItWorks?: string }>;
+          evidenceNeeded?: { sourceTypes?: string[]; specificEvidence?: string[] };
+        };
+
+        const list = (xs?: string[]) =>
+          (xs ?? []).map((s) => s.trim()).filter(Boolean).join("; ");
+
+        const lines: string[] = [];
+        lines.push(`Question unpacked: ${question}`);
+        if (res.commandWord?.verb) {
+          const cw = res.commandWord;
+          lines.push(
+            `Command word: "${cw.verb}" — ${(cw.meaning ?? "").trim()}${
+              cw.markerImplication ? ` Marker wants: ${cw.markerImplication.trim()}` : ""
+            }`,
+          );
+        }
+        if (res.scopeAndTopic?.topic) {
+          lines.push(`Topic: ${res.scopeAndTopic.topic.trim()}`);
+        }
+        const inScope = list(res.scopeAndTopic?.inScope);
+        if (inScope) lines.push(`In scope: ${inScope}`);
+        const outScope = list(res.scopeAndTopic?.outOfScope);
+        if (outScope) lines.push(`Out of scope: ${outScope}`);
+        const approaches = (res.approachOptions ?? [])
+          .map((a) => {
+            const name = (a.name ?? "").trim();
+            const how = (a.howItWorks ?? "").trim();
+            if (!name && !how) return "";
+            return how ? `${name} (${how})` : name;
+          })
+          .filter(Boolean)
+          .join("; ");
+        if (approaches) lines.push(`Suggested approaches: ${approaches}`);
+        const sourceTypes = list(res.evidenceNeeded?.sourceTypes);
+        if (sourceTypes) lines.push(`Source types to find: ${sourceTypes}`);
+        const specificEvidence = list(res.evidenceNeeded?.specificEvidence);
+        if (specificEvidence) lines.push(`Key evidence to find: ${specificEvidence}`);
+
+        let summary = lines.join("\n");
+        if (summary.length > 1500) summary = summary.slice(0, 1497) + "...";
+
+        await ctx.runMutation(internal.assignmentArtifacts.record, {
+          userId,
+          assignmentId: args.assignmentId,
+          tool: "unpack",
+          title: "Question Unpacker",
+          summary,
+        });
+      } catch (err) {
+        // Memory write is best-effort — never fail the unpack over it.
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Question Unpacker failed to save assignment digest: ${(err as Error).message}`,
+        );
+      }
+    }
 
     return { result, modelUsed: r.modelUsed };
   },

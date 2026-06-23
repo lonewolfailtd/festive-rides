@@ -56,6 +56,7 @@ export const coach = action({
     draft: v.string(),
     brief: v.optional(v.string()),
     model: v.optional(v.string()),
+    assignmentId: v.optional(v.id("assignments")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -91,6 +92,69 @@ export const coach = action({
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
     });
+
+    // Save a compact digest into shared assignment memory so the
+    // dashboard tutor chat can answer questions about this draft.
+    if (args.assignmentId) {
+      try {
+        const r = parsed as {
+          overallSummary?: unknown;
+          scores?: Record<string, { score?: unknown; feedback?: unknown }>;
+          specificImprovements?: Array<{
+            where?: unknown;
+            issue?: unknown;
+            suggestion?: unknown;
+          }>;
+        };
+        const lines: string[] = [];
+        const scores = r.scores ?? {};
+        const dimOrder = [
+          "structure",
+          "argument",
+          "depth",
+          "evidenceUse",
+          "citationDensity",
+          "tone",
+        ];
+        const scoreLine = dimOrder
+          .filter((k) => scores[k] && typeof scores[k].score === "number")
+          .map((k) => `${k} ${scores[k].score}/5`)
+          .join(", ");
+        if (scoreLine) lines.push(`Scores: ${scoreLine}`);
+        if (typeof r.overallSummary === "string" && r.overallSummary.trim()) {
+          lines.push(`Overall: ${r.overallSummary.trim()}`);
+        }
+        const improvements = Array.isArray(r.specificImprovements)
+          ? r.specificImprovements.slice(0, 5)
+          : [];
+        if (improvements.length > 0) {
+          lines.push("Top improvements:");
+          improvements.forEach((imp) => {
+            const issue =
+              typeof imp.issue === "string" ? imp.issue.trim() : "";
+            const suggestion =
+              typeof imp.suggestion === "string" ? imp.suggestion.trim() : "";
+            const where = typeof imp.where === "string" ? imp.where.trim() : "";
+            const bits = [issue, suggestion].filter(Boolean).join(" → ");
+            lines.push(`- ${where ? `"${where}": ` : ""}${bits}`);
+          });
+        }
+        let summary = lines.join("\n");
+        if (summary.length > 1500) summary = summary.slice(0, 1497) + "...";
+        if (summary.trim()) {
+          await ctx.runMutation(internal.assignmentArtifacts.record, {
+            userId,
+            assignmentId: args.assignmentId,
+            tool: "coach",
+            title: "Draft Coach",
+            summary,
+          });
+        }
+      } catch {
+        // Memory digest is best-effort; never fail the coach call over it.
+      }
+    }
+
     return parsed;
   },
 });

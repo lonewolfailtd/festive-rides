@@ -121,6 +121,10 @@ export default function AssignmentChat() {
     api.assignmentChatHistory.list,
     assignmentId ? { assignmentId } : "skip",
   );
+  const artifacts = useQuery(
+    api.assignmentArtifacts.listForAssignment,
+    assignmentId ? { assignmentId } : "skip",
+  );
 
   const activeAssignment = useMemo(
     () => assignments?.find((a) => a._id === activeId),
@@ -314,6 +318,20 @@ export default function AssignmentChat() {
           </div>
         )}
       </div>
+
+      {assignmentId && artifacts && artifacts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-200/70 px-4 py-2 dark:border-slate-800/70">
+          <span className="text-xs text-slate-500 dark:text-slate-400">Tutor can also see:</span>
+          {artifacts.map((a) => (
+            <span
+              key={a._id}
+              className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+            >
+              {a.title}
+            </span>
+          ))}
+        </div>
+      )}
 
       {assignmentId && activeAssignment?.draftFileName && (
         <div className="flex items-center gap-2 border-t border-slate-200/70 px-4 py-2 text-xs text-slate-600 dark:border-slate-800/70 dark:text-slate-400">

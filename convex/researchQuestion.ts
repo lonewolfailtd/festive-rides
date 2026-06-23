@@ -56,6 +56,7 @@ export const build = action({
     draftQuestion: v.optional(v.string()),
     articleContext: v.optional(v.string()),
     model: v.optional(v.string()),
+    assignmentId: v.optional(v.id("assignments")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -105,6 +106,79 @@ export const build = action({
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
     });
+
+    if (args.assignmentId) {
+      try {
+        const r = (parsed ?? {}) as {
+          componentsToDefine?: { component?: string; prompt?: string }[];
+          frame?: string;
+          frameOptions?: string[];
+          selfCheck?: { criterion?: string; ask?: string }[];
+          critique?: {
+            hasDraft?: boolean;
+            strengths?: string[];
+            issues?: string[];
+            directionToFix?: string;
+          };
+        };
+
+        const lines: string[] = [];
+        lines.push(`Future direction: ${fd}`);
+
+        if (args.draftQuestion?.trim()) {
+          lines.push(`Student draft question: ${args.draftQuestion.trim()}`);
+        }
+
+        if (r.componentsToDefine?.length) {
+          lines.push(
+            "Question parts to define: " +
+              r.componentsToDefine
+                .map((c) => c?.component)
+                .filter(Boolean)
+                .join("; "),
+          );
+        }
+
+        if (r.frame) lines.push(`Main frame: ${r.frame}`);
+        if (r.frameOptions?.length) {
+          lines.push("Alternative frames: " + r.frameOptions.filter(Boolean).join(" | "));
+        }
+
+        if (r.selfCheck?.length) {
+          lines.push(
+            "Rubric self-check (specific, clear, testable, well-structured): " +
+              r.selfCheck
+                .map((c) => (c?.criterion ? `${c.criterion} - ${c.ask ?? ""}`.trim() : ""))
+                .filter(Boolean)
+                .join("; "),
+          );
+        }
+
+        if (r.critique?.hasDraft) {
+          if (r.critique.strengths?.length) {
+            lines.push("Draft strengths: " + r.critique.strengths.filter(Boolean).join("; "));
+          }
+          if (r.critique.issues?.length) {
+            lines.push("Draft issues to tighten: " + r.critique.issues.filter(Boolean).join("; "));
+          }
+          if (r.critique.directionToFix) {
+            lines.push(`Direction to fix the draft: ${r.critique.directionToFix}`);
+          }
+        }
+
+        const summary = lines.join("\n").slice(0, 1500);
+
+        await ctx.runMutation(internal.assignmentArtifacts.record, {
+          userId,
+          assignmentId: args.assignmentId,
+          tool: "researchQuestion",
+          title: "Research Question Builder",
+          summary,
+        });
+      } catch {
+        // Digest is best-effort; never fail the build over memory write.
+      }
+    }
 
     return parsed;
   },

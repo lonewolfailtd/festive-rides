@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useAction } from "convex/react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
@@ -119,7 +120,17 @@ export default function PlagiarismClient() {
     }
     setRunning(true);
     try {
-      const res = (await selfCheck({ text })) as SelfCheckResult;
+      let activeAssignmentId = "";
+      try {
+        activeAssignmentId =
+          window.localStorage.getItem("uni-active-assignment-v1") ?? "";
+      } catch {}
+      const res = (await selfCheck({
+        text,
+        ...(activeAssignmentId
+          ? { assignmentId: activeAssignmentId as Id<"assignments"> }
+          : {}),
+      })) as SelfCheckResult;
       setResult(res);
     } catch (err) {
       const msg = getErrorMessage(err, "Self-check failed.");
