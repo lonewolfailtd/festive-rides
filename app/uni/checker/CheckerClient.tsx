@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import ToolChat from "../ToolChat";
 import { useStoredState } from "@/lib/useStoredState";
 import { extractPdfText } from "@/lib/extractPdfText";
 import { extractDocxText } from "@/lib/extractDocxText";
@@ -868,6 +869,19 @@ export default function CheckerClient() {
               </ul>
             </section>
           )}
+
+          <div className="mt-8">
+            <ToolChat
+              tool="checker"
+              title="Ask about this result"
+              context={JSON.stringify(result, null, 2)}
+              suggestions={[
+                "Why was this flagged as AI?",
+                "How do I make a flagged bit sound human?",
+                "What does the Turnitin projection mean?",
+              ]}
+            />
+          </div>
         </motion.div>
       )}
 

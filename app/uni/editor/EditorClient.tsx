@@ -14,6 +14,7 @@ import PageHeader from "../PageHeader";
 import { extractPdfText } from "@/lib/extractPdfText";
 import { extractDocxText } from "@/lib/extractDocxText";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import ToolChat from "../ToolChat";
 
 interface Issue {
   category: "spelling" | "grammar" | "punctuation" | "tereo" | "style" | "structure";
@@ -985,6 +986,53 @@ export default function EditorClient() {
                 )}
             </section>
           )}
+
+          {/* Ask about these edits */}
+          <ToolChat
+            tool="nzEditor"
+            title="Ask about these edits"
+            context={[
+              `Summary: ${result.summary}`,
+              `Total issues: ${result.totalIssues}`,
+              "",
+              "Issues:",
+              ...result.issues.map(
+                (i) =>
+                  `- [${i.category} / ${i.severity}] "${i.where}"\n  Problem: ${i.problem}\n  Fix: ${i.suggestion}\n  Rule: ${i.rule}`,
+              ),
+              ...(result.structureNotes
+                ? [
+                    "",
+                    "Structure notes:",
+                    result.structureNotes.introduction
+                      ? `- Introduction: ${result.structureNotes.introduction}`
+                      : "",
+                    result.structureNotes.bodyParagraphs
+                      ? `- Body paragraphs: ${result.structureNotes.bodyParagraphs}`
+                      : "",
+                    result.structureNotes.conclusion
+                      ? `- Conclusion: ${result.structureNotes.conclusion}`
+                      : "",
+                    result.structureNotes.flow
+                      ? `- Flow: ${result.structureNotes.flow}`
+                      : "",
+                    ...(result.structureNotes.topImprovements?.length
+                      ? [
+                          "- Top improvements:",
+                          ...result.structureNotes.topImprovements.map(
+                            (t) => `  - ${t}`,
+                          ),
+                        ]
+                      : []),
+                  ].filter(Boolean)
+                : []),
+            ].join("\n")}
+            suggestions={[
+              "Explain this grammar issue",
+              "Why is this a structure problem?",
+              "How should I rewrite this section?",
+            ]}
+          />
 
           {/* Copy summary */}
           <div className="flex justify-end">

@@ -17,6 +17,7 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import ToolChat from "../ToolChat";
 import { extractPdfText } from "@/lib/extractPdfText";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import { buildCitations } from "@/lib/apaCitations";
@@ -1162,6 +1163,18 @@ export default function ArticleQAClient() {
               Copy notes as markdown
             </button>
           </div>
+
+          {/* Ask-about-this-result chat — scoped to the answers on screen */}
+          <ToolChat
+            tool="articleQA"
+            title="Ask about this article"
+            suggestions={[
+              "What else does this source say about my topic?",
+              "Is this quote relevant to question 2?",
+              "Summarise the method",
+            ]}
+            context={JSON.stringify(result, null, 2)}
+          />
         </motion.div>
       )}
     </main>

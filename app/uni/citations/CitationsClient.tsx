@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import ToolChat from "../ToolChat";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 
 const MIN_TEXT = 100;
@@ -441,6 +442,17 @@ export default function CitationsClient() {
               </details>
             </section>
           )}
+
+          <ToolChat
+            tool="citations"
+            title="Ask about this check"
+            context={JSON.stringify(result, null, 2)}
+            suggestions={[
+              "Which citation is missing from my list?",
+              "What does an unused reference mean?",
+              "How do I fix a mismatch?",
+            ]}
+          />
         </motion.div>
       )}
     </main>

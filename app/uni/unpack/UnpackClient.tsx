@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { extractPdfText } from "@/lib/extractPdfText";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import ToolChat from "../ToolChat";
 
 type UnpackResult = {
   // Plain-English comprehension layer — optional so a model response that
@@ -679,6 +680,18 @@ export default function UnpackClient() {
               </Link>
             </div>
           </section>
+
+          {/* Ask about this breakdown */}
+          <ToolChat
+            tool="unpack"
+            title="Ask about this breakdown"
+            context={`Question being unpacked:\n${resultQuestion}\n\nBreakdown:\n${JSON.stringify(result, null, 2)}`}
+            suggestions={[
+              "Expand on approach 2",
+              "What does the command word really want?",
+              "What evidence should I find?",
+            ]}
+          />
         </div>
       )}
     </div>

@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import ToolChat from "../ToolChat";
 import { useStoredState } from "@/lib/useStoredState";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 
@@ -600,6 +601,19 @@ export default function CoachClient() {
               </details>
             </section>
           )}
+
+          <div className="mt-8">
+            <ToolChat
+              tool="coach"
+              title="Ask about this feedback"
+              context={buildMarkdown(result)}
+              suggestions={[
+                "Explain the structure score",
+                "How do I fix the top improvement?",
+                "Give me an example for one of these",
+              ]}
+            />
+          </div>
         </motion.div>
       )}
     </main>

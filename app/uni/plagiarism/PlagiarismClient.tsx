@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import ToolChat from "../ToolChat";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type RiskLevel = "low" | "medium" | "high";
@@ -340,6 +341,17 @@ export default function PlagiarismClient() {
               </details>
             </section>
           )}
+
+          <ToolChat
+            tool="plagiarism"
+            title="Ask about these flags"
+            context={JSON.stringify(result, null, 2)}
+            suggestions={[
+              "How do I rephrase this flagged bit?",
+              "Why does this read as copied?",
+              "Is this actually a problem?",
+            ]}
+          />
         </motion.div>
       )}
     </main>

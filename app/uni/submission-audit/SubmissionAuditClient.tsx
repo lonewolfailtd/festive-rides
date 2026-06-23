@@ -21,6 +21,7 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import ToolChat from "../ToolChat";
 import { extractPdfText } from "@/lib/extractPdfText";
 import { extractDocxText } from "@/lib/extractDocxText";
 import { getErrorMessage } from "@/lib/getErrorMessage";
@@ -1003,6 +1004,19 @@ export default function SubmissionAuditClient() {
             >
               Copy as markdown
             </button>
+          </div>
+
+          <div className="mt-8">
+            <ToolChat
+              tool="submissionAudit"
+              title="Ask about this audit"
+              context={JSON.stringify(result, null, 2)}
+              suggestions={[
+                "Which gap should I fix first?",
+                "How do I cover a partial criterion?",
+                "Why is this criterion missing?",
+              ]}
+            />
           </div>
         </motion.div>
       )}

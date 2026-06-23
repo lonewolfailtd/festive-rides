@@ -10,6 +10,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import ToolChat from "../ToolChat";
 
 interface BuildResult {
   componentsToDefine: { component: string; prompt: string }[];
@@ -279,6 +280,30 @@ export default function ResearchQuestionClient() {
               </ul>
             </section>
           )}
+
+          {/* Ask about this */}
+          <ToolChat
+            tool="researchQuestion"
+            title="Ask about this"
+            context={[
+              futureDirection.trim()
+                ? `Future direction: ${futureDirection.trim()}`
+                : "",
+              draftQuestion.trim()
+                ? `Draft question: ${draftQuestion.trim()}`
+                : "",
+              "",
+              "Scaffold:",
+              JSON.stringify(result, null, 2),
+            ]
+              .filter(Boolean)
+              .join("\n")}
+            suggestions={[
+              "Is my question testable?",
+              "Help me tighten the scope",
+              "Explain one of these frames",
+            ]}
+          />
         </div>
       )}
     </main>

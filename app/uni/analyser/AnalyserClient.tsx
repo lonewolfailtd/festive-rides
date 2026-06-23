@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
 import EmptyState from "../EmptyState";
+import ToolChat from "../ToolChat";
 import { extractPdfText } from "@/lib/extractPdfText";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 
@@ -1777,6 +1778,19 @@ export default function AnalyserClient() {
               )}
             </section>
           )}
+
+          <div className="mt-8">
+            <ToolChat
+              tool="analyser"
+              title="Ask about this analysis"
+              context={buildMarkdown(result)}
+              suggestions={[
+                "Explain the suggested outline",
+                "What sources should I look for?",
+                "What is this brief really asking?",
+              ]}
+            />
+          </div>
         </motion.div>
       )}
     </main>

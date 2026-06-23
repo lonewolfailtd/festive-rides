@@ -1,0 +1,16 @@
+Per-page "ask about this result" chat on the tool pages
+
+Adds a reusable ToolChat panel that sits under the output on each tool
+page, so the student can interrogate the result in front of them -
+explain a point, expand a recommendation, show how to act on it. Scoped
+to the on-screen result only: stateless backend (toolChat.ask) takes the
+serialised result plus the running conversation each turn, same coach-
+not-author guardrail, NZ style and em-dash scrub, with a model picker.
+
+Wired into all twelve result-producing pages: Draft Coach, Submission
+Audit, Assignment Analyser, AI Checker, NZ Editor, Question Unpacker,
+Research Question Builder, Article Q&A, Source Lens, Plagiarism, APA
+Check and Citations. Extracted the safe Markdown renderer into a shared
+ChatMarkdown component used by both the dashboard tutor and these panels.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>

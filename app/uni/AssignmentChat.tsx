@@ -15,6 +15,7 @@ import { useStoredState } from "@/lib/useStoredState";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import { extractPdfText } from "@/lib/extractPdfText";
 import { extractDocxText } from "@/lib/extractDocxText";
+import ChatMarkdown from "./ChatMarkdown";
 
 const STORAGE_KEY = "uni-active-assignment-v1";
 const ACTIVE_EVENT = "uni:active-assignment-changed";
@@ -31,62 +32,6 @@ const SUGGESTIONS = [
   "Where is my argument weakest?",
   "Help me plan my next section.",
 ];
-
-// Minimal, safe Markdown renderer — bold, inline code, bullet lists and
-// paragraphs, rendered as React elements (no HTML injection). Enough for
-// the tutor's replies without pulling in a dependency.
-function renderInline(text: string, keyBase: string) {
-  // Split on **bold** and `code` spans.
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((p, i) => {
-    if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
-      return <strong key={`${keyBase}-${i}`}>{p.slice(2, -2)}</strong>;
-    }
-    if (p.startsWith("`") && p.endsWith("`") && p.length > 2) {
-      return (
-        <code key={`${keyBase}-${i}`} className="rounded bg-slate-100 px-1 py-0.5 text-[0.85em] dark:bg-slate-800">
-          {p.slice(1, -1)}
-        </code>
-      );
-    }
-    return <span key={`${keyBase}-${i}`}>{p}</span>;
-  });
-}
-
-function Markdown({ text }: { text: string }) {
-  const lines = text.split("\n");
-  const blocks: React.ReactNode[] = [];
-  let list: string[] = [];
-  const flushList = (key: string) => {
-    if (list.length === 0) return;
-    const items = [...list];
-    blocks.push(
-      <ul key={key} className="my-1 list-disc space-y-0.5 pl-5">
-        {items.map((it, i) => (
-          <li key={i}>{renderInline(it, `${key}-${i}`)}</li>
-        ))}
-      </ul>,
-    );
-    list = [];
-  };
-  lines.forEach((raw, i) => {
-    const line = raw.trimEnd();
-    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
-    if (bullet) {
-      list.push(bullet[1]);
-      return;
-    }
-    flushList(`ul-${i}`);
-    if (line.trim() === "") return;
-    blocks.push(
-      <p key={`p-${i}`} className="my-1">
-        {renderInline(line, `p-${i}`)}
-      </p>,
-    );
-  });
-  flushList("ul-last");
-  return <>{blocks}</>;
-}
 
 export default function AssignmentChat() {
   const assignments = useQuery(api.assignments.list);
@@ -299,7 +244,7 @@ export default function AssignmentChat() {
                   <p className="whitespace-pre-wrap">{m.content}</p>
                 ) : (
                   <div className="leading-relaxed">
-                    <Markdown text={m.content} />
+                    <ChatMarkdown text={m.content} />
                   </div>
                 )}
               </div>

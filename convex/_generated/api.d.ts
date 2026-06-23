@@ -44,6 +44,7 @@ import type * as reverseLookup from "../reverseLookup.js";
 import type * as sourceLens from "../sourceLens.js";
 import type * as sources from "../sources.js";
 import type * as submissionAudit from "../submissionAudit.js";
+import type * as toolChat from "../toolChat.js";
 import type * as usage from "../usage.js";
 import type * as userSettings from "../userSettings.js";
 
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   sourceLens: typeof sourceLens;
   sources: typeof sources;
   submissionAudit: typeof submissionAudit;
+  toolChat: typeof toolChat;
   usage: typeof usage;
   userSettings: typeof userSettings;
 }>;

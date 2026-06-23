@@ -10,6 +10,7 @@
 // See convex/sourceLens.ts for the prompt that produces this shape.
 
 import type { ReactNode } from "react";
+import ToolChat from "./ToolChat";
 
 export type LensResult = {
   relevance: { score: number; verdict: string };
@@ -120,6 +121,7 @@ export function LensPanel(props: {
   };
 
   return (
+    <>
     <div className="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4 text-sm dark:border-violet-900/40 dark:bg-violet-950/20">
       {/* Header: lens icon + relevance score + verdict */}
       <div className="flex flex-wrap items-baseline gap-2">
@@ -291,6 +293,21 @@ export function LensPanel(props: {
         </p>
       )}
     </div>
+
+    {/* Ask-about-this-paper chat — scoped to the lens analysis on screen */}
+    <div className="mt-3">
+      <ToolChat
+        tool="sourceLens"
+        title="Ask about this paper"
+        suggestions={[
+          "Is this source relevant to my assignment?",
+          "What are the key findings?",
+          "How would I cite this point?",
+        ]}
+        context={JSON.stringify(r, null, 2)}
+      />
+    </div>
+    </>
   );
 }
 

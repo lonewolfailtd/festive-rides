@@ -9,6 +9,7 @@ import { useAction } from "convex/react";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "../PageHeader";
+import ToolChat from "../ToolChat";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type Status = "ok" | "minor" | "major";
@@ -193,6 +194,17 @@ export default function ApaCheckClient() {
               </section>
             );
           })}
+
+          <ToolChat
+            tool="apaCheck"
+            title="Ask about these fixes"
+            context={JSON.stringify(result, null, 2)}
+            suggestions={[
+              "Why is this reference wrong?",
+              "Explain the sentence case rule",
+              "How do I format a DOI?",
+            ]}
+          />
         </div>
       )}
     </main>
