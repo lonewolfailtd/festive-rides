@@ -22,6 +22,7 @@ import {
   type LensDeepResult,
 } from "../SourceLensPanel";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import { extractPdfText } from "@/lib/extractPdfText";
 
 const SOURCE_TYPES: SourceType[] = [
   "book",
@@ -519,6 +520,7 @@ export default function ReferencesManager() {
   const lookupIsbn = useAction(api.lookup.isbn);
   const lookupIssn = useAction(api.lookup.issn);
   const lookupUrl = useAction(api.lookup.url);
+  const lookupPdf = useAction(api.lookup.fromPdf);
   // Source Lens action — used to re-run Lens analysis for refs that
   // didn't already have one when they were added.
   const sourceLens = useAction(api.sourceLens.analyse);
@@ -552,6 +554,8 @@ export default function ReferencesManager() {
   const [lookupBusy, setLookupBusy] = useState<null | "doi" | "isbn" | "issn" | "url">(
     null
   );
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const pdfFileRef = useRef<HTMLInputElement | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupInfo, setLookupInfo] = useState<{
     warnings: string[];
@@ -1225,6 +1229,50 @@ export default function ReferencesManager() {
     }
   };
 
+  // Upload a PDF that has no DOI or URL (e.g. a paper a tutor handed out),
+  // pull its text out in the browser, and have the AI read the citation
+  // details into the same review form the other lookups fill.
+  const handlePdfLookup = async (file: File) => {
+    setLookupError(null);
+    setLookupInfo(null);
+    setPdfBusy(true);
+    try {
+      const { text } = await extractPdfText(file, {
+        maxBytes: 25 * 1024 * 1024,
+        maxChars: 12000,
+        minChars: 80,
+        minCharsMessage:
+          "That PDF didn't have selectable text — it may be a scan. Enter the details by hand below.",
+      });
+      const result = await lookupPdf({ text });
+      if (!result || !result.fields) {
+        setLookupError("Couldn't read citation details from that PDF.");
+        return;
+      }
+      setSourceType(result.sourceType as SourceType);
+      setForm((prev) =>
+        applyFieldsToForm(prev, result.fields as Record<string, unknown>),
+      );
+      const info = result as {
+        warnings?: string[];
+        fieldSources?: Record<string, string>;
+        sourcesQueried?: string[];
+        aiReasoning?: string;
+      };
+      setLookupInfo({
+        warnings: info.warnings ?? [],
+        fieldSources: info.fieldSources ?? {},
+        sourcesQueried: info.sourcesQueried ?? [],
+        aiReasoning: info.aiReasoning,
+      });
+      toast.success("Pulled the details from your PDF — check them below, then Save.");
+    } catch (err) {
+      setLookupError(getErrorMessage(err, "Couldn't read that PDF."));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const downloadDocx = () => {
     if (sortedRefs.length === 0) return;
     // APA 7 (Open Polytech 2024): double line spacing within AND between
@@ -1839,6 +1887,32 @@ i { font-style:italic; font-weight:normal; }
               className={buttonPrimary}
             >
               {lookupBusy === "url" ? "Looking up…" : "Look up"}
+            </button>
+          </div>
+          {/* No DOI or URL? Upload the PDF and let the AI read the details. */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              No link or DOI — just the PDF?
+            </span>
+            <input
+              ref={pdfFileRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handlePdfLookup(f);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => pdfFileRef.current?.click()}
+              disabled={pdfBusy || lookupBusy !== null}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-sky-500"
+            >
+              <span aria-hidden>📄</span>
+              {pdfBusy ? "Reading PDF…" : "Upload a PDF and extract the details"}
             </button>
           </div>
         </div>
