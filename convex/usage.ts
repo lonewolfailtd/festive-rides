@@ -20,8 +20,8 @@ import type { Id } from "./_generated/dataModel";
 
 // ---- Tunable caps -------------------------------------------------------
 
-export const DAILY_CALL_CAP = 200; // requests per day
-export const MONTHLY_USD_CAP = 25; // USD-equivalent cap (we track in microcents)
+export const DAILY_CALL_CAP = 400; // requests per day
+export const MONTHLY_USD_CAP = 100; // USD-equivalent cap (we track in microcents)
 export const MONTHLY_MICROCENTS_CAP = MONTHLY_USD_CAP * 100 * 10_000;
 // Warning threshold — show a "approaching limit" toast on the client.
 export const MONTHLY_WARN_FRACTION = 0.8;
