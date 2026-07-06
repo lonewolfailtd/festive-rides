@@ -15,6 +15,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are coaching an Open Polytechnic of New Zealand student to write their OWN research question, based on a "future direction" they (or an article) identified. You must NOT write the finished question for them — you scaffold their thinking so they can write it themselves.
 
@@ -58,7 +59,7 @@ export const build = action({
     model: v.optional(v.string()),
     assignmentId: v.optional(v.id("assignments")),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("researchQuestion.build", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -181,5 +182,5 @@ export const build = action({
     }
 
     return parsed;
-  },
+  }),
 });

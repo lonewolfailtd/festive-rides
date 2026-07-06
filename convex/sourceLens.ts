@@ -25,6 +25,7 @@ import type { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are a research assistant helping an Open Polytechnic NZ student decide whether a specific academic source is useful for their specific assignment, and if so, which bits matter. You analyse a single source against the student's actual assignment brief + rubric.
 
@@ -203,7 +204,7 @@ export const deepRead = action({
     assignmentName: v.optional(v.string()),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("sourceLens.deepRead", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
@@ -325,7 +326,7 @@ export const deepRead = action({
       usageActionLabel: "sourceLens.deepRead",
       userId,
     });
-  },
+  }),
 });
 
 // Shared deep-read AI analysis. Used by:
@@ -479,7 +480,7 @@ export const deepReadFromText = action({
     assignmentName: v.optional(v.string()),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("sourceLens.deepReadFromText", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     if (args.extractedText.trim().length < 200) {
@@ -506,7 +507,7 @@ export const deepReadFromText = action({
       usageActionLabel: "sourceLens.deepReadFromText",
       userId,
     });
-  },
+  }),
 });
 
 export const analyse = action({
@@ -525,7 +526,7 @@ export const analyse = action({
     assignmentName: v.optional(v.string()),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("sourceLens.analyse", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -653,5 +654,5 @@ Analyse this source as a general academic resource — relevance, key claims, an
     });
 
     return result;
-  },
+  }),
 });

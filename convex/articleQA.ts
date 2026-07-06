@@ -19,6 +19,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are a research assistant helping an Open Polytechnic NZ student answer specific questions about an academic article they're studying. They give you the full text of the article (extracted from a PDF) and a list of questions from their assignment. Your job: extract the factual answers from the article and provide verbatim supporting quotes the student can cite.
 
@@ -127,7 +128,7 @@ export const extractQuestions = action({
     assignmentBrief: v.string(),
     taskFilter: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("articleQA.extractQuestions", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -186,7 +187,7 @@ Extract the questions the student needs to answer when reading their research ar
       questions: parsed.questions ?? [],
       detectedTasks: parsed.detectedTasks ?? [],
     };
-  },
+  }),
 });
 
 export const answer = action({
@@ -197,7 +198,7 @@ export const answer = action({
     assignmentName: v.optional(v.string()),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("articleQA.answer", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -226,7 +227,7 @@ export const answer = action({
         : args.extractedText;
 
     const questionsBlock = args.questions
-      .map((q, i) => `${i + 1}. ${q.trim()}`)
+      .map((q: string, i: number) => `${i + 1}. ${q.trim()}`)
       .join("\n");
 
     const assignmentBlock = args.assignmentBrief
@@ -321,5 +322,5 @@ Answer each question with facts from the article and verbatim supporting quotes.
     });
 
     return result;
-  },
+  }),
 });

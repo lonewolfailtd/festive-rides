@@ -139,6 +139,66 @@ export async function callOpenRouterDetailed(
   };
 }
 
+// Repair the most common ways an LLM breaks its own JSON: raw newlines or
+// tabs left unescaped inside strings, a response cut off mid-string or
+// mid-object (hit the token ceiling), a dangling "key": with no value, and
+// trailing commas. Single left-to-right pass: escape control chars inside
+// strings, track the bracket stack, then close anything still open so the
+// completed items are recovered rather than the whole response thrown away.
+function repairJson(s: string): string {
+  let out = "";
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) {
+        out += c;
+        esc = false;
+      } else if (c === "\\") {
+        out += c;
+        esc = true;
+      } else if (c === '"') {
+        out += c;
+        inStr = false;
+      } else if (c === "\n") {
+        out += "\\n";
+      } else if (c === "\r") {
+        out += "\\r";
+      } else if (c === "\t") {
+        out += "\\t";
+      } else {
+        out += c;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      out += c;
+    } else if (c === "{") {
+      stack.push("}");
+      out += c;
+    } else if (c === "[") {
+      stack.push("]");
+      out += c;
+    } else if (c === "}" || c === "]") {
+      if (stack.length) stack.pop();
+      out += c;
+    } else {
+      out += c;
+    }
+  }
+  if (inStr) out += '"'; // close a string cut off mid-value
+  out = out.replace(/\s+$/, "");
+  out = out.replace(/,\s*$/, ""); // trailing comma
+  // Drop a dangling "key": (or "key" ) with no value, then any comma it left.
+  out = out.replace(/"[^"\\]*"\s*:\s*$/, "").replace(/,\s*$/, "");
+  out = out.replace(/"[^"\\]*"\s*$/, "").replace(/,\s*$/, "");
+  for (let i = stack.length - 1; i >= 0; i--) out += stack[i];
+  return out;
+}
+
 export function safeJsonParse<T = unknown>(raw: string): T {
   // Some models occasionally wrap JSON in markdown fences. Strip them.
   const cleaned = raw
@@ -147,9 +207,15 @@ export function safeJsonParse<T = unknown>(raw: string): T {
     .trim();
   try {
     return JSON.parse(cleaned) as T;
-  } catch (err) {
-    throw new Error(
-      `Could not parse model output as JSON: ${err instanceof Error ? err.message : String(err)}`
-    );
+  } catch (firstErr) {
+    // Models sometimes emit invalid or truncated JSON. Try to repair it and
+    // recover the complete part rather than failing the whole tool call.
+    try {
+      return JSON.parse(repairJson(cleaned)) as T;
+    } catch {
+      throw new Error(
+        `Could not parse model output as JSON: ${firstErr instanceof Error ? firstErr.message : String(firstErr)}`,
+      );
+    }
   }
 }

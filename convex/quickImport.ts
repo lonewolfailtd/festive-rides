@@ -22,6 +22,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an academic study coach for Open Polytechnic of New Zealand students. The student has uploaded an assignment brief and wants you to set up their workspace automatically.
 
@@ -123,7 +124,7 @@ export const importBrief = action({
     text: v.string(),
     fileName: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<QuickImportResult> => {
+  handler: logErrors("quickImport.importBrief", async (ctx, args): Promise<QuickImportResult> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -306,5 +307,5 @@ export const importBrief = action({
       isNewCourse,
       dueDateDetected: dueDate !== undefined,
     };
-  },
+  }),
 });

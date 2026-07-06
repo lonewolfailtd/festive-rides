@@ -24,6 +24,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an experienced Open Polytechnic NZ marker auditing a student's FINISHED draft against the EXACT rubric the marker will use. Your job is to HIGHLIGHT gaps and give DIRECTION — never to write the missing content for the student. They must do their own work.
 
@@ -223,7 +224,7 @@ export const audit = action({
     assignmentId: v.optional(v.id("assignments")),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("submissionAudit.audit", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -374,5 +375,5 @@ export const audit = action({
     }
 
     return result;
-  },
+  }),
 });

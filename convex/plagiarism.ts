@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 // Plagiarism Self-Check. NOT a real plagiarism checker — we cannot query
 // Turnitin's database. This flags 6-12 word phrases that LOOK plagiarised
@@ -50,7 +51,7 @@ export const selfCheck = action({
     model: v.optional(v.string()),
     assignmentId: v.optional(v.id("assignments")),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("plagiarism.selfCheck", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.text.trim();
@@ -130,5 +131,5 @@ export const selfCheck = action({
     }
 
     return parsed;
-  },
+  }),
 });

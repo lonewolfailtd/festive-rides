@@ -15,6 +15,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an APA 7th edition referencing checker for Open Polytechnic of New Zealand students. The student pastes a finished reference list (one or more entries). Check each entry against APA 7 rules and report problems. You are validating, NOT rewriting their research — only fix formatting.
 
@@ -50,7 +51,7 @@ export const review = action({
     referenceList: v.string(),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("apaReview.review", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -91,5 +92,5 @@ export const review = action({
     });
 
     return parsed;
-  },
+  }),
 });

@@ -18,6 +18,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { api, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an academic mentor for an Open Polytechnic of New Zealand student. You are given the marker feedback from several of their past assignments. Find the RECURRING patterns — the things that come up again and again — so the student knows exactly what to focus on next time.
 
@@ -45,7 +46,7 @@ Rules:
 
 export const analysePatterns = action({
   args: { model: v.optional(v.string()) },
-  handler: async (ctx, args) => {
+  handler: logErrors("feedbackMemory.analysePatterns", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -107,5 +108,5 @@ export const analysePatterns = action({
     });
 
     return { result: parsed, assignmentsAnalysed: withFeedback.length };
-  },
+  }),
 });

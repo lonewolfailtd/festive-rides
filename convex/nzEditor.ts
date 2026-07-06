@@ -10,6 +10,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an experienced NZ academic editor marking Open Polytechnic undergraduate essays in APA 7. Catch real errors, explain briefly, output JSON only.
 
@@ -239,7 +240,7 @@ export const editChunk = action({
     chunkIndex: v.number(),
     totalChunks: v.number(),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("nzEditor.editChunk", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
@@ -314,7 +315,7 @@ export const editChunk = action({
     });
 
     return result;
-  },
+  }),
 });
 
 // Analyse the WHOLE draft for structure. Runs in parallel with the
@@ -323,7 +324,7 @@ export const analyseStructure = action({
   args: {
     text: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("nzEditor.analyseStructure", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
@@ -350,7 +351,7 @@ export const analyseStructure = action({
     });
 
     return result;
-  },
+  }),
 });
 
 export const edit = action({
@@ -359,7 +360,7 @@ export const edit = action({
     model: v.optional(v.string()),
     assignmentId: v.optional(v.id("assignments")),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("nzEditor.edit", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.text.trim();
@@ -563,5 +564,5 @@ export const edit = action({
     }
 
     return result;
-  },
+  }),
 });

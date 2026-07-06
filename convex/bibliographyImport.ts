@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an APA 7 reference parser for Open Polytechnic of New Zealand students. The student will paste a chunk of references in any format — Word doc reference list, EndNote export, mixed APA 6 + APA 7, poorly formatted bibliography, whatever. Your job is to extract every distinct reference and normalise it to strict APA 7.
 
@@ -60,7 +61,7 @@ export const parse = action({
     text: v.string(),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("bibliographyImport.parse", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const trimmed = args.text.trim();
@@ -96,5 +97,5 @@ export const parse = action({
       outputTokens: usage.outputTokens,
     });
     return parsed;
-  },
+  }),
 });

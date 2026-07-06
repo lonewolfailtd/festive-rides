@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
 import { api, internal } from "./_generated/api";
+import { logErrors } from "./errorLog";
 
 // Citation Extractor — pulls every in-text citation out of a draft, then
 // cross-checks them against the student's saved references list.
@@ -122,7 +123,7 @@ export const extract = action({
     assignmentId: v.optional(v.id("assignments")),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("citations.extract", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -206,5 +207,5 @@ export const extract = action({
       totalCitations: citations.length,
       totalRefs: refs.length,
     };
-  },
+  }),
 });

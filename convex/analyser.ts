@@ -6,6 +6,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 const SYSTEM_PROMPT = `You are an academic study coach for Open Polytechnic of New Zealand students working on assignments referenced in APA 7.
 
@@ -78,7 +79,7 @@ export const analyse = action({
     assignmentId: v.optional(v.id("assignments")),
     model: v.optional(v.string()),
   },
-  handler: async (
+  handler: logErrors("analyser.analyse", async (
     ctx,
     args
   ): Promise<{ id: Id<"analyses">; result: unknown }> => {
@@ -126,7 +127,7 @@ export const analyse = action({
     });
 
     return { id, result };
-  },
+  }),
 });
 
 // Iterate on an existing analysis with feedback. Re-runs the AI with the
@@ -138,7 +139,7 @@ export const iterate = action({
     feedback: v.string(),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<{ result: unknown }> => {
+  handler: logErrors("analyser.iterate", async (ctx, args): Promise<{ result: unknown }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     if (args.feedback.trim().length < 5) {
@@ -192,7 +193,7 @@ ${args.feedback.trim()}`;
       modelUsed,
     });
     return { result };
-  },
+  }),
 });
 
 // Rubric mapper — takes an existing analysis and produces a mapping from
@@ -230,7 +231,7 @@ export const mapRubric = action({
     id: v.id("analyses"),
     model: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<{ mapping: unknown }> => {
+  handler: logErrors("analyser.mapRubric", async (ctx, args): Promise<{ mapping: unknown }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
     const existing = (await ctx.runQuery(internal.analysisStore._getInternal, {
@@ -263,5 +264,5 @@ export const mapRubric = action({
       outputTokens: usage.outputTokens,
     });
     return { mapping };
-  },
+  }),
 });

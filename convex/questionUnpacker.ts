@@ -27,6 +27,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { callOpenRouterDetailed, safeJsonParse } from "./openrouter";
+import { logErrors } from "./errorLog";
 
 // =============================================================
 // extractTasks — Flash-tier
@@ -56,7 +57,7 @@ export const extractTasks = action({
   args: {
     briefText: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("questionUnpacker.extractTasks", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -117,7 +118,7 @@ export const extractTasks = action({
       .filter((t) => t.label.length > 0 && t.fullText.length > 0);
 
     return { tasks };
-  },
+  }),
 });
 
 // =============================================================
@@ -207,7 +208,7 @@ export const unpack = action({
     model: v.optional(v.string()),
     assignmentId: v.optional(v.id("assignments")),
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("questionUnpacker.unpack", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -364,5 +365,5 @@ export const unpack = action({
     }
 
     return { result, modelUsed: r.modelUsed };
-  },
+  }),
 });
