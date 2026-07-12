@@ -374,8 +374,15 @@ export const search = action({
     // Map OpenAlex into the unified NormalisedResult shape so we can
     // merge with Semantic Scholar's results below.
     const openalexResults: NormalisedResult[] = oaWorks.map((w) => {
-      const sourceName = w.primary_location?.source?.display_name;
-      const isJournal = w.type === "journal-article";
+      const source = w.primary_location?.source;
+      const sourceName = source?.display_name;
+      // Key off the VENUE type, not the work type. OpenAlex types reviews,
+      // meta-analyses, letters and editorials as "review"/"article" rather
+      // than "journal-article", but they still belong in a journal — so
+      // check whether the source itself is a journal. This stops the
+      // journal name being dropped (and misfiled as publisher) for review
+      // and meta-analysis articles.
+      const isJournal = source?.type === "journal" || w.type === "journal-article";
       return {
         id: w.id,
         title: w.title ?? w.display_name ?? "(untitled)",

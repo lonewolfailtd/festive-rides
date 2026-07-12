@@ -1,7 +1,22 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
+
+// Maintenance helper (run from the CLI, not exposed to clients): merge a
+// partial fields patch into a stored reference. Used to backfill data an
+// import left blank (e.g. a missing journal name). Does not touch the
+// formatted string — refresh formatting in the UI regenerates that.
+export const adminSetFields = internalMutation({
+  args: { id: v.id("references"), patch: v.any() },
+  handler: async (ctx, { id, patch }) => {
+    const r = await ctx.db.get(id);
+    if (!r) throw new Error("reference not found");
+    await ctx.db.patch(id, {
+      fields: { ...((r.fields as Record<string, unknown>) ?? {}), ...(patch as Record<string, unknown>) },
+    });
+  },
+});
 
 async function requireUserId(ctx: Parameters<typeof getAuthUserId>[0]) {
   const userId = await getAuthUserId(ctx);
