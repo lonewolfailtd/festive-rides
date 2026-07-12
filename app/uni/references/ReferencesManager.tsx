@@ -142,6 +142,7 @@ function buildSourceFields(type: SourceType, f: FormState): SourceFields | null 
           chapterTitle: f.chapterTitle,
           editors: cleanEditors,
           bookTitle: f.bookTitle,
+          volume: f.volume || undefined,
           pageStart: f.pageStart || undefined,
           pageEnd: f.pageEnd || undefined,
           edition: f.edition || undefined,
@@ -2188,6 +2189,23 @@ i { font-style:italic; font-weight:normal; }
                   />
                 </div>
                 <div>
+                  <span className={labelStyle}>Volume (optional)</span>
+                  <input
+                    value={form.volume}
+                    onChange={(e) => update("volume", e.target.value)}
+                    placeholder="e.g. 2 (for a multi-volume work)"
+                    className={inputStyle}
+                  />
+                </div>
+                <div>
+                  <span className={labelStyle}>Edition (optional)</span>
+                  <input
+                    value={form.edition}
+                    onChange={(e) => update("edition", e.target.value)}
+                    className={inputStyle}
+                  />
+                </div>
+                <div>
                   <span className={labelStyle}>Page start</span>
                   <input
                     value={form.pageStart}
@@ -2200,14 +2218,6 @@ i { font-style:italic; font-weight:normal; }
                   <input
                     value={form.pageEnd}
                     onChange={(e) => update("pageEnd", e.target.value)}
-                    className={inputStyle}
-                  />
-                </div>
-                <div>
-                  <span className={labelStyle}>Edition (optional)</span>
-                  <input
-                    value={form.edition}
-                    onChange={(e) => update("edition", e.target.value)}
                     className={inputStyle}
                   />
                 </div>

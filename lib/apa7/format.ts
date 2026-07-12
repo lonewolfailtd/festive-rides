@@ -184,9 +184,11 @@ const buildBookChapter = (f: BookChapterFields): { html: string; plain: string }
   const editorsRaw = formatAuthorList(f.editors);
   const editorsLabel = f.editors.length > 1 ? "Eds." : "Ed.";
   const pages = pageRange(f.pageStart, f.pageEnd);
-  // APA 7: book title is italic; (edition, pp. xx-xx) parens are NOT italic.
+  // APA 7: book title is italic; (edition, Vol. x, pp. xx-xx) parens are NOT
+  // italic. Order per APA 7: edition, then volume, then pages.
   const parenParts: string[] = [];
   if (f.edition) parenParts.push(f.edition);
+  if (f.volume) parenParts.push(`Vol. ${f.volume}`);
   if (pages) parenParts.push(`pp. ${pages}`);
   const parenSuffix = parenParts.length > 0 ? ` (${t(parenParts.join(", "))})` : "";
   const parenSuffixPlain = parenParts.length > 0 ? ` (${parenParts.join(", ")})` : "";

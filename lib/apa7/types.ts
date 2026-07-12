@@ -20,6 +20,7 @@ export interface BookChapterFields {
   chapterTitle: string;
   editors: Author[];
   bookTitle: string;
+  volume?: string; // for chapters in a multi-volume work, e.g. "Vol. 2"
   pageStart?: string;
   pageEnd?: string;
   edition?: string;
