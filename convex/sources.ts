@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { logErrors } from "./errorLog";
 
 // OpenAlex source-finder. Free, no key required.
 // Docs: https://docs.openalex.org
@@ -294,7 +295,7 @@ export const search = action({
     nzAuthoredOnly: v.optional(v.boolean()),
     sortBy: v.optional(v.string()), // "relevance" | "cited" | "newest" | "oldest"
   },
-  handler: async (ctx, args) => {
+  handler: logErrors("sources.search", async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not signed in");
 
@@ -342,11 +343,27 @@ export const search = action({
     const sortFilter = args.sortBy ? SORT_BY_FILTER[args.sortBy] : null;
     if (sortFilter) params.set("sort", sortFilter);
 
-    const res = await fetch(`https://api.openalex.org/works?${params.toString()}`, {
-      headers: {
-        "User-Agent": "UniCitationTool/1.0 (mailto:contact@lonewolfaisolutions.com)",
-      },
-    });
+    // OpenAlex occasionally returns a transient 5xx or drops the
+    // connection. Retry once after a short pause before surfacing an
+    // error — most blips clear immediately and the student never sees
+    // them. A network throw is treated the same as a 5xx.
+    const fetchOpenAlex = async () =>
+      await fetch(`https://api.openalex.org/works?${params.toString()}`, {
+        headers: {
+          "User-Agent": "UniCitationTool/1.0 (mailto:contact@lonewolfaisolutions.com)",
+        },
+      });
+    let res: Response;
+    try {
+      res = await fetchOpenAlex();
+      if (res.status >= 500) {
+        await new Promise((r) => setTimeout(r, 1200));
+        res = await fetchOpenAlex();
+      }
+    } catch {
+      await new Promise((r) => setTimeout(r, 1200));
+      res = await fetchOpenAlex();
+    }
     if (!res.ok) {
       // OpenAlex sometimes goes down for short periods (Heroku-style
       // 5xx with an "Application Error" HTML page). Surface that as a
@@ -425,5 +442,5 @@ export const search = action({
       total: json.meta?.count ?? merged.length,
       results: merged.map(({ sources: _sources, ...rest }) => rest),
     };
-  },
+  }),
 });
