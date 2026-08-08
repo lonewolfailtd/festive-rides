@@ -71,19 +71,50 @@ export const coach = action({
     }
 
     await ctx.runQuery(internal.usage.enforceQuota, { userId });
-    const { content: raw, modelUsed, usage } = await callOpenRouterDetailed({
-      // DeepSeek V4 Pro by default — sharper scoring + less generic
-      // critique than Flash, ~10× cheaper than Gemini Pro for this
-      // mid-stakes "draft feedback" job. Caller can override.
-      model: args.model ?? "deepseek/deepseek-v4-pro",
-      responseFormatJson: true,
-      temperature: 0.3,
-      maxTokens: 4000,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildPrompt(trimmed, args.brief) },
-      ],
-    });
+    // DeepSeek V4 Pro by default — sharper scoring + less generic
+    // critique than Flash, ~10× cheaper than Gemini Pro for this
+    // mid-stakes "draft feedback" job. Caller can override.
+    const primaryModel = args.model ?? "deepseek/deepseek-v4-pro";
+    const callCoach = (model: string) =>
+      callOpenRouterDetailed({
+        model,
+        responseFormatJson: true,
+        temperature: 0.3,
+        // Long drafts need room: a truncated reply used to come back as
+        // unterminated JSON, and an over-long one as an empty response.
+        maxTokens: 6000,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildPrompt(trimmed, args.brief) },
+        ],
+      });
+
+    let raw: string;
+    let modelUsed: string;
+    let usage: { inputTokens: number; outputTokens: number };
+    try {
+      const r = await callCoach(primaryModel);
+      raw = r.content;
+      modelUsed = r.modelUsed;
+      usage = r.usage;
+    } catch (err) {
+      // The primary returned nothing (timeout / content filter) or
+      // errored. Fall back to Flash — same job, different provider path
+      // — rather than failing the whole review. Don't retry the same
+      // model that just failed.
+      const fallback =
+        primaryModel === "deepseek/deepseek-v4-flash"
+          ? "deepseek/deepseek-v4-pro"
+          : "deepseek/deepseek-v4-flash";
+      // eslint-disable-next-line no-console
+      console.warn(
+        `coach.coach: ${primaryModel} failed (${err instanceof Error ? err.message : String(err)}). Falling back to ${fallback}.`,
+      );
+      const r = await callCoach(fallback);
+      raw = r.content;
+      modelUsed = r.modelUsed;
+      usage = r.usage;
+    }
 
     const parsed = safeJsonParse(raw);
     await ctx.runMutation(internal.usage.recordUsage, {
