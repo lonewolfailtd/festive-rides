@@ -37,6 +37,9 @@ export interface JournalArticleFields {
   issue?: string;
   pageStart?: string;
   pageEnd?: string;
+  // Online-only journals often assign an article number (e.g. "e1440")
+  // instead of a page range. APA 7 renders it as "Article e1440".
+  articleNumber?: string;
   doi?: string;
   url?: string;
 }

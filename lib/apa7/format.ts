@@ -234,16 +234,24 @@ const buildJournal = (f: JournalArticleFields): { html: string; plain: string } 
       : f.volume
     : "";
 
+  // APA 7: online-only journals that assign an article number instead of
+  // a page range render as "Article e1440". Pages win when both exist.
+  const locator = pages
+    ? pages
+    : f.articleNumber
+      ? `Article ${f.articleNumber}`
+      : "";
+
   const journalAndDetails: string[] = [];
   if (f.journal) journalAndDetails.push(i(f.journal));
   if (volIssue) journalAndDetails.push(volIssue);
-  if (pages) journalAndDetails.push(t(pages));
+  if (locator) journalAndDetails.push(t(locator));
   const journalPart = journalAndDetails.join(", ");
 
   const journalAndDetailsPlain: string[] = [];
   if (f.journal) journalAndDetailsPlain.push(f.journal);
   if (volIssuePlain) journalAndDetailsPlain.push(volIssuePlain);
-  if (pages) journalAndDetailsPlain.push(pages);
+  if (locator) journalAndDetailsPlain.push(locator);
   const journalPartPlain = journalAndDetailsPlain.join(", ");
 
   const link = doiUrl(f.doi) ?? f.url;

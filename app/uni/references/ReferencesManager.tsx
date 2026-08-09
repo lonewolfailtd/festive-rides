@@ -53,6 +53,7 @@ type FormState = {
   bookTitle: string;
   pageStart: string;
   pageEnd: string;
+  articleNumber: string;
   // Journal
   journal: string;
   volume: string;
@@ -86,6 +87,7 @@ const emptyForm = (): FormState => ({
   bookTitle: "",
   pageStart: "",
   pageEnd: "",
+  articleNumber: "",
   journal: "",
   volume: "",
   issue: "",
@@ -163,6 +165,7 @@ function buildSourceFields(type: SourceType, f: FormState): SourceFields | null 
           issue: f.issue || undefined,
           pageStart: f.pageStart || undefined,
           pageEnd: f.pageEnd || undefined,
+          articleNumber: f.articleNumber || undefined,
           doi: f.doi || undefined,
           url: f.url || undefined,
         },
@@ -403,6 +406,7 @@ function applyFieldsToForm(
     "bookTitle",
     "pageStart",
     "pageEnd",
+    "articleNumber",
     "journal",
     "volume",
     "issue",
@@ -2272,6 +2276,15 @@ i { font-style:italic; font-weight:normal; }
                 <input
                   value={form.pageEnd}
                   onChange={(e) => update("pageEnd", e.target.value)}
+                  className={inputStyle}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <span className={labelStyle}>Article number (online-only journals)</span>
+                <input
+                  value={form.articleNumber}
+                  onChange={(e) => update("articleNumber", e.target.value)}
+                  placeholder="e.g. e1440 — use instead of page numbers when the journal has no pages"
                   className={inputStyle}
                 />
               </div>

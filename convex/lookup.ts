@@ -27,6 +27,7 @@ interface NormalisedFields {
   issue?: string;
   pageStart?: string;
   pageEnd?: string;
+  articleNumber?: string;
   doi?: string;
   url?: string;
   monthDay?: string;
@@ -54,6 +55,7 @@ interface CrossRefMessage {
   volume?: string;
   issue?: string;
   page?: string;
+  "article-number"?: string;
   author?: CrossRefAuthor[];
   editor?: CrossRefAuthor[];
   issued?: { "date-parts"?: number[][] };
@@ -130,6 +132,8 @@ async function crossRefLookup(
       issue: m.issue ?? "",
       pageStart: pages[0]?.trim() ?? "",
       pageEnd: pages[1]?.trim() ?? "",
+      // Online-only journals use an article number in place of pages.
+      articleNumber: m["article-number"] ?? "",
       doi: m.DOI ?? cleaned,
       url: m.URL,
     },
@@ -438,6 +442,7 @@ const AI_DISAMBIGUATION_FIELDS = [
   "issue",
   "pageStart",
   "pageEnd",
+  "articleNumber",
   "doi",
 ] as const;
 
@@ -479,6 +484,7 @@ interface AICorrections {
   issue?: string;
   pageStart?: string;
   pageEnd?: string;
+  articleNumber?: string;
   doi?: string;
   reasoning?: string;
 }
@@ -617,6 +623,7 @@ const FIELDS_TO_MERGE: (keyof NormalisedFields)[] = [
   "issue",
   "pageStart",
   "pageEnd",
+  "articleNumber",
   "doi",
   "url",
   "monthDay",
