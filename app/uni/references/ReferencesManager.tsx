@@ -113,6 +113,49 @@ const buttonSecondary =
 const buttonGhost =
   "text-xs text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100";
 
+// Which required fields are still blank for this source type. Mirrors the
+// guard clauses in buildSourceFields so the save error can name the exact
+// fields instead of a vague "fill in the required fields" — the usual
+// cause is an import (PDF/lookup) that couldn't find one of them.
+function missingRequiredFields(type: SourceType, f: FormState): string[] {
+  const miss: string[] = [];
+  const need = (ok: boolean, label: string) => {
+    if (!ok) miss.push(label);
+  };
+  switch (type) {
+    case "book":
+    case "editedBook":
+    case "report":
+      need(!!f.title.trim(), "Title");
+      break;
+    case "bookChapter":
+      need(!!f.chapterTitle.trim(), "Chapter title");
+      need(!!f.bookTitle.trim(), "Book title");
+      break;
+    case "journalArticle":
+      need(!!f.title.trim(), "Title");
+      need(!!f.journal.trim(), "Journal name");
+      break;
+    case "website":
+      need(!!f.title.trim(), "Title");
+      need(!!f.url.trim(), "URL");
+      break;
+    case "newsArticle":
+      need(!!f.title.trim(), "Title");
+      need(!!f.source.trim(), "Source (publication)");
+      break;
+    case "onlineVideo":
+      need(!!f.title.trim(), "Title");
+      need(!!f.url.trim(), "URL");
+      break;
+    case "aiTool":
+      need(!!f.toolName.trim(), "Tool name");
+      need(!!f.maker.trim(), "Maker");
+      break;
+  }
+  return miss;
+}
+
 function buildSourceFields(type: SourceType, f: FormState): SourceFields | null {
   const cleanAuthors = f.authors.filter((a) =>
     a.kind === "person" ? a.surname.trim() : a.name.trim()
@@ -839,7 +882,12 @@ export default function ReferencesManager() {
     setFormError(null);
     const built = buildSourceFields(sourceType, form);
     if (!built) {
-      setFormError("Please fill in the required fields for this source type.");
+      const missing = missingRequiredFields(sourceType, form);
+      setFormError(
+        missing.length > 0
+          ? `Still needed for a ${(SOURCE_LABELS[sourceType] ?? sourceType).toLowerCase()}: ${missing.join(", ")}. Fill these in below and save again — an import can't always find every field.`
+          : "Please fill in the required fields for this source type.",
+      );
       return;
     }
     const formatted = formatReference(built);
@@ -1264,13 +1312,32 @@ export default function ReferencesManager() {
         sourcesQueried?: string[];
         aiReasoning?: string;
       };
+      // Tell the student straight away if the PDF didn't yield a field
+      // the save will insist on, instead of letting them hit the error
+      // only when they press Save.
+      const nextType = result.sourceType as SourceType;
+      const nextForm = applyFieldsToForm(
+        emptyForm(),
+        result.fields as Record<string, unknown>,
+      );
+      const missing = missingRequiredFields(nextType, nextForm);
+      const warnings = [...(info.warnings ?? [])];
+      if (missing.length > 0) {
+        warnings.unshift(
+          `The PDF didn't show: ${missing.join(", ")}. Add ${missing.length === 1 ? "it" : "them"} below before saving.`,
+        );
+      }
       setLookupInfo({
-        warnings: info.warnings ?? [],
+        warnings,
         fieldSources: info.fieldSources ?? {},
         sourcesQueried: info.sourcesQueried ?? [],
         aiReasoning: info.aiReasoning,
       });
-      toast.success("Pulled the details from your PDF — check them below, then Save.");
+      toast.success(
+        missing.length > 0
+          ? `Read the PDF — but ${missing.join(" and ")} still needed below.`
+          : "Pulled the details from your PDF — check them below, then Save.",
+      );
     } catch (err) {
       setLookupError(getErrorMessage(err, "Couldn't read that PDF."));
     } finally {
@@ -1997,7 +2064,11 @@ i { font-style:italic; font-weight:normal; }
           <div className="mt-3 space-y-2">
             {lookupInfo.warnings.length > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
-                <p className="font-medium">Sources disagreed on some fields — please double-check before saving:</p>
+                <p className="font-medium">
+                  {lookupInfo.sourcesQueried.length > 1
+                    ? "Sources disagreed on some fields — please double-check before saving:"
+                    : "Please check these details against the source before saving:"}
+                </p>
                 <ul className="mt-1.5 list-disc space-y-1 pl-4">
                   {lookupInfo.warnings.map((w, i) => (
                     <li key={i}>{w}</li>
