@@ -841,7 +841,9 @@ Hard rules:
 - Use NZ English (organise, behaviour, analyse, colour) in any prose you write.
 - Do not use the Oxford comma in any prose.
 - The title is the paper's main title, NOT the journal name and NOT a running page header.
-- The journal name usually appears in the page header or near the DOI; volume, issue and pages are usually printed near the journal line (e.g. "Journal of X, 12(3), 45-67").
+- FINDING THE JOURNAL NAME IS CRITICAL — a journalArticle without it cannot be saved. Hunt for it in this order: (1) the running header or footer repeated on each page, (2) the line near the DOI or copyright notice, (3) a citation line like "Journal of X, 12(3), 45-67", (4) phrases such as "Published in", "Reprinted from" or "© 2020 The Journal of ...". Strip any leading "The" only if the journal is normally written without it, and drop trailing volume/issue numbers from the name itself.
+- If after searching you genuinely cannot find a journal name, do NOT choose sourceType "journalArticle" — pick the type you CAN support (e.g. "report" for a working paper or organisational PDF, "bookChapter" if it names a book, "website" as a last resort). Never emit a journalArticle with an empty journal.
+- Volume, issue and pages are usually printed near the journal line (e.g. "Journal of X, 12(3), 45-67").
 - If a DOI appears anywhere (e.g. "https://doi.org/10.1234/abcd" or "doi:10.1234/abcd"), capture just the bare DOI (10.1234/abcd).
 - Year is the publication year (often by the DOI or in the header), not a "received" or "accepted" date unless that is all there is.
 - Do NOT invent information. If a field is unknown, omit it entirely. Leaving authors empty is better than guessing them.
@@ -1253,6 +1255,33 @@ export const fromPdf = action({
         "That PDF didn't have enough readable text — it may be a scanned image. Try a text-based PDF, or enter the details by hand below.",
       );
     }
+    // Most published PDFs print their DOI on the first page. If we can
+    // find one, prefer a real CrossRef/OpenAlex lookup over AI-reading
+    // the layout — that returns the journal name, volume, issue and
+    // pages authoritatively, which the front-page text often omits or
+    // splits across columns.
+    const doiMatch = trimmed
+      .slice(0, 12000)
+      .match(/\b10\.\d{4,9}\/[^\s"'<>,;)\]]+/);
+    if (doiMatch) {
+      const doi = doiMatch[0].replace(/[.,;:)\]]+$/, "");
+      try {
+        const viaDoi = await multiSourceDoiLookup(doi);
+        if (viaDoi && isMeaningful(viaDoi.fields.title)) {
+          return {
+            ...viaDoi,
+            warnings: [
+              `Found the DOI (${doi}) printed in your PDF and looked up the full record, so these details come from the publisher rather than the page text.`,
+              ...viaDoi.warnings,
+            ],
+          };
+        }
+      } catch {
+        // DOI lookup failed (offline, not registered) — fall through to
+        // reading the page text with AI.
+      }
+    }
+
     const ai = await aiExtractCitationFromText(trimmed);
     if (!ai) {
       throw new Error(
